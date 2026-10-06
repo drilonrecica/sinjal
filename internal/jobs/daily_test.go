@@ -235,3 +235,32 @@ func TestRunCatchesUpAndStops(t *testing.T) {
 		t.Fatal("Run did not return after cancel")
 	}
 }
+
+// A run refreshes the planner's statistics after the rollup (PRAGMA
+// optimize analyzes the tables it used), and a failed rollup does not.
+func TestRunOptimizesAfterRollup(t *testing.T) {
+	stats := func(e *env) int {
+		return e.count(t, `SELECT count(*) FROM sqlite_schema WHERE name = 'sqlite_stat1'`)
+	}
+	failed := newEnv(t)
+	failed.seed(t)
+	if _, err := failed.d.Writer.Exec(`CREATE TRIGGER fail BEFORE INSERT ON check_aggregates
+		BEGIN SELECT RAISE(ABORT, 'injected'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if err := failed.job.RunOnce(context.Background(), failed.now); err == nil {
+		t.Fatal("rollup did not fail")
+	}
+	if stats(failed) != 0 {
+		t.Error("statistics written after a failed rollup")
+	}
+
+	e := newEnv(t)
+	e.seed(t)
+	if err := e.job.RunOnce(context.Background(), e.now); err != nil {
+		t.Fatal(err)
+	}
+	if stats(e) != 1 {
+		t.Error("no planner statistics after a run")
+	}
+}

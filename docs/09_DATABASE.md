@@ -83,7 +83,7 @@ Daily internal job:
 2. roll 5m buckets older than 30d into 1h buckets
 3. roll 1h buckets older than 365d into 1d buckets
 4. delete source rows after successful rollup transaction
-5. conditionally optimize/vacuum only if justified
+5. conditionally optimize/vacuum only if justified (`PRAGMA optimize` after every successful rollup; never VACUUM, see below)
 
 Do not VACUUM every day by default.
 
@@ -92,7 +92,7 @@ Daily runner (`internal/jobs`, started by `serve`):
 - runs once a day at **04:00 in the instance time zone** (`SINJAL_TIMEZONE`): quiet for a personal instance, and outside the hours DST skips or repeats in Europe and North America, so it happens exactly once per local day
 - at startup it runs at once when overdue: no recorded run, or the last one before the latest 04:00. A restart therefore never skips a day and never runs twice in one
 - waits are at most an hour and the clock is read again after each, so a suspended machine or a clock change delays a run by at most that
-- a run: the rollup (below), then expired-session cleanup; on success the time is stored in `system_settings` as `last_retention_run` (RFC 3339 UTC; Settings → System shows it with the diagnostics, M9). A failed rollup is logged as an ERROR and not recorded, so the next start (or the next day) runs again; a failed session cleanup is only logged
+- a run: the rollup (below), then `PRAGMA optimize` (maintenance, below), then expired-session cleanup; on success the time is stored in `system_settings` as `last_retention_run` (RFC 3339 UTC; Settings → System shows it with the diagnostics, M9). A failed rollup is logged as an ERROR and not recorded, so the next start (or the next day) runs again; a failed session cleanup is only logged
 - shutdown cancels a run between rollup steps; `serve` waits for it before closing the database
 - backups and the integrity check join this runner in M9
 
@@ -103,6 +103,11 @@ Rollup (`internal/retention`, SQL in `internal/store/rollup.go`):
 - a day of raw results is 2,880 rows at 30 s; steps stay this small because the writer connection is shared with the result processor, which waits while a step holds it. Starting each step at the oldest remaining row skips empty days, so a paused month costs nothing
 - every step is wrapped in `db.Retry`; the context is checked between steps, so shutdown stops a run cleanly. There is no cursor: a run that stopped (error, shutdown) is resumed by the next one from the oldest source row left. A step that would delete nothing is an error, so the loop cannot spin
 - the run stops at its first error and returns it with what it did so far (steps, buckets, rows deleted)
+
+Maintenance after the rollup:
+
+- `PRAGMA optimize` on the writer once the rollup succeeded: it refreshes the planner's statistics (`sqlite_stat1`) for the tables the run used, and SQLite bounds its work with a temporary `analysis_limit`, so it costs little even on a large file. A failure is logged and changes nothing else; after a failed rollup it is not run
+- **no VACUUM**, daily or otherwise. Deleted rows leave free pages on SQLite's freelist and the next inserts reuse them, so once retention is in steady state (each day rolls about as many rows as a day adds; daily buckets grow by one row per monitor per day) the file stops growing: its size is bounded by retention, not by age (proven over a simulated year in `internal/retention`, M6-07). VACUUM would rewrite the whole file, needs up to twice its size in free disk, and holds the only writer connection, and with it every check result, for the whole time. It is also not needed to shrink backups: they are written with `VACUUM INTO` (M9), which is compact by construction. `auto_vacuum` is not enabled, for the same reason: it moves pages on every commit to return space the next day would take back
 
 ## History queries
 

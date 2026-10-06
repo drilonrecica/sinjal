@@ -1,7 +1,7 @@
 // Package jobs runs Sinjal's daily internal job (docs/09_DATABASE.md
 // "Retention jobs"): once a day at an off-peak local hour, and at startup
-// when the last run is overdue. It hosts the history rollup and the
-// expired-session cleanup.
+// when the last run is overdue. It hosts the history rollup with the
+// database maintenance after it and the expired-session cleanup.
 package jobs
 
 import (
@@ -99,6 +99,13 @@ func (j *Daily) RunOnce(ctx context.Context, now time.Time) error {
 	}
 	j.log.Info("history rollup finished", "steps", st.Steps, "buckets", st.Buckets,
 		"deleted", st.Deleted, "duration", time.Since(start).Round(time.Millisecond))
+	// Refresh the planner's statistics for the tables the rollup changed.
+	// SQLite bounds the work itself (a temporary analysis_limit), so this
+	// is cheap. There is no VACUUM: freed pages are reused by the next
+	// day's results (docs/09 "Retention jobs").
+	if _, err := j.db.Writer.ExecContext(ctx, `PRAGMA optimize`); err != nil && ctx.Err() == nil {
+		j.log.Error("PRAGMA optimize failed", "error", err)
+	}
 	// Expired sessions are already rejected on lookup; deleting them only
 	// keeps the table small, so a failure is logged and nothing more.
 	if n, err := j.sessions.DeleteExpired(ctx, now); err != nil {
