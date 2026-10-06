@@ -53,6 +53,18 @@ Secrets are write-only in the UI: an input is never filled in, a stored one is a
 - An error is `webhook: <status> <text>` and nothing more. The endpoint's answer is never quoted (it can be an internal diagnostic page or echo a header), and neither the URL (it may carry a token) nor the header value appears anywhere. Connection failures give the reason only (`webhook: connection refused`, `webhook: timed out`, a certificate error), without the address.
 - One delivery is bounded at 15 seconds (or the caller's shorter context), TLS 1.2+ with the system roots for `https`, plain `http` allowed because the URL is the owner's choice. Retries and the schedule belong to the dispatcher (M5-08).
 
+### Channel setup guides
+
+Each channel has a "Send test notification" button on its edit page: use it right after saving. A successful test turns the channel's health to Healthy; a failure shows the sender's one-line error. Secrets are write-only, so an edit that leaves them empty keeps the stored values.
+
+**SMTP.** Server and port are your provider's submission endpoint. Choose `STARTTLS` (usually port 587) or `TLS` (implicit, usually port 465); there is no plain-text option, and a server that does not offer STARTTLS is refused. Use the account's user name and password (with Gmail or similar, an app password, not the login password). Leave the user name empty only for a relay that needs no authentication. "From" must be an address the server lets that account send as; recipients are up to 20 addresses. Typical errors: `authentication failed: 535` (wrong password or app password needed), `recipient … refused: 550` (relay denied or a bad address), `connect: timed out` (port blocked by the host's firewall).
+
+**Telegram.** In Telegram, talk to `@BotFather`, send `/newbot` and copy the bot token (`123456:ABC…`). For a private chat, open the bot and press Start; for a group, add the bot, then send a message in it. Find the numeric chat id by opening `https://api.telegram.org/bot<token>/getUpdates` and reading `message.chat.id` (negative for groups). For a public channel, add the bot as an administrator and use `@channelname` as the chat id. `chat not found` means the bot has never been in that chat, or the id is wrong. The host needs outbound HTTPS to `api.telegram.org`.
+
+**Discord.** In the channel's settings choose Integrations, Webhooks, New Webhook, and copy the webhook URL (it contains a token: treat it as a secret). Messages are posted as one embed and cannot mention anyone. `404 Unknown Webhook` means the webhook was deleted or the URL was truncated.
+
+**Webhook.** Enter an `http` or `https` URL that accepts a POST with the JSON payload described in `36_NOTIFICATION_TEMPLATES.md`; any 2xx answer is success. To authenticate, give one extra header name and value (for example `Authorization` and `Bearer …`); the value is encrypted and never shown again. Redirects are not followed, so use the final URL.
+
 ## Dispatcher (M5-08)
 
 `internal/dispatch` turns the intents the result processor decides (`10_INCIDENTS.md` "Notification intents") into deliveries. `Dispatcher.Enqueue` is the processor's intent callback: it never waits, ignores a suppressed intent (the processor recorded it) and drops an intent, with an error in the log, only when its queue (1,024) is full. One goroutine (`Run`) owns every delivery and all database work; only the sends run beside it, at most 4 at once, each bounded by its sender.
@@ -111,6 +123,19 @@ Rules:
 - internally store normalized schedule fields
 
 Implementation: `quiet_start` and `quiet_end` are `HH:MM` in the instance time zone (`SINJAL_TIMEZONE`), start in, end out; an end not after the start runs across midnight (23:00 to 07:00). `notify.InQuietHours` compares the wall clock only, so the window keeps its local times through daylight saving. A held notification is suppressed, not postponed: nothing is sent when the window ends. `critical_bypass` (default on) lets critical notifications through; off, they are held like the rest.
+
+### Critical bypass
+
+Which messages count as critical is fixed by their kind, not configurable: **monitor down** and the **unresolved reminder** are critical; TLS expiry and flapping are warnings; recovery and stable are info (`notify.SeverityOf`).
+
+| Profile setting | During quiet hours |
+|---|---|
+| `critical_bypass` on (default) | DOWN and REMINDER are delivered as usual; warnings and info are held |
+| `critical_bypass` off | everything is held, DOWN and REMINDER included |
+
+- A held notification is dropped, not postponed (see above). A recovery that falls in the window is therefore not sent, even when its DOWN went out through the bypass. The incident page still shows what was sent and what was held.
+- The bypass only concerns quiet hours. Routing (which channels get which severity), maintenance windows, parent dependencies and flapping suppression apply to critical messages as to the rest.
+- The "Simulate incident" flow ignores quiet hours and says on its result page what they would do with a real incident right now.
 
 ## Outage reminder
 
