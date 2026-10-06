@@ -1,7 +1,7 @@
 // Package integration holds black-box tests that run the real sinjal binary.
 //
 // Milestone 0 scenario: boot from an empty data directory, create the
-// database, record migrations, answer health checks, render the app shell,
+// database, record every embedded migration, answer health checks, render the app shell,
 // serve hashed assets, stop cleanly on SIGTERM and restart without a backup.
 package integration
 
@@ -17,6 +17,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -246,6 +248,38 @@ func schemaVersions(t *testing.T, dbPath string) []int {
 	return out
 }
 
+// embeddedMigrationVersions derives the expected schema versions from the
+// migration files, so the test does not need editing for every milestone.
+func embeddedMigrationVersions(t *testing.T) []int {
+	t.Helper()
+	files, err := filepath.Glob("../../internal/db/migrations/[0-9][0-9][0-9]_*.sql")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("cannot list migrations: %v (%d files)", err, len(files))
+	}
+	sort.Strings(files)
+	var out []int
+	for _, f := range files {
+		v, err := strconv.Atoi(filepath.Base(f)[:3])
+		if err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+func sameInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func entries(t *testing.T, dir string) []string {
 	t.Helper()
 	list, err := os.ReadDir(dir)
@@ -265,6 +299,7 @@ func TestMilestone0(t *testing.T) {
 	}
 	dataDir := filepath.Join(t.TempDir(), "data") // empty: does not exist yet
 	dbPath := filepath.Join(dataDir, "sinjal.db")
+	wantVersions := embeddedMigrationVersions(t)
 
 	// ---- first boot from an empty data directory --------------------------
 	s := start(t, dataDir)
@@ -368,14 +403,19 @@ func TestMilestone0(t *testing.T) {
 				t.Errorf("record without subsystem: %v", r)
 			}
 		}
-		var applied map[string]any
+		var applied []float64
 		for _, r := range first {
 			if r["msg"] == "migration applied" {
-				applied = r
+				applied = append(applied, r["version"].(float64))
 			}
 		}
-		if applied["version"] != float64(1) || applied["name"] != "001_foundation.sql" {
-			t.Errorf("migration record = %v", applied)
+		if len(applied) != len(wantVersions) {
+			t.Fatalf("applied migrations %v, want one per embedded file %v", applied, wantVersions)
+		}
+		for i, v := range applied {
+			if int(v) != wantVersions[i] {
+				t.Errorf("migration %d applied as version %v, want %d", i, v, wantVersions[i])
+			}
 		}
 		if hasMsg(first, "pre-migration backup written") {
 			t.Error("a brand-new database must not be backed up")
@@ -399,8 +439,8 @@ func TestMilestone0(t *testing.T) {
 		if got := entries(t, filepath.Join(dataDir, "backups")); len(got) != 0 {
 			t.Errorf("backups = %v, want none", got)
 		}
-		if got := schemaVersions(t, dbPath); len(got) != 1 || got[0] != 1 {
-			t.Errorf("schema_migrations = %v, want [1]", got)
+		if got := schemaVersions(t, dbPath); !sameInts(got, wantVersions) {
+			t.Errorf("schema_migrations = %v, want %v", got, wantVersions)
 		}
 	})
 
@@ -424,8 +464,8 @@ func TestMilestone0(t *testing.T) {
 		if got := entries(t, filepath.Join(dataDir, "backups")); len(got) != 0 {
 			t.Errorf("backups after restart = %v, want none", got)
 		}
-		if got := schemaVersions(t, dbPath); len(got) != 1 || got[0] != 1 {
-			t.Errorf("schema_migrations after restart = %v, want [1]", got)
+		if got := schemaVersions(t, dbPath); !sameInts(got, wantVersions) {
+			t.Errorf("schema_migrations after restart = %v, want %v", got, wantVersions)
 		}
 	})
 }

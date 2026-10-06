@@ -367,8 +367,8 @@ func TestEmbeddedFoundationMigration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got := e.versions(t); !equalInts(got, []int{1}) {
-		t.Errorf("versions = %v, want [1]", got)
+	if got, want := e.versions(t), embeddedVersions(t); !equalInts(got, want) {
+		t.Errorf("versions = %v, want every embedded migration %v", got, want)
 	}
 	if got := e.backups(t); len(got) != 0 {
 		t.Errorf("fresh install must not create a backup, found %v", got)
@@ -425,4 +425,22 @@ func TestEmbeddedMigrationsAreValid(t *testing.T) {
 			t.Errorf("%s is empty", m.name)
 		}
 	}
+}
+
+// embeddedVersions lists the versions of the real embedded migrations.
+func embeddedVersions(t *testing.T) []int {
+	t.Helper()
+	fsys, err := fs.Sub(embeddedMigrations, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	migs, err := loadMigrations(fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []int
+	for _, m := range migs {
+		out = append(out, m.version)
+	}
+	return out
 }
