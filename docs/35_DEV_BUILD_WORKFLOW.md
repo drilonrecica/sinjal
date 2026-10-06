@@ -28,9 +28,11 @@ Do not add a large task runner dependency.
 
 ## Templ
 
-Generated Go files:
-- generation command documented
-- CI/local check should detect stale generated output if committed
+Generated `*_templ.go` files are committed, so a plain `go build` works without the generator.
+
+- `make generate` regenerates them (`go tool templ generate`; the generator is pinned by the `tool` directive in `go.mod`)
+- `make check-generated` (part of `make lint`) regenerates and fails if any `*_templ.go` changed, which means the committed output was stale; it compares file hashes, so it works on a dirty tree and in CI
+- templ sources live in `web/templates/`
 
 ## Frontend assets
 

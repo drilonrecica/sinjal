@@ -3,13 +3,13 @@ module github.com/drilonrecica/sinjal
 go 1.27
 
 require (
+	github.com/a-h/templ v0.3.1070
 	github.com/go-chi/chi/v5 v5.3.2
 	modernc.org/sqlite v1.60.1
 )
 
 require (
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
-	github.com/a-h/templ v0.3.1070 // indirect
 	github.com/andybalholm/brotli v1.2.6 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cli/browser v1.3.0 // indirect
