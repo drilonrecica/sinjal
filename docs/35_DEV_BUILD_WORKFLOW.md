@@ -60,13 +60,18 @@ Use local Go test servers/listeners rather than external public dependencies.
 
 ## Formatting/linting
 
-At minimum:
-- `gofmt`
-- `go vet`
-- static analysis/linter selected conservatively
-- templ formatting if applicable
+`make fmt` formats Go (`gofmt`) and templ (`templ fmt`) sources.
 
-Avoid enormous lint configurations that dominate development.
+`make lint` runs, in order:
+1. `gofmt -l` (must list nothing)
+2. `go vet ./...`
+3. `staticcheck ./...` with its default checks (pinned with the `tool` directive in `go.mod`, run as `go tool staticcheck`; dev-only)
+4. templ formatting (`make check-templ-fmt`)
+5. stale generated templ output (`make check-generated`)
+
+Steps 4 and 5 have no check-only mode in templ, so they run the tool and fail when it changed any file; the files are then already fixed and only need committing.
+
+No golangci-lint and no large lint configuration.
 
 ## Reproducibility
 

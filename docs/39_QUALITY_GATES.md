@@ -7,6 +7,8 @@ The backend gate is also run by the check-only CI workflow on push (`27_MANUAL_R
 ## Backend gate
 - gofmt clean
 - go vet clean
+- staticcheck clean
+- templ formatting and generated output current (`make lint` covers all of the above)
 - tests pass
 - no race found in exercised concurrent areas
 - DB migration from prior fixture works
