@@ -3,13 +3,13 @@
 Claude Code should update this file as milestones are completed.
 
 ## Milestone 0
-- [ ] repository foundation
-- [ ] config
-- [ ] SQLite
-- [ ] migration runner
-- [ ] health endpoints
-- [ ] base UI
-- [ ] theme scaffolding
+- [x] repository foundation
+- [x] config
+- [x] SQLite
+- [x] migration runner
+- [x] health endpoints
+- [x] base UI
+- [x] theme scaffolding
 
 ## Milestone 1
 - [ ] password auth
@@ -124,3 +124,6 @@ Claude Code should update this file as milestones are completed.
 - M0-16: `make lint` = gofmt, go vet, `go tool staticcheck` (dev tool pinned in go.mod), templ format check, stale-generation check. Each check was seen to fail on a deliberate violation. staticcheck found nothing in M0-01..15.
 - M0-17: `.github/workflows/ci.yml` — check-only (push to master + manual), `contents: read`, actions pinned by SHA (checkout v4.2.2, setup-go v5.6.0), runs `make lint` and `make test-race`. YAML parsed and constraints asserted locally; a fresh clone passes both steps. First real run happens on the next push. The older `close-prs.yml` (`actions/github-script@v7`) is not SHA-pinned and was left untouched.
 - M0-18: `tests/integration/m0_test.go` — black-box test that builds and runs the real binary: empty data dir boot, DB/migration/permissions, health endpoints, shell render, hashed/immutable/gzip assets, SIGTERM exit 0, restart with no migration or backup. Seen to fail when `/readyz` output is changed.
+- M0 gate (agent part, 2026-10-06): exit criteria verified against the built binary — starts from an empty data dir, DB created (0600) with `schema_migrations` = [1], `/healthz` `/readyz` 200, `/` renders the shell, only a listening socket is open (no outbound connections, no external services). Backend gate: `make lint` (gofmt, vet, staticcheck, templ fmt, stale generation) clean; `go test -race -count=1 ./...` green incl. the black-box integration test; `govulncheck` clean; no benchmarks exist yet. `make dev` / `make reset-dev-db` exercised. **Owner smoke test of `make dev` still pending.**
+  - Baseline for later regression checks (linux/amd64, idle, empty DB): binary 11.5 MB (`CGO_ENABLED=0`, stripped), cold start to `/readyz` 37 ms, RSS 15 MB, 8 threads, ~0% CPU, shell HTML 1.4 KB served in <1 ms. Budgets in `18_PERFORMANCE.md`: <50 MB RAM, <1 s start, <50 ms HTML.
+  - Not covered by the M0 gate (no code yet): migration from a real prior-release fixture (only fake-FS upgrade tests exist), hot-path benchmarks, container image size, arm64 build.
