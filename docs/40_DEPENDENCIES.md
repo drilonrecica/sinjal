@@ -73,6 +73,19 @@ Any dependency not on this list, including a replacement for one on it, needs a 
 ### TOTP: hand-written on stdlib
 RFC 6238 (HMAC-SHA1, 6 digits, 30 s step, ±1 step) is ~60 lines with `crypto/hmac`, `crypto/sha1`, `encoding/base32` and `encoding/binary`. It is tested against the RFC 6238 Appendix B vectors and RFC 4226 Appendix D. No TOTP library is approved.
 
+## Dev-only tooling
+
+Not linked into the `sinjal` binary and not present in production images.
+
+| Tool | Purpose | How it is pinned |
+|---|---|---|
+| templ generator | generate `*_templ.go` | `go.mod` `tool` directive (`go tool templ`) |
+| staticcheck (`honnef.co/go/tools`) | static analysis for `make lint` and CI | `go.mod` `tool` directive |
+| `github.com/chromedp/chromedp` | small browser test suite (`20_TESTING.md`) | separate `tests/browser/go.mod` only |
+| syft | SBOM generation for releases (`17_MIGRATIONS_RELEASES.md`) | installed binary, version recorded in the release script |
+
+Adding another dev-only tool follows the same rule as runtime dependencies: list it here first.
+
 ## Vendored web assets
 
 Each asset is vendored into `web/static/` with a header comment recording upstream URL, exact version, and licence, embedded via `embed.FS`, and counted against the budgets in `18_PERFORMANCE.md` (<100 KB compressed first-party JS; ≤150 KB fonts). These are never loaded from a CDN.

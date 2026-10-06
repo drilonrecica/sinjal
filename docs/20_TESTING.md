@@ -64,6 +64,13 @@ Small focused set only:
 
 Avoid a huge fragile browser suite.
 
+Tooling (decision P0-14):
+- Go tests using `chromedp` in `tests/browser/`, which has **its own `go.mod`**; chromedp is never a dependency of the product module
+- run with `make test-browser`; not part of `make test` or CI
+- skipped with a clear message when no Chrome/Chromium is installed
+- each test builds and boots the real `sinjal` binary on a temporary data directory and drives it over HTTP
+- no screenshots-as-assertions; assert on DOM text, attributes and status labels
+
 ## Benchmarks
 
 See `docs/18_PERFORMANCE.md`.

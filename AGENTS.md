@@ -32,7 +32,7 @@ Do not add any of the following unless the specification is explicitly amended:
 - Prometheus server/scraping subsystem
 - OpenTelemetry stack
 - APM
-- browser automation / Playwright / Chromium
+- browser automation / Playwright / Chromium in the product (the only exception is the dev-only `tests/browser` module, see `docs/20_TESTING.md`)
 - distributed probe agents
 - OAuth/OIDC/SAML
 - generic policy/RBAC framework
