@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/drilonrecica/sinjal/internal/audit"
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/vault"
 )
@@ -189,7 +190,7 @@ func (a *Authenticator) EnableTOTP(ctx context.Context, userID, pending, code, k
 		return ErrInvalidCode
 	}
 	enc := a.key.Seal(totpSecretContext(userID), secret)
-	return a.changeTOTP(ctx, userID, keepID, clientIP, "auth.totp_enabled", now,
+	return a.changeTOTP(ctx, userID, keepID, clientIP, audit.TOTPEnabled, now,
 		`UPDATE users SET totp_secret_enc = ?, totp_last_step = ?, updated_at = ? WHERE id = ? AND totp_secret_enc IS NULL`,
 		enc, step, formatTime(now), userID)
 }
@@ -197,7 +198,7 @@ func (a *Authenticator) EnableTOTP(ctx context.Context, userID, pending, code, k
 // DisableTOTP turns TOTP off, deletes the user's other sessions and writes
 // the audit event. Callers require recent re-authentication.
 func (a *Authenticator) DisableTOTP(ctx context.Context, userID, keepID, clientIP string, now time.Time) error {
-	return a.changeTOTP(ctx, userID, keepID, clientIP, "auth.totp_disabled", now,
+	return a.changeTOTP(ctx, userID, keepID, clientIP, audit.TOTPDisabled, now,
 		`UPDATE users SET totp_secret_enc = NULL, totp_last_step = NULL, updated_at = ? WHERE id = ? AND totp_secret_enc IS NOT NULL`,
 		formatTime(now), userID)
 }
@@ -217,7 +218,7 @@ func (a *Authenticator) changeTOTP(ctx context.Context, userID, keepID, clientIP
 			return err
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
-			if event == "auth.totp_enabled" {
+			if event == audit.TOTPEnabled {
 				return ErrTOTPEnabled
 			}
 			return nil // already off
@@ -225,8 +226,8 @@ func (a *Authenticator) changeTOTP(ctx context.Context, userID, keepID, clientIP
 		if _, err := tx.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ? AND id <> ?`, userID, keepID); err != nil {
 			return err
 		}
-		ev := audit{UserID: userID, Event: event, ObjectType: "user", ObjectID: userID, Metadata: map[string]string{"client_ip": clientIP}}
-		if err := insertAudit(ctx, tx, ev, now); err != nil {
+		ev := audit.Event{UserID: userID, Type: event, ObjectType: "user", ObjectID: userID, Metadata: map[string]string{"client_ip": clientIP}}
+		if err := audit.Write(ctx, tx, ev, now); err != nil {
 			return err
 		}
 		return tx.Commit()
@@ -297,12 +298,12 @@ func (a *Authenticator) LoginTOTP(ctx context.Context, userID, code, clientIP st
 			return User{}, err
 		}
 	}
-	ev := audit{Event: "auth.login_failed", Metadata: map[string]string{"client_ip": clientIP, "factor": "totp"}}
+	ev := audit.Event{Type: audit.LoginFailed, Metadata: map[string]string{"client_ip": clientIP, "factor": "totp"}}
 	if found {
 		ev.UserID, ev.ObjectType, ev.ObjectID = userID, "user", userID
 	}
 	if ok {
-		ev.Event = "auth.login_succeeded"
+		ev.Type = audit.LoginSucceeded
 	}
 	if err := a.audit(ctx, ev, now); err != nil {
 		return User{}, err

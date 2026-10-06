@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/drilonrecica/sinjal/internal/audit"
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/vault"
 )
@@ -84,12 +85,12 @@ func (a *Authenticator) Login(ctx context.Context, login, password, clientIP str
 	if ok && c.totp {
 		return c.user, ErrTOTPRequired
 	}
-	ev := audit{Event: "auth.login_failed", Metadata: map[string]string{"client_ip": clientIP}}
+	ev := audit.Event{Type: audit.LoginFailed, Metadata: map[string]string{"client_ip": clientIP}}
 	if found {
 		ev.UserID, ev.ObjectType, ev.ObjectID = c.user.ID, "user", c.user.ID
 	}
 	if ok {
-		ev.Event = "auth.login_succeeded"
+		ev.Type = audit.LoginSucceeded
 	}
 	if err := a.audit(ctx, ev, now); err != nil {
 		return User{}, err
@@ -129,12 +130,12 @@ func (a *Authenticator) Reauthenticate(ctx context.Context, userID, password, co
 			return err
 		}
 	}
-	ev := audit{Event: "auth.reauth_failed", Metadata: map[string]string{"client_ip": clientIP}}
+	ev := audit.Event{Type: audit.ReauthFailed, Metadata: map[string]string{"client_ip": clientIP}}
 	if found { // the account may have been deleted since the session was loaded
 		ev.UserID, ev.ObjectType, ev.ObjectID = userID, "user", userID
 	}
 	if ok {
-		ev.Event = "auth.reauthenticated"
+		ev.Type = audit.Reauthenticated
 	}
 	if err := a.audit(ctx, ev, now); err != nil {
 		return err
@@ -210,6 +211,6 @@ func (a *Authenticator) lookup(ctx context.Context, where string, arg string) (c
 	return c, true, nil
 }
 
-func (a *Authenticator) audit(ctx context.Context, ev audit, now time.Time) error {
-	return db.Retry(ctx, func() error { return insertAudit(ctx, a.db.Writer, ev, now) })
+func (a *Authenticator) audit(ctx context.Context, ev audit.Event, now time.Time) error {
+	return audit.Record(ctx, a.db, ev, now)
 }

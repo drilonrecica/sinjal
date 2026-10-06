@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/drilonrecica/sinjal/internal/audit"
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/ids"
 )
@@ -61,7 +62,7 @@ func CreateViewer(ctx context.Context, d *db.DB, actorID, login, password string
 			VALUES (?, ?, 'viewer', ?, ?, ?)`, id, login, hash, ts, ts); err != nil {
 			return err
 		}
-		if err := insertAudit(ctx, tx, audit{UserID: actorID, Event: "user.viewer_created", ObjectType: "user", ObjectID: id}, now); err != nil {
+		if err := audit.Write(ctx, tx, audit.Event{UserID: actorID, Type: audit.ViewerCreated, ObjectType: "user", ObjectID: id}, now); err != nil {
 			return err
 		}
 		return tx.Commit()
@@ -75,9 +76,9 @@ func CreateViewer(ctx context.Context, d *db.DB, actorID, login, password string
 // SetViewerDisabled disables or re-enables a viewer. Disabling deletes all
 // of the viewer's sessions in the same transaction (docs/13 "Sessions").
 func SetViewerDisabled(ctx context.Context, d *db.DB, actorID, viewerID string, disabled bool, now time.Time) error {
-	event := "user.viewer_enabled"
+	event := audit.ViewerEnabled
 	if disabled {
-		event = "user.viewer_disabled"
+		event = audit.ViewerDisabled
 	}
 	return db.Retry(ctx, func() error {
 		tx, err := d.Writer.BeginTx(ctx, nil)
@@ -99,7 +100,7 @@ func SetViewerDisabled(ctx context.Context, d *db.DB, actorID, viewerID string, 
 				return err
 			}
 		}
-		if err := insertAudit(ctx, tx, audit{UserID: actorID, Event: event, ObjectType: "user", ObjectID: viewerID}, now); err != nil {
+		if err := audit.Write(ctx, tx, audit.Event{UserID: actorID, Type: event, ObjectType: "user", ObjectID: viewerID}, now); err != nil {
 			return err
 		}
 		return tx.Commit()
@@ -148,8 +149,8 @@ func ChangePassword(ctx context.Context, d *db.DB, userID, password, keepID, cli
 		if err := setPasswordTx(ctx, tx, userID, hash, keepID, now); err != nil {
 			return err
 		}
-		ev := audit{UserID: userID, Event: "auth.password_changed", ObjectType: "user", ObjectID: userID, Metadata: map[string]string{"client_ip": clientIP}}
-		if err := insertAudit(ctx, tx, ev, now); err != nil {
+		ev := audit.Event{UserID: userID, Type: audit.PasswordChanged, ObjectType: "user", ObjectID: userID, Metadata: map[string]string{"client_ip": clientIP}}
+		if err := audit.Write(ctx, tx, ev, now); err != nil {
 			return err
 		}
 		return tx.Commit()

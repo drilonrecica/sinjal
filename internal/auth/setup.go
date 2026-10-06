@@ -14,6 +14,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/drilonrecica/sinjal/internal/audit"
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/ids"
 )
@@ -152,7 +153,7 @@ func CreateAdmin(ctx context.Context, d *db.DB, login, password string, now time
 		} else if n == 0 {
 			return ErrAdminExists
 		}
-		if err := insertAudit(ctx, tx, audit{UserID: id, Event: "setup.admin_created", ObjectType: "user", ObjectID: id}, now); err != nil {
+		if err := audit.Write(ctx, tx, audit.Event{UserID: id, Type: audit.SetupAdminCreated, ObjectType: "user", ObjectID: id}, now); err != nil {
 			return err
 		}
 		return tx.Commit()

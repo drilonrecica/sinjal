@@ -1,0 +1,28 @@
+/* Settings → System audit table. */
+
+.audit-scroll {
+  overflow-x: auto;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.audit-table th,
+.audit-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-none {
+  color: var(--text-muted);
+}

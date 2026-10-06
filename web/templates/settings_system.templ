@@ -1,0 +1,50 @@
+package templates
+
+// SettingsSystem is Settings → System: the audit log, newest first. It is
+// read-only; events are written by the actions they record.
+templ SettingsSystem(page Page, v SystemView) {
+	@settingsFrame(page.withAssets([]string{"css/audit.css"}, nil)) {
+		<h1>System</h1>
+		<section class="settings-section" aria-labelledby="audit-heading">
+			<h2 id="audit-heading">Audit log</h2>
+			<p>Sign-ins, credential changes and account changes, newest first. Times are UTC.</p>
+			if len(v.Audit) == 0 {
+				<p><strong>No events yet.</strong></p>
+			} else {
+				<div class="audit-scroll" role="region" aria-labelledby="audit-heading" tabindex="0">
+					<table class="audit-table">
+						<thead>
+							<tr>
+								<th scope="col">Time</th>
+								<th scope="col">Who</th>
+								<th scope="col">Event</th>
+								<th scope="col">Object</th>
+								<th scope="col">Details</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, e := range v.Audit {
+								<tr>
+									<td class="audit-time">{ e.When }</td>
+									<td>
+										if e.Actor == "" {
+											<span class="audit-none">—</span>
+										} else {
+											{ e.Actor }
+										}
+									</td>
+									<td><code>{ e.Event }</code></td>
+									<td>{ e.Object }</td>
+									<td>{ e.Details }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+			if v.OlderPath != "" {
+				<p><a href={ templ.SafeURL(v.OlderPath) }>Older events</a></p>
+			}
+		</section>
+	}
+}

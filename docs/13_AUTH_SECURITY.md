@@ -303,7 +303,7 @@ HTMX does not remove CSRF requirements.
 
 - `auth.Authenticator.Login` (`internal/auth/login.go`) looks the account up by its trimmed login (case-sensitive, as stored). An unknown login, a disabled account and an account without a password are verified against a dummy hash (created once per process), so every failure costs one Argon2 verification and returns the same `ErrInvalidCredentials`. Passwords over 1024 bytes fail without hashing (none was ever accepted). A malformed stored hash is logged and treated as a failure.
 - A correct password whose hash uses outdated parameters is rehashed (`UPDATE … WHERE password_hash = <old>`, so a concurrent password change wins; a failure is only logged).
-- Audit events: `auth.login_succeeded` and `auth.login_failed`, with `user_id` when the login exists and `{"client_ip": …}` as metadata. The attempted login string is never stored, because people type passwords into it by mistake. The insert helper (`auth.insertAudit`) is shared with setup until M1-17.
+- Audit events: `auth.login_succeeded` and `auth.login_failed`, with `user_id` when the login exists and `{"client_ip": …}` as metadata. The attempted login string is never stored, because people type passwords into it by mistake. Every event goes through `audit.Write` (see M1-17).
 - `/login` (`internal/web/login.go`): GET redirects a signed-in user onward; POST (16 KiB body cap) answers 401 with "Incorrect username or password." for every failure. Success deletes any session the browser already had, creates a new one (a fresh login counts as re-authentication) and redirects with 303 to `next` when it is a same-origin path (`safeNext`: no scheme/host, no `//` or `/\` prefix, no control characters or backslashes), otherwise to `/`.
 - Rate limit: 10 failed checks per (client IP, lower-cased login) per 15 minutes; then 429 with `Retry-After` and no hash computed, even for the right password. The limiter (`internal/ratelimit`) holds at most 4096 keys and evicts the oldest. A success resets the key. Blocked attempts are logged, not audited.
 - CSRF: an anonymous login POST gets the origin check (M1-08), which also stops login CSRF.
@@ -388,3 +388,10 @@ Record:
 - major security changes
 
 Do not build compliance-grade immutable audit infrastructure.
+
+### Implementation (M1-17)
+
+- `internal/audit` is the one writer: `audit.Write(ctx, q, Event, now)` takes a `*sql.DB` or a `*sql.Tx`, so an event joins the transaction of the change it records (a rolled-back change leaves no event); `audit.Record` writes on its own with the busy retry. Event types are constants in the package (`audit.LoginSucceeded`, …); a later milestone adds its own next to them. The auth package's private writer is gone.
+- Written today: `setup.admin_created`, `admin_reset_cli`, `auth.login_succeeded|login_failed` (password, TOTP and passkey factors), `auth.reauthenticated|reauth_failed`, `auth.password_changed`, `auth.totp_enabled|totp_disabled`, `auth.passkey_added|passkey_removed`, `user.viewer_created|viewer_disabled|viewer_enabled`. Monitor, notification and backup events come with their milestones. Metadata is a few string pairs (`client_ip`, `factor`); it never holds a password, token, secret or an attempted login.
+- `GET /settings/system` shows the log read-only, newest first, 50 per page with an "Older events" link (`?before=<id>` keyset paging on the primary key: every page costs the same and new events never shift an older page; a bad cursor is the first page). Admin only, because the log carries client addresses. `audit.List` joins the actor's login; a deleted actor leaves the event with no name (`ON DELETE SET NULL`).
+- There is no deletion, export or retention for the log yet; retention belongs to the daily job runner (M6-04).

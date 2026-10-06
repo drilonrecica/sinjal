@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/drilonrecica/sinjal/internal/audit"
 	"github.com/drilonrecica/sinjal/internal/db"
 )
 
@@ -69,7 +70,7 @@ func ResetAdmin(ctx context.Context, d *db.DB, login string, removePasskeys bool
 			}
 			meta["passkeys_removed"] = "true"
 		}
-		if err := insertAudit(ctx, tx, audit{UserID: id, Event: "admin_reset_cli", ObjectType: "user", ObjectID: id, Metadata: meta}, now); err != nil {
+		if err := audit.Write(ctx, tx, audit.Event{UserID: id, Type: audit.AdminResetCLI, ObjectType: "user", ObjectID: id, Metadata: meta}, now); err != nil {
 			return err
 		}
 		return tx.Commit()

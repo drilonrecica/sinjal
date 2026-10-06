@@ -116,3 +116,19 @@ func fieldAttrs(name string, errs map[string]string, hints ...string) templ.Attr
 	}
 	return attrs
 }
+
+// SystemView is Settings → System. Rows are preformatted; OlderPath is the
+// link to the next page of the audit log, "" on the last page.
+type SystemView struct {
+	Audit     []AuditRow
+	OlderPath string
+}
+
+// AuditRow is one audit event. When is UTC.
+type AuditRow struct {
+	When    string
+	Actor   string // "" when nobody was signed in
+	Event   string
+	Object  string
+	Details string
+}

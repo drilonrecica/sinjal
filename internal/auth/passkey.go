@@ -19,6 +19,7 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 
+	"github.com/drilonrecica/sinjal/internal/audit"
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/ids"
 )
@@ -345,7 +346,7 @@ func (p *Passkeys) FinishRegistration(ctx context.Context, c PasskeyCeremony, us
 			k.ID, userID, cred.ID, cred.PublicKey, cred.Authenticator.SignCount, transports, cred.Flags.BackupEligible, k.Label, formatTime(now)); err != nil {
 			return err
 		}
-		return passkeyChanged(ctx, tx, userID, keepID, k.ID, "auth.passkey_added", clientIP, now)
+		return passkeyChanged(ctx, tx, userID, keepID, k.ID, audit.PasskeyAdded, clientIP, now)
 	})
 	if errors.Is(err, ErrPasskeyRejected) {
 		return Passkey{}, p.rejected(c.kind, errors.New("credential is already registered"))
@@ -362,8 +363,8 @@ func passkeyChanged(ctx context.Context, tx *sql.Tx, userID, keepID, passkeyID, 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ? AND id <> ?`, userID, keepID); err != nil {
 		return err
 	}
-	ev := audit{UserID: userID, Event: event, ObjectType: "passkey", ObjectID: passkeyID, Metadata: map[string]string{"client_ip": clientIP}}
-	if err := insertAudit(ctx, tx, ev, now); err != nil {
+	ev := audit.Event{UserID: userID, Type: event, ObjectType: "passkey", ObjectID: passkeyID, Metadata: map[string]string{"client_ip": clientIP}}
+	if err := audit.Write(ctx, tx, ev, now); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -386,7 +387,7 @@ func (p *Passkeys) Delete(ctx context.Context, userID, passkeyID, keepID, client
 		if n, _ := res.RowsAffected(); n == 0 {
 			return ErrPasskeyNotFound
 		}
-		return passkeyChanged(ctx, tx, userID, keepID, passkeyID, "auth.passkey_removed", clientIP, now)
+		return passkeyChanged(ctx, tx, userID, keepID, passkeyID, audit.PasskeyRemoved, clientIP, now)
 	})
 }
 
@@ -412,7 +413,7 @@ func (p *Passkeys) FinishLogin(ctx context.Context, c PasskeyCeremony, response 
 		return User{}, ErrPasskeysUnavailable
 	}
 	u, err := p.assert(ctx, c, ceremonyLogin, "", response, now)
-	if err := p.auditAssertion(ctx, u, err, "auth.login_succeeded", "auth.login_failed", clientIP, now); err != nil {
+	if err := p.auditAssertion(ctx, u, err, audit.LoginSucceeded, audit.LoginFailed, clientIP, now); err != nil {
 		return User{}, err
 	}
 	if err != nil {
@@ -448,7 +449,7 @@ func (p *Passkeys) FinishReauth(ctx context.Context, c PasskeyCeremony, userID s
 		return ErrPasskeysUnavailable
 	}
 	u, err := p.assert(ctx, c, ceremonyReauth, userID, response, now)
-	if err := p.auditAssertion(ctx, u, err, "auth.reauthenticated", "auth.reauth_failed", clientIP, now); err != nil {
+	if err := p.auditAssertion(ctx, u, err, audit.Reauthenticated, audit.ReauthFailed, clientIP, now); err != nil {
 		return err
 	}
 	return err
@@ -510,17 +511,17 @@ func (p *Passkeys) assert(ctx context.Context, c PasskeyCeremony, kind, userID s
 // auditAssertion writes the audit event for an assertion's outcome. Errors
 // other than ErrPasskeyRejected are not an outcome and are not audited.
 func (p *Passkeys) auditAssertion(ctx context.Context, u *passkeyUser, outcome error, ok, failed, clientIP string, now time.Time) error {
-	ev := audit{Event: ok, Metadata: map[string]string{"client_ip": clientIP, "factor": "passkey"}}
+	ev := audit.Event{Type: ok, Metadata: map[string]string{"client_ip": clientIP, "factor": "passkey"}}
 	switch {
 	case errors.Is(outcome, ErrPasskeyRejected):
-		ev.Event = failed
+		ev.Type = failed
 	case outcome != nil:
 		return nil
 	}
 	if u != nil {
 		ev.UserID, ev.ObjectType, ev.ObjectID = u.user.ID, "user", u.user.ID
 	}
-	return db.Retry(ctx, func() error { return insertAudit(ctx, p.db.Writer, ev, now) })
+	return audit.Record(ctx, p.db, ev, now)
 }
 
 // rejected logs why a response was refused and returns the one error

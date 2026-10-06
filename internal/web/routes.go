@@ -41,6 +41,7 @@ func Routes(r chi.Router, app App) {
 	reauth := NewReauth(authn, app.Passkeys, app.Sessions, login.limiter, app.Logger)
 	passkeys := NewPasskeys(app.Passkeys, app.Sessions, login, app.Logger)
 	settingsAuth := NewSettingsAuth(authn, app.DB, app.Passkeys, app.Sessions, app.Logger)
+	system := NewSettingsSystem(app.DB, app.Logger)
 	account := NewAccount(app.DB, app.Sessions, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
@@ -69,6 +70,7 @@ func Routes(r chi.Router, app App) {
 				r.Use(RequireAdmin(app.Logger))
 				RegisterSettingsAuth(r, settingsAuth, recentAuth)
 				RegisterPasskeyRegistration(r, passkeys, recentAuth)
+				RegisterSettingsSystem(r, system) // read-only, but shows client addresses
 			})
 		})
 	})
