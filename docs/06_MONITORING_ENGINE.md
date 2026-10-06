@@ -149,12 +149,19 @@ V1:
 - one ping probe per scheduled check is acceptable
 - report RTT
 
-Runtime requirements:
-- document Linux capabilities/raw socket needs
-- container deployment docs must explain required capability if using privileged ICMP mode
-- if an unprivileged method is supported by the chosen library/platform, prefer it
+Implementation (decision P0-04):
+- hand-written on `golang.org/x/net/icmp`; no ping library
+- one echo request per scheduled check, bounded by the monitor timeout
+- IPv4 and IPv6
+- socket order:
+  1. unprivileged ICMP datagram socket (`udp4` / `udp6`), allowed when the process GID is within `net.ipv4.ping_group_range`
+  2. raw socket (`ip4:icmp` / `ip6:ipv6-icmp`) if the process has `CAP_NET_RAW`
+  3. otherwise fail with error kind `permission` and a message naming the fix (sysctl or capability, see `16_DEPLOYMENT.md`)
+- in unprivileged mode the kernel rewrites the echo identifier, so replies are matched by sequence number plus a random per-probe payload nonce, not by identifier
+- RTT measured with monotonic time from send to matching reply
+- the socket mode that works is cached per address family; a later permission change is picked up on restart
 
-Failure must be clear if the runtime lacks permission.
+Failure must be clear if the runtime lacks permission. Never require a privileged container.
 
 ## DNS
 

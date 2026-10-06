@@ -64,9 +64,32 @@ Definitions:
 
 ## ICMP
 
-Document required Linux capability/permission.
+Sinjal pings with unprivileged ICMP datagram sockets first and falls back to raw sockets (see `06_MONITORING_ENGINE.md`).
 
-Do not make the whole container privileged if a narrower capability suffices.
+Docker:
+- Docker Engine 20.10+ sets `net.ipv4.ping_group_range=0 2147483647` inside containers by default, so ICMP monitors work in the default non-root image with no extra flags.
+- If a runtime does not set it, either allow ping sockets:
+
+  ```yaml
+  sysctls:
+    net.ipv4.ping_group_range: "0 2147483647"
+  ```
+
+  or grant only the raw-socket capability:
+
+  ```yaml
+  cap_add:
+    - NET_RAW
+  ```
+
+- Never run the container with `privileged: true` for ICMP.
+
+Native binary (Linux):
+- most systemd-based distributions already set a permissive `net.ipv4.ping_group_range`; check with `sysctl net.ipv4.ping_group_range`
+- otherwise set it (e.g. `/etc/sysctl.d/90-sinjal-ping.conf`), or grant `sudo setcap cap_net_raw+ep ./sinjal`
+- do not run Sinjal as root for ICMP
+
+If neither is available, ICMP checks fail with an explicit `permission` error rather than reporting the target DOWN for an unrelated reason.
 
 ## Reverse proxy
 

@@ -173,3 +173,4 @@ This summarizes the locked design rounds.
 - P0-01: no `DEGRADED` monitor state; TLS expiry is a warning indicator alongside UP; assertion failures are ordinary failures.
 - P0-02: schema gaps closed (user UI prefs, per-user saved views, published manual notes, incident notification state + maintenance overlap, single active incident index, TLS warning dedupe, heartbeat source label, flapping_since); one migration per milestone.
 - P0-03: Docker runtime base is `scratch` + copied CA bundle + embedded tzdata; non-root UID 65532; `sinjal healthcheck` subcommand for `HEALTHCHECK`.
+- P0-04: ICMP hand-written on `x/net/icmp`; unprivileged datagram sockets first, raw-socket fallback, explicit `permission` failure; never privileged containers.
