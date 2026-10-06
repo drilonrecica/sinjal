@@ -31,13 +31,32 @@ Do not require:
 - Node
 - separate worker
 
+### Image
+
+Runtime base: `scratch` (see `spec/Dockerfile.example`).
+
+- multi-stage build: static `CGO_ENABLED=0` binary built with `-trimpath -tags timetzdata -ldflags "-s -w"`
+- CA bundle copied from the pinned build stage for outbound HTTPS checks and notifications
+- timezone database embedded in the binary (`timetzdata`) so `SINJAL_TIMEZONE` works without `/usr/share/zoneinfo`
+- no shell, no package manager, no curl; nothing in the base to patch
+- runs as non-root UID/GID `65532:65532`
+- `/data` is pre-created and owned by `65532`
+
+Bind mounts: the host directory must be writable by UID 65532:
+
+```bash
+mkdir -p ./data && sudo chown 65532:65532 ./data
+```
+
+Named Docker volumes inherit the image's `/data` ownership automatically.
+
 ## Docker health
 
 Expose:
 - `/healthz`
 - `/readyz`
 
-Add Docker `HEALTHCHECK`.
+Add Docker `HEALTHCHECK`. The image has no curl, so it runs `sinjal healthcheck`, which requests `/healthz` on the local listener and exits 0 (healthy) or 1.
 
 Definitions:
 - healthz: process can serve and core DB access works

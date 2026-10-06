@@ -61,7 +61,10 @@ sinjal restore <path>
 sinjal export-config <path>
 sinjal import-config <path>
 sinjal check-db
+sinjal healthcheck
 ```
+
+`sinjal healthcheck` performs `GET http://127.0.0.1:<port>/healthz` (port taken from `SINJAL_LISTEN`) with a 3 s timeout and exits 0 on HTTP 200, otherwise 1. It makes no other network calls and does not open the database. It exists for the Docker `HEALTHCHECK` in the `scratch` image.
 
 Do not grow a huge CLI framework.
 

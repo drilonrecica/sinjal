@@ -172,3 +172,4 @@ This summarizes the locked design rounds.
 ## Amendments (P0 decisions)
 - P0-01: no `DEGRADED` monitor state; TLS expiry is a warning indicator alongside UP; assertion failures are ordinary failures.
 - P0-02: schema gaps closed (user UI prefs, per-user saved views, published manual notes, incident notification state + maintenance overlap, single active incident index, TLS warning dedupe, heartbeat source label, flapping_since); one migration per milestone.
+- P0-03: Docker runtime base is `scratch` + copied CA bundle + embedded tzdata; non-root UID 65532; `sinjal healthcheck` subcommand for `HEALTHCHECK`.
