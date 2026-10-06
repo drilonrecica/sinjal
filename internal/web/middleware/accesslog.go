@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/drilonrecica/sinjal/internal/web/proxy"
 )
 
 // statusWriter records the status code and body size. It exposes the wrapped
@@ -42,6 +44,7 @@ func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 // It logs the matched route pattern (for example /s/{token}), never the raw
 // path or query string: unlisted status-page tokens and heartbeat tokens live
 // in URLs and must not reach the logs. Requests that match no route log "-".
+// client_ip is the address resolved under the trusted-proxy rules.
 func AccessLog(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +53,7 @@ func AccessLog(log *slog.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(sw, r)
 			log.Info("request",
 				"request_id", GetRequestID(r.Context()),
+				"client_ip", proxy.ClientIP(r).String(),
 				"method", r.Method,
 				"route", routePattern(r),
 				"status", sw.status,

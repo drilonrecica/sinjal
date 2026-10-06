@@ -191,6 +191,19 @@ Configuration:
 
 Host header/custom hostname routing must be validated.
 
+### Implementation (M1-07)
+
+`internal/web/proxy` resolves every request once (router middleware, right after the request ID) into client IP, scheme and host. All code reads them through `proxy.ClientIP`, `proxy.IsHTTPS` and `proxy.Host`, never `RemoteAddr`, `r.TLS` or `r.Host` directly.
+
+- `SINJAL_TRUSTED_PROXIES` lists CIDRs or bare IPs. Empty (the default) trusts no proxy. There is no "trust the immediate peer" mode.
+- The TCP peer must be inside a trusted prefix for any `X-Forwarded-*` header to count. Otherwise: client IP = peer, scheme = `https` only for a direct TLS connection, host = `Host` header.
+- `X-Forwarded-For` (all header lines joined) is walked right to left, skipping trusted hops; the first untrusted address is the client. A malformed entry ends the walk at the last valid hop. If every hop is trusted, the leftmost one is used.
+- `X-Forwarded-Proto` and `X-Forwarded-Host`: the rightmost value (set by the immediate proxy) is used. Proto must be `http`/`https`; host may contain only letters, digits, `.`, `-`, `:` and IPv6 brackets. Invalid values are ignored.
+- The RFC 7239 `Forwarded` header is not read.
+- IPv4-mapped IPv6 peers and prefixes are normalised to IPv4; IPv6 zones are dropped.
+- Without the middleware (for example a handler under test), the helpers trust no proxy.
+- The access log records the resolved `client_ip`.
+
 ## Internal monitoring / SSRF
 
 Administrators are trusted to monitor private addresses.

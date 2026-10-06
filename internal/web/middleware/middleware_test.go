@@ -74,6 +74,7 @@ func TestAccessLogFields(t *testing.T) {
 	for _, want := range []string{
 		"msg=request", "method=GET", "route=/hello", "status=418", "bytes=15",
 		"request_id=" + rec.Header().Get("X-Request-Id"), "duration_ms=",
+		"client_ip=192.0.2.1",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("access log %q is missing %q", out, want)

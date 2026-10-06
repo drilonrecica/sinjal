@@ -111,9 +111,9 @@ func freeAddr(t *testing.T) string {
 	return ln.Addr().String()
 }
 
-// start launches `sinjal serve` with a scrubbed environment and waits until
-// /readyz answers 200.
-func start(t *testing.T, dataDir string) *server {
+// start launches `sinjal serve` with a scrubbed environment plus env
+// ("KEY=value") and waits until /readyz answers 200.
+func start(t *testing.T, dataDir string, env ...string) *server {
 	t.Helper()
 	addr := freeAddr(t)
 	logs := &lockedBuffer{}
@@ -124,6 +124,7 @@ func start(t *testing.T, dataDir string) *server {
 		"SINJAL_LISTEN=" + addr,
 		"SINJAL_LOG_FORMAT=json",
 	}
+	cmd.Env = append(cmd.Env, env...)
 	cmd.Stdout, cmd.Stderr = logs, logs
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)

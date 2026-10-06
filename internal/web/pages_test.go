@@ -18,7 +18,7 @@ import (
 
 func pagesRouter() (http.Handler, *lockedBuffer) {
 	logger, logs := quietLogger()
-	r := NewRouter(logger)
+	r := NewRouter(logger, nil)
 	RegisterPages(r, logger)
 	RegisterStatic(r, assets.Default)
 	return r, logs

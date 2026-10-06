@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,5 +67,44 @@ func TestMissingMasterKeyWithEncryptedData(t *testing.T) {
 	}
 	if _, err := os.Stat(keyPath); !os.IsNotExist(err) {
 		t.Errorf("a replacement master key was created (stat err %v)", err)
+	}
+}
+
+// TestProxyTrust is integration scenario 19: X-Forwarded-* headers are
+// honoured only from peers listed in SINJAL_TRUSTED_PROXIES.
+func TestProxyTrust(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test builds and runs the binary")
+	}
+	for _, tc := range []struct {
+		name string
+		env  []string
+		want string
+	}{
+		{"no trusted proxies", nil, "127.0.0.1"},
+		{"untrusted peer", []string{"SINJAL_TRUSTED_PROXIES=10.0.0.0/8"}, "127.0.0.1"},
+		{"trusted peer", []string{"SINJAL_TRUSTED_PROXIES=127.0.0.1"}, "203.0.113.9"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := start(t, filepath.Join(t.TempDir(), "data"), tc.env...)
+			resp, _ := body(t, http.DefaultClient, s.base+"/healthz", map[string]string{
+				"X-Forwarded-For": "198.51.100.1, 203.0.113.9",
+			})
+			if resp.StatusCode != 200 {
+				t.Fatalf("GET /healthz = %d", resp.StatusCode)
+			}
+			if err := s.stop(); err != nil {
+				t.Fatalf("SIGTERM exit: %v", err)
+			}
+			var got []any
+			for _, r := range s.records() {
+				if r["msg"] == "request" && r["route"] == "/healthz" {
+					got = append(got, r["client_ip"])
+				}
+			}
+			if len(got) == 0 || got[len(got)-1] != tc.want {
+				t.Errorf("client_ip of /healthz requests = %v, want last = %s", got, tc.want)
+			}
+		})
 	}
 }

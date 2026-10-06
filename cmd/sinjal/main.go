@@ -97,7 +97,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	}
 	log.Info("listening", "addr", ln.Addr().String())
 
-	router := web.NewRouter(logger)
+	router := web.NewRouter(logger, cfg.TrustedProxies)
 	web.RegisterHealth(router, health)
 	web.RegisterStatic(router, assets.Default)
 	web.RegisterPages(router, logger)

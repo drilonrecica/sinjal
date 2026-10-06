@@ -20,7 +20,7 @@ func healthFixture(t *testing.T) (*Health, http.Handler) {
 
 	logger, _ := quietLogger()
 	h := NewHealth(d.Reader, logger)
-	r := NewRouter(logger)
+	r := NewRouter(logger, nil)
 	RegisterHealth(r, h)
 	return h, r
 }
@@ -55,7 +55,7 @@ func TestHealthzFailsWhenDatabaseUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := NewHealth(d.Reader, logger)
-	r := NewRouter(logger)
+	r := NewRouter(logger, nil)
 	RegisterHealth(r, h)
 	d.Close()
 

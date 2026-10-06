@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"sync"
 	"testing"
@@ -41,7 +42,7 @@ func quietLogger() (*slog.Logger, *lockedBuffer) {
 
 func TestNewRouterInstallsMiddleware(t *testing.T) {
 	logger, buf := quietLogger()
-	r := NewRouter(logger)
+	r := NewRouter(logger, nil)
 	r.Get("/s/{token}", func(w http.ResponseWriter, _ *http.Request) { panic("x") })
 
 	srv := newTestServer(t, r)
@@ -56,6 +57,31 @@ func TestNewRouterInstallsMiddleware(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, "subsystem=http") || strings.Contains(out, "SECRET") {
 		t.Errorf("log should carry subsystem=http and no token: %s", out)
+	}
+}
+
+func TestNewRouterResolvesTrustedProxy(t *testing.T) {
+	for _, tc := range []struct {
+		trusted []netip.Prefix
+		want    string
+	}{
+		{nil, "client_ip=127.0.0.1"},
+		{[]netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}, "client_ip=203.0.113.9"},
+	} {
+		logger, buf := quietLogger()
+		r := NewRouter(logger, tc.trusted)
+		r.Get("/x", func(w http.ResponseWriter, _ *http.Request) {})
+		srv := newTestServer(t, r)
+		req, _ := http.NewRequest("GET", srv+"/x", nil)
+		req.Header.Set("X-Forwarded-For", "203.0.113.9")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if !strings.Contains(buf.String(), tc.want) {
+			t.Errorf("trusted=%v: access log %q lacks %q", tc.trusted, buf.String(), tc.want)
+		}
 	}
 }
 
@@ -223,7 +249,7 @@ func TestRunReportsServeFailure(t *testing.T) {
 
 func TestStaticRoute(t *testing.T) {
 	logger, buf := quietLogger()
-	r := NewRouter(logger)
+	r := NewRouter(logger, nil)
 	RegisterStatic(r, assets.Default)
 
 	srv := newTestServer(t, r)
