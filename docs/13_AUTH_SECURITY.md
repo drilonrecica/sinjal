@@ -111,6 +111,18 @@ Sensitive actions require recent re-authentication:
 - `POST /logout` deletes the current session, clears the cookie and redirects (303) to `/login`. CSRF protection follows in M1-08.
 - Cleanup: `serve` deletes expired sessions at startup and every 24 hours until shutdown; this moves into the daily job runner (M6-04).
 
+## Authorization
+
+### Implementation (M1-11)
+
+Two roles: `admin` changes everything, `viewer` only reads. Enforcement is by placement in the route table (`web.Routes`):
+
+- session group (`LoadSession`, CSRF): `/setup`, `/login`, `POST /logout` are public;
+  - `RequireAuth` group: every page; anonymous page requests get 303 to `/login?next=<path>` (no `next` for `/`), other methods 401, htmx requests 401 with `HX-Redirect`;
+    - `RequireAdmin` group: every state-changing app route. A viewer gets 403 ("Your account can view Sinjal but not change it."), logged at WARN.
+- Pages render with the signed-in user's theme and density.
+- `TestRouteTableGuards` walks the production table with `chi.Walk` and probes every route: non-public pages must redirect anonymous users, non-public state changes must answer 401 anonymously and 403 to a viewer with a valid CSRF token. The only exceptions are the explicit `publicRoutes` and `viewerMutations` lists in the test (own session/account actions such as re-authentication and, later, changing one's own password). `TestRouteTableGuardsCatchOmissions` mounts unguarded routes and shows the check reports them.
+
 ## Re-authentication actions
 
 At minimum:

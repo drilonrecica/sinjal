@@ -316,8 +316,19 @@ func TestMilestone0(t *testing.T) {
 		}
 	})
 
+	// Since M1-11 the app requires a session: sign in through setup + login.
+	if resp, _ := body(t, noRedirect, s.base+"/", nil); resp.StatusCode != 303 || resp.Header.Get("Location") != "/login" {
+		t.Fatalf("anonymous GET / = %d %q, want 303 to /login", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	createAdmin(t, s)
+	token, _ := login(t, s, "admin", adminPassword)
+	if token == "" {
+		t.Fatal("login failed")
+	}
+	signedIn := map[string]string{"Cookie": "sinjal_session=" + token}
+
 	t.Run("root renders the app shell", func(t *testing.T) {
-		resp, b := body(t, http.DefaultClient, s.base+"/", nil)
+		resp, b := body(t, http.DefaultClient, s.base+"/", signedIn)
 		page := string(b)
 		if resp.StatusCode != 200 || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {
 			t.Fatalf("GET / = %d %q", resp.StatusCode, resp.Header.Get("Content-Type"))
@@ -346,7 +357,7 @@ func TestMilestone0(t *testing.T) {
 	})
 
 	t.Run("assets are hashed, immutable and gzip", func(t *testing.T) {
-		_, b := body(t, http.DefaultClient, s.base+"/", nil)
+		_, b := body(t, http.DefaultClient, s.base+"/", signedIn)
 		urls := regexp.MustCompile(`(?:href|src)="(/static/[^"]+)"`).FindAllStringSubmatch(string(b), -1)
 		if len(urls) != 4 {
 			t.Fatalf("page links %d static assets, want 4 (tokens, base, shell css + htmx)", len(urls))

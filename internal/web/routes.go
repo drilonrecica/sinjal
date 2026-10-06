@@ -28,7 +28,9 @@ type App struct {
 //   - Health checks and static assets need no session and no CSRF check.
 //     Future machine endpoints (heartbeat push) belong here as well.
 //   - Every browser route sits in the session group: LoadSession, then CSRF
-//     on every state-changing request.
+//     on every state-changing request. Inside it, setup/login/logout are
+//     public; everything else requires a session (RequireAuth), and every
+//     state change requires an admin (RequireAdmin).
 func Routes(r chi.Router, app App) {
 	authn := auth.NewAuthenticator(app.DB, logging.Sub(app.Logger, "auth"))
 	login := NewLogin(authn, app.Sessions, app.Logger)
@@ -41,6 +43,17 @@ func Routes(r chi.Router, app App) {
 		RegisterSetup(r, app.Setup)
 		RegisterLogin(r, login)
 		RegisterLogout(r, app.Sessions, app.Logger)
-		RegisterPages(r, app.Logger)
+
+		// Signed-in users: admins and viewers.
+		r.Group(func(r chi.Router) {
+			r.Use(RequireAuth(app.Logger))
+			RegisterPages(r, app.Logger)
+
+			// Admins only. Every state-changing app route is mounted here;
+			// TestRouteTableGuards fails for one mounted anywhere else.
+			r.Group(func(r chi.Router) {
+				r.Use(RequireAdmin(app.Logger))
+			})
+		})
 	})
 }

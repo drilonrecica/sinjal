@@ -175,7 +175,7 @@ func TestCSRFTokenIsRendered(t *testing.T) {
 		}
 	}
 
-	body = e.serve(req("GET", "/monitors", nil)).Body.String()
+	body = e.serve(req("GET", "/login", nil)).Body.String()
 	if strings.Contains(body, "hx-headers") || strings.Contains(body, `name="_csrf"`) {
 		t.Error("anonymous page renders a CSRF token")
 	}

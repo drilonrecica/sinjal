@@ -20,7 +20,8 @@ func TestSecurityHeadersOnEveryResponse(t *testing.T) {
 		path string
 		code int
 	}{
-		{"page", e.h, "/monitors", 200},
+		{"page", e.h, "/login", 200},
+		{"redirect to login", e.h, "/monitors", 303},
 		{"not found", e.h, "/nope", 404},
 		{"static asset", e.h, assets.URL("css/base.css"), 200},
 		{"health", e.h, "/healthz", 200},
