@@ -2,6 +2,8 @@ package integration
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/drilonrecica/sinjal/internal/auth"
 	"github.com/drilonrecica/sinjal/internal/db"
 )
 
@@ -181,5 +184,77 @@ func TestInitialSetup(t *testing.T) {
 	}
 	if resp, _ := body(t, noRedirect, s.base+"/setup?token="+token, nil); resp.StatusCode != 404 {
 		t.Errorf("GET /setup after restart = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestSessionsCleanupAndLogout: expired sessions are deleted at startup, and
+// POST /logout deletes the live session and clears its cookie.
+func TestSessionsCleanupAndLogout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test builds and runs the binary")
+	}
+	dataDir := filepath.Join(t.TempDir(), "data")
+	s := start(t, dataDir)
+	if err := s.stop(); err != nil {
+		t.Fatal(err)
+	}
+
+	d, err := db.Open(filepath.Join(dataDir, "sinjal.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Writer.Exec(`INSERT INTO users (id, login, role, created_at, updated_at)
+		VALUES ('u1', 'admin', 'admin', 'now', 'now')`); err != nil {
+		t.Fatal(err)
+	}
+	store := auth.NewSessions(d, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ctx := context.Background()
+	_, expired, err1 := store.Create(ctx, "u1", "", "", time.Now().Add(-auth.SessionLifetime-time.Hour))
+	token, live, err2 := store.Create(ctx, "u1", "", "", time.Now())
+	d.Close()
+	if err1 != nil || err2 != nil {
+		t.Fatal(err1, err2)
+	}
+
+	s = start(t, dataDir)
+	rows := func(id string) int {
+		d, err := db.Open(filepath.Join(dataDir, "sinjal.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer d.Close()
+		var n int
+		if err := d.Reader.QueryRow(`SELECT COUNT(*) FROM sessions WHERE id = ?`, id).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for rows(expired.ID) != 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("expired session not deleted at startup")
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if rows(live.ID) != 1 {
+		t.Fatal("live session deleted by cleanup")
+	}
+
+	req, _ := http.NewRequest("POST", s.base+"/logout", nil)
+	req.AddCookie(&http.Cookie{Name: "sinjal_session", Value: token})
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := noRedirect.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 303 || !strings.Contains(resp.Header.Get("Set-Cookie"), "sinjal_session=;") {
+		t.Errorf("POST /logout = %d, Set-Cookie %q", resp.StatusCode, resp.Header.Get("Set-Cookie"))
+	}
+	if rows(live.ID) != 0 {
+		t.Error("session survived logout")
+	}
+	if strings.Contains(s.logs.String(), token) {
+		t.Error("session token reached the logs")
 	}
 }

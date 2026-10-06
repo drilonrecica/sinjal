@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 	_ "time/tzdata" // SINJAL_TIMEZONE must work without system zoneinfo (scratch image)
 
 	"github.com/drilonrecica/sinjal/internal/assets"
@@ -115,8 +116,19 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	web.RegisterStatic(router, assets.Default)
 	web.RegisterPages(router, logger)
 	web.RegisterSetup(router, web.NewSetup(database, setupToken, logger))
+	sessions := auth.NewSessions(database, logging.Sub(logger, "auth"))
+	web.RegisterLogout(router, sessions, logger)
+
+	cleanupDone := make(chan struct{})
+	go func() {
+		defer close(cleanupDone)
+		cleanupSessions(ctx, sessions, logging.Sub(logger, "auth"))
+	}()
+
 	srv := web.NewServer(cfg.Listen, router)
-	if err := web.Run(ctx, srv, ln, web.ShutdownGrace, logger); err != nil {
+	err = web.Run(ctx, srv, ln, web.ShutdownGrace, logger)
+	<-cleanupDone // ctx is done once Run returns; let the job finish before the DB closes
+	if err != nil {
 		return fatalf(stderr, "http server: %v", err)
 	}
 	log.Info("stopped")
@@ -130,4 +142,29 @@ func setupBase(baseURL string, addr net.Addr) string {
 	}
 	_, port, _ := net.SplitHostPort(addr.String())
 	return "http://localhost:" + port
+}
+
+// sessionCleanupInterval: expired sessions are already rejected on lookup;
+// deleting them only keeps the table small.
+const sessionCleanupInterval = 24 * time.Hour
+
+// cleanupSessions deletes expired sessions at startup and then daily until
+// ctx is cancelled. It moves into the daily job runner in M6-04.
+func cleanupSessions(ctx context.Context, sessions *auth.Sessions, log *slog.Logger) {
+	t := time.NewTicker(sessionCleanupInterval)
+	defer t.Stop()
+	for {
+		if n, err := sessions.DeleteExpired(ctx, time.Now()); err != nil {
+			if ctx.Err() == nil {
+				log.Error("expired session cleanup failed", "error", err)
+			}
+		} else if n > 0 {
+			log.Info("deleted expired sessions", "count", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }

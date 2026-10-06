@@ -100,6 +100,17 @@ Sensitive actions require recent re-authentication:
 - valid for 10 minutes from `sessions.reauthenticated_at`
 - a fresh login counts as re-authentication
 
+### Implementation (M1-06)
+
+- `auth.Sessions` (`internal/auth/session.go`): `Create` (new token, `reauthenticated_at` = now), `Lookup`, `Rotate` (delete old + insert new in one transaction), `Delete`, `DeleteOthers`, `DeleteAllForUser`, `DeleteExpired`. `auth.SetPassword` updates the hash and deletes the user's other sessions in one transaction (`keepID` "" deletes all, for `reset-admin`).
+- Tokens: 32 bytes from `crypto/rand`, unpadded base64url (43 characters) in the cookie; `sessions.token_hash` holds SHA-256 of the raw bytes. A cookie value that does not decode to 32 bytes is rejected without a query.
+- `Lookup` joins `users` and rejects expired sessions (`expires_at <= now`) and disabled users. When `last_seen_at` is 5 minutes old or more it is updated with `WHERE last_seen_at = <old value>`, so concurrent requests write once; a failed update is logged and the request continues. `expires_at` never moves.
+- Stored per session: `user_agent` (first 256 characters) and `ip_hint` (`proxy.ClientIP`), for the session list in Settings.
+- Cookie (`internal/web/session.go`): `SetSessionCookie` / `ClearSessionCookie` choose `__Host-sinjal_session` + `Secure` when `proxy.IsHTTPS` (direct TLS or trusted proxy), else `sinjal_session`; always `HttpOnly`, `Path=/`, no `Domain`, `SameSite=Lax`, `Expires` = `expires_at`. Only the cookie name for the current scheme is read.
+- `LoadSession` middleware puts the session and user into the request context; it enforces nothing (M1-11). An invalid cookie is cleared; a database error answers 500.
+- `POST /logout` deletes the current session, clears the cookie and redirects (303) to `/login`. CSRF protection follows in M1-08.
+- Cleanup: `serve` deletes expired sessions at startup and every 24 hours until shutdown; this moves into the daily job runner (M6-04).
+
 ## Re-authentication actions
 
 At minimum:
