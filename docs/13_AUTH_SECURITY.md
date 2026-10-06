@@ -142,6 +142,15 @@ Implemented in `internal/vault` and loaded at startup, after migrations and befo
 - Missing key with encrypted data present: startup fails with instructions to restore `master.key` from backup. Sinjal never generates a replacement key (`19_RELIABILITY.md`).
 - Encrypted columns are named `*_enc`; the presence check relies on this convention, so new tables are covered automatically.
 
+### Secret envelope (v1)
+
+`vault.Key.Seal` / `Open` store a value as `0x01 | nonce(12) | AES-256-GCM ciphertext | tag(16)`.
+
+- The nonce is random per seal (`cipher.NewGCMWithRandomNonce`, `crypto/rand`). Random 96-bit nonces stay safe far beyond 2^32 seals per key.
+- AAD is the version byte followed by the storage context (table, column, row id), each length-prefixed. A value copied to another row or column, or a changed version byte, fails authentication.
+- Errors: `ErrMalformed` (too short), `ErrUnknownVersion`, and `ErrDecrypt`. `ErrDecrypt` is one error for tampering, a wrong context and a wrong key, so no detail leaks.
+- A future format gets a new version byte. `Open` keeps accepting v1 until every value has been re-sealed.
+
 ## Backup implications
 
 A full disaster-recovery backup includes required key material and must be treated as highly sensitive.

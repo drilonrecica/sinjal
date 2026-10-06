@@ -119,15 +119,21 @@ func TestCreatesKeyWithLooseUmask(t *testing.T) {
 
 func TestReloadKeepsKey(t *testing.T) {
 	dir, d := migrated(t)
-	if _, err := loadKey(t, dir, d); err != nil {
+	k1, err := loadKey(t, dir, d)
+	if err != nil {
 		t.Fatal(err)
 	}
 	first := readKeyFile(t, dir)
 	info1, _ := os.Stat(filepath.Join(dir, KeyFile))
+	env := k1.Seal(Context{Table: "t", Column: "c_enc", RowID: "1"}, []byte("kept"))
 
 	var logs bytes.Buffer
-	if _, err := LoadOrCreate(context.Background(), dir, d.Reader, slog.New(slog.NewTextHandler(&logs, nil))); err != nil {
+	k2, err := LoadOrCreate(context.Background(), dir, d.Reader, slog.New(slog.NewTextHandler(&logs, nil)))
+	if err != nil {
 		t.Fatal(err)
+	}
+	if pt, err := k2.Open(Context{Table: "t", Column: "c_enc", RowID: "1"}, env); err != nil || string(pt) != "kept" {
+		t.Fatalf("value sealed before reload: %q, %v", pt, err)
 	}
 	if !bytes.Equal(first, readKeyFile(t, dir)) {
 		t.Fatal("key file changed on reload")
