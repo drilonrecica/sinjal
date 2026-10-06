@@ -27,7 +27,9 @@ func TestEnvelopeRoundTrip(t *testing.T) {
 		if env[0] != version1 {
 			t.Fatalf("version byte = %#x", env[0])
 		}
-		if len(pt) > 0 && bytes.Contains(env, pt) {
+		// Only meaningful for longer values: one byte turns up in ~29
+		// random bytes about one time in ten.
+		if len(pt) >= 8 && bytes.Contains(env, pt) {
 			t.Fatal("plaintext appears in the envelope")
 		}
 		got, err := k.Open(ctxA, env)
