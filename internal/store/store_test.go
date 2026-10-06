@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -320,5 +321,26 @@ func TestSecrets(t *testing.T) {
 	}
 	if _, err := GetSecret(ctx, d.Reader, k, a, "auth.bearer"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("deleted secret = %v", err)
+	}
+}
+
+func TestSecretsDecryptsAllForExecutor(t *testing.T) {
+	ctx := context.Background()
+	d := testDB(t)
+	k := testKey(t, d)
+	id, _ := CreateHTTPMonitor(ctx, d, sample("a"), now)
+	other, _ := CreateHTTPMonitor(ctx, d, sample("b"), now)
+	_ = SetSecret(ctx, d, k, id, "auth.basic", []byte("u:p"), now)
+	_ = SetSecret(ctx, d, k, id, "header.X-Api-Key", []byte("k1"), now)
+	_ = SetSecret(ctx, d, k, other, "auth.bearer", []byte("not mine"), now)
+	got, err := Secrets(ctx, d.Reader, k, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got["auth.basic"].Reveal() != "u:p" || got["header.X-Api-Key"].Reveal() != "k1" {
+		t.Errorf("secrets = %d entries", len(got))
+	}
+	if s := fmt.Sprint(got); strings.Contains(s, "u:p") || strings.Contains(s, "k1") {
+		t.Errorf("printing the map leaks values: %s", s)
 	}
 }

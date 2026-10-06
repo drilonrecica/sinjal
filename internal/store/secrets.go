@@ -8,6 +8,7 @@ import (
 
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/monitor"
+	"github.com/drilonrecica/sinjal/internal/secret"
 	"github.com/drilonrecica/sinjal/internal/vault"
 )
 
@@ -64,6 +65,30 @@ func GetSecret(ctx context.Context, q *sql.DB, key *vault.Key, monitorID, name s
 		return nil, err
 	}
 	return key.Open(secretContext(monitorID, name), enc)
+}
+
+// Secrets decrypts every secret of a monitor, keyed by name, for the check
+// executor. The values print as [REDACTED].
+func Secrets(ctx context.Context, q *sql.DB, key *vault.Key, monitorID string) (map[string]secret.String, error) {
+	rows, err := q.QueryContext(ctx, `SELECT key, value_enc FROM monitor_secrets WHERE monitor_id = ?`, monitorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]secret.String{}
+	for rows.Next() {
+		var name string
+		var enc []byte
+		if err := rows.Scan(&name, &enc); err != nil {
+			return nil, err
+		}
+		v, err := key.Open(secretContext(monitorID, name), enc)
+		if err != nil {
+			return nil, err
+		}
+		out[name] = secret.String(v)
+	}
+	return out, rows.Err()
 }
 
 // SecretNames lists the names (never values) of a monitor's secrets.
