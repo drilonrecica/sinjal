@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,8 +31,9 @@ type env struct {
 	d   *db.DB
 	key *vault.Key
 
-	mu      sync.Mutex
-	updated []string // monitor ids announced by the engines, in order
+	mu        sync.Mutex
+	updated   []string                                  // monitor ids announced by the engines, in order
+	incidents func(event, incidentID, monitorID string) // given to engines that start
 }
 
 // announced is how often a monitor has been announced as updated.
@@ -130,7 +132,7 @@ func (e *env) start() *running {
 
 func (e *env) startWith(workers int) *running {
 	e.t.Helper()
-	eng := New(e.d, e.key, workers, "Sinjal/test", time.UTC, e.announce, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := New(e.d, e.key, workers, "Sinjal/test", time.UTC, e.announce, e.incidents, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := eng.Start(ctx); err != nil {
 		cancel()
@@ -531,7 +533,7 @@ func TestCheckSendsSecrets(t *testing.T) {
 func TestStartFailsWhenMonitorsCannotBeRead(t *testing.T) {
 	e := newEnv(t)
 	e.d.Close()
-	eng := New(e.d, e.key, 4, "Sinjal/test", time.UTC, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := New(e.d, e.key, 4, "Sinjal/test", time.UTC, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err := eng.Start(context.Background()); err == nil {
 		t.Fatal("Start succeeded on a closed database")
 	}
@@ -748,5 +750,37 @@ func TestDelete(t *testing.T) {
 	}
 	if err := r.Delete(context.Background(), id); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("second delete: %v", err)
+	}
+}
+
+// Pausing a monitor that has an active incident closes it, and that close
+// is announced once; pausing one without an incident announces nothing.
+func TestPauseAnnouncesTheClosedIncident(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	tg := newTarget(t)
+	down := e.monitor("down", tg.URL, nil)
+	healthy := e.monitor("healthy", tg.URL, nil)
+	e.exec(`INSERT INTO incidents (id, monitor_id, started_at, created_at) VALUES ('inc1', ?, ?, ?)`,
+		down, store.FormatTime(created), store.FormatTime(created))
+
+	var mu sync.Mutex
+	var got []string
+	e.incidents = func(event, incidentID, monitorID string) {
+		mu.Lock()
+		defer mu.Unlock()
+		got = append(got, event+" "+incidentID+" "+monitorID)
+	}
+	eng := e.start()
+
+	for _, id := range []string{healthy, down, down} {
+		if _, err := eng.Pause(context.Background(), id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if want := []string{"incident.closed inc1 " + down}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("announced %q, want %q", got, want)
 	}
 }

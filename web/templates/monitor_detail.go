@@ -12,6 +12,8 @@ type MonitorDetailView struct {
 	Config   []ConfigGroup
 	Failures []FailureView
 	History  HistoryView
+	// Incidents is the Incidents tab: this monitor's incidents.
+	Incidents IncidentListView
 }
 
 // Fact is one label/value pair.
@@ -82,6 +84,9 @@ type DeleteConfirmView struct {
 func detailAssets(v MonitorDetailView) ([]string, []string) {
 	// charts.css also styles the header's sparkline, on every tab.
 	styles := []string{"css/monitors.css", "css/monitor_detail.css", "css/charts.css"}
+	if v.Tab == "incidents" {
+		styles = append(styles, "css/incidents.css")
+	}
 	if v.Tab != "history" || !v.History.HasData {
 		return styles, LiveScripts
 	}

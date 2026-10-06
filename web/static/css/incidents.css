@@ -1,0 +1,109 @@
+/* Incidents: compact rows like the monitor list, and a plain timeline. */
+
+.incident-list {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.incident-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.incident-row:last-child {
+  border-bottom: 0;
+}
+.incident-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.incident-status {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.incident-row[data-state="down"] .incident-status {
+  color: var(--status-down);
+  font-weight: 600;
+}
+.incident-monitor {
+  font-weight: 600;
+}
+.incident-link {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.incident-when {
+  margin: 0;
+  display: flex;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.incident-facts {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.incident-more {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.incident-title {
+  margin: 0 0 var(--space-1);
+}
+.incident-timeline {
+  margin: var(--space-4) 0;
+  padding: 0;
+  list-style: none;
+  border-left: 2px solid var(--border);
+}
+.incident-event {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  font-variant-numeric: tabular-nums;
+}
+.incident-event time,
+.incident-event-message {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.incident-event-label {
+  font-weight: 600;
+}
+.incident-note-text {
+  flex-basis: 100%;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.incident-note {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 40rem;
+}
+.incident-note textarea {
+  font: inherit;
+  padding: var(--space-2);
+  color: var(--text);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+.incident-note .detail-button {
+  justify-self: start;
+}

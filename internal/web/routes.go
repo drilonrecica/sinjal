@@ -50,6 +50,7 @@ func Routes(r chi.Router, app App) {
 	monitors := NewMonitors(app.DB, app.Vault, app.Engine, app.Events, app.Timezone, app.Logger)
 	account := NewAccount(app.DB, app.Sessions, app.Logger)
 	maint := NewMaintenance(app.DB, app.Events, app.Timezone, app.Logger)
+	incidents := NewIncidents(app.DB, app.Events, app.Timezone, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
 	RegisterHealth(r, app.Health)
@@ -69,6 +70,7 @@ func Routes(r chi.Router, app App) {
 			RegisterEvents(r, app.Events, app.Sessions, app.Logger)
 			RegisterMonitors(r, monitors)
 			RegisterMaintenance(r, maint)
+			RegisterIncidents(r, incidents)
 			RegisterReauth(r, reauth)
 			RegisterPasskeyReauth(r, passkeys)
 			RegisterAccount(r, account, recentAuth) // the caller's own password; viewers too
@@ -83,6 +85,7 @@ func Routes(r chi.Router, app App) {
 				RegisterSettingsSystem(r, system) // read-only, but shows client addresses
 				RegisterMonitorChanges(r, monitors)
 				RegisterMaintenanceChanges(r, maint)
+				RegisterIncidentChanges(r, incidents)
 			})
 		})
 	})

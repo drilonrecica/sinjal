@@ -146,8 +146,11 @@ func rfc3339(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 // clock is a moment in the instance time zone: the time alone today, the
 // day and time this year, the full date otherwise.
-func (h *Maintenance) clock(t, now time.Time) string {
-	t, now = t.In(h.loc), now.In(h.loc)
+func (h *Maintenance) clock(t, now time.Time) string { return clockText(t, now, h.loc) }
+
+// clockText is the moment t in loc, relative to now.
+func clockText(t, now time.Time, loc *time.Location) string {
+	t, now = t.In(loc), now.In(loc)
 	switch {
 	case t.Year() == now.Year() && t.YearDay() == now.YearDay():
 		return t.Format("15:04 MST")

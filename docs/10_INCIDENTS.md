@@ -268,6 +268,8 @@ Allow:
 - title/message attached to incident
 - timestamps
 
+Implementation (M3-11): an admin adds a note to an active or ended incident (`POST /incidents/{id}/note`, plain text, 1–1,000 characters). It is the `manual_note` event of the incident with the time it was written; the author is in the audit log (`incident.noted`), not in the timeline. `published` stays 0: notes reach status pages in M7.
+
 Do not implement:
 - investigating/identified/monitoring workflow state machine
 - assignment

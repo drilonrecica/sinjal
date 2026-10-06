@@ -90,6 +90,12 @@ Events sent today:
 | `monitor.deleted` | a monitor was deleted | the monitor handlers (M2-18) |
 | `maintenance.updated` | a maintenance window was created, edited or deleted; payload `{"maintenance_id":"…"}` | the maintenance handlers (M3-07) |
 
+| `incident.opened` | a committed batch opened an incident; payload `{"incident_id":"…","monitor_id":"…"}` | result processor, through `engine.New`'s `incidents` function |
+| `incident.updated` | a timeline entry was added to a running incident (a notification held back or released), or an admin added a note | result processor; the incident handlers (M3-11) |
+| `incident.closed` | a recovery committed, or pausing the monitor ended its incident | result processor; `Engine.Pause` |
+
+All three carry both ids, so that a monitor's Incidents tab and an incident's own page can tell whether they are affected; the browser refetches the list or timeline whole and picks nothing out of the payload. Events are sent after the commit, from the processor's goroutine, and never block it. A failed batch announces nothing and its retry announces once. Deleting a monitor deletes its incidents with it and sends only `monitor.deleted`.
+
 The other names in the list above arrive with their features.
 
 ### Browser side

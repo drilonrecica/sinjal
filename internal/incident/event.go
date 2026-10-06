@@ -12,4 +12,6 @@ const (
 	// The DOWN notification held back by the parent or by maintenance was
 	// decided after all, the monitor still being down when that ended.
 	EventNotificationResumed = "notification_resumed"
+	// EventManualNote is a note an admin attached to the incident.
+	EventManualNote = "manual_note"
 )

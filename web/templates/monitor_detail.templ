@@ -54,7 +54,7 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 						@HistoryPanel(v.History)
 					case "incidents":
 						<h2 id="tab-title">Incidents</h2>
-						@emptyNote("Incidents are recorded from the next milestone on. State changes are already tracked above.")
+						@IncidentList(v.Incidents)
 					case "configuration":
 						<h2 id="tab-title">Configuration</h2>
 						for _, g := range v.Config {

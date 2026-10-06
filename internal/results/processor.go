@@ -81,13 +81,14 @@ type tracked struct {
 
 // Processor stores results and decides state changes.
 type Processor struct {
-	db     *db.DB
-	log    *slog.Logger
-	loc    *time.Location // the instance time zone, for maintenance windows
-	retry  func(monitorID string, delay time.Duration)
-	notify func(monitorID string)
-	intent func(incident.Intent)
-	in     chan Result
+	db      *db.DB
+	log     *slog.Logger
+	loc     *time.Location // the instance time zone, for maintenance windows
+	retry   func(monitorID string, delay time.Duration)
+	notify  func(monitorID string)
+	intent  func(incident.Intent)
+	changed func(Change)
+	in      chan Result
 
 	// Tunable in tests.
 	batchMax   int
@@ -109,9 +110,10 @@ type Processor struct {
 // needs a confirmation check after the given delay (the scheduler's Retry),
 // notify after a monitor's row changed (the SSE hub), intent for every
 // notification intent once it is committed, suppressed ones included (the
-// notification dispatcher); each may be nil. All are called from the
+// notification dispatcher), changed for every incident a batch opened,
+// updated or closed (the SSE hub); each may be nil. All are called from the
 // processor's goroutine and must not block.
-func New(d *db.DB, log *slog.Logger, loc *time.Location, retry func(monitorID string, delay time.Duration), notify func(monitorID string), intent func(incident.Intent)) *Processor {
+func New(d *db.DB, log *slog.Logger, loc *time.Location, retry func(monitorID string, delay time.Duration), notify func(monitorID string), intent func(incident.Intent), changed func(Change)) *Processor {
 	return &Processor{
 		db:         d,
 		log:        log,
@@ -119,6 +121,7 @@ func New(d *db.DB, log *slog.Logger, loc *time.Location, retry func(monitorID st
 		retry:      retry,
 		notify:     notify,
 		intent:     intent,
+		changed:    changed,
 		in:         make(chan Result, queueSize),
 		batchMax:   batchMax,
 		flushAfter: flushAfter,
@@ -224,6 +227,7 @@ func (p *Processor) failed(err error, held int) {
 // monitorWork is one monitor's progress through a batch.
 type monitorWork struct {
 	tracked
+	monitorID  string
 	skip       bool // deleted or paused: its results are discarded
 	thresholds incident.Thresholds
 	retryDelay time.Duration
@@ -232,6 +236,7 @@ type monitorWork struct {
 	flapping   bool              // the FLAPPING overlay is set
 	parentID   string            // the monitor this one depends on, if any
 	intents    []incident.Intent // decided in this batch, in order
+	changes    []Change          // incidents opened, updated or closed in this batch
 	// pending is the active incident whose DOWN notification the parent or
 	// maintenance holds back; "" when there is none.
 	pending string
@@ -308,6 +313,11 @@ func (p *Processor) write(ctx context.Context, batch []Result) error {
 				p.intent(in)
 			}
 		}
+		if p.changed != nil {
+			for _, c := range w.changes {
+				p.changed(c)
+			}
+		}
 		if w.retry && p.retry != nil {
 			p.retry(id, w.retryDelay)
 		}
@@ -380,6 +390,7 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 			SuppressedByParent: c.ParentDown, MaintenanceOverlap: overlap,
 		})
 		if err == nil && opened {
+			w.changed(ChangeOpened, id)
 			err = w.transition(ctx, tx, incident.IntentDown, r, id, w.first.at)
 		}
 		if err != nil {
@@ -388,6 +399,7 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	case changed && w.state == incident.Down:
 		id, closed, err := store.CloseIncident(ctx, tx, r.MonitorID, r.CheckedAt, incident.EventRecovered)
 		if err == nil && closed {
+			w.changed(ChangeClosed, id)
 			err = w.markOverlap(ctx, tx, r, id)
 		}
 		if err == nil && closed {
@@ -534,6 +546,7 @@ func (w *monitorWork) intend(ctx context.Context, tx *sql.Tx, kind incident.Inte
 			string(kind)+": "+string(in.Suppressed), r.CheckedAt); err != nil {
 			return err
 		}
+		w.changed(ChangeUpdated, incidentID)
 	}
 	if kind == incident.IntentDown && incidentID != "" {
 		switch in.Suppressed {
@@ -545,6 +558,7 @@ func (w *monitorWork) intend(ctx context.Context, tx *sql.Tx, kind incident.Inte
 					"", r.CheckedAt); err != nil {
 					return err
 				}
+				w.changed(ChangeUpdated, incidentID)
 			}
 			w.pending = ""
 		default:
@@ -569,6 +583,7 @@ func (p *Processor) load(ctx context.Context, tx *sql.Tx, id string) (*monitorWo
 		return nil, err
 	}
 	w := &monitorWork{
+		monitorID:  id,
 		tracked:    tracked{state: incident.State(cs.State), since: cs.StateSince},
 		skip:       cs.State == string(incident.Paused),
 		thresholds: incident.Thresholds{Failure: cs.FailureThreshold, Success: cs.SuccessThreshold},
@@ -610,4 +625,23 @@ func (p *Processor) Stats() Stats {
 		s.Warning = *w
 	}
 	return s
+}
+
+// Change kinds, in the order an incident goes through them.
+const (
+	ChangeOpened  = "opened"
+	ChangeUpdated = "updated" // its timeline got an entry
+	ChangeClosed  = "closed"
+)
+
+// Change is an incident that a committed batch opened, updated or closed.
+type Change struct {
+	Kind       string
+	IncidentID string
+	MonitorID  string
+}
+
+// changed notes an incident change for after the commit.
+func (w *monitorWork) changed(kind, incidentID string) {
+	w.changes = append(w.changes, Change{Kind: kind, IncidentID: incidentID, MonitorID: w.monitorID})
 }

@@ -1,0 +1,148 @@
+package templates
+
+import "strconv"
+
+// IncidentsPage is the Incidents page (docs/03 "Incidents"): the active
+// incidents, then the latest ended ones. It refreshes when an incident
+// opens, changes or closes anywhere.
+templ IncidentsPage(page Page, v IncidentListView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/incidents.css"}, LiveScripts), "incidents") {
+		<div class="page-head">
+			<h1>Incidents</h1>
+		</div>
+		@Live() {
+			@IncidentList(v)
+		}
+	}
+}
+
+// IncidentList replaces itself from its Fragment address when live.js sends
+// it "refresh". It is the whole page body and the monitor's Incidents tab.
+templ IncidentList(v IncidentListView) {
+	<div data-live-incidents hx-get={ v.Fragment } hx-trigger="refresh" hx-swap="outerHTML">
+		if len(v.Rows) == 0 {
+			<section class="empty-state" aria-labelledby="incident-empty-title">
+				<h2 id="incident-empty-title">No incidents</h2>
+				<p>An incident is recorded when a monitor is confirmed down, and ends when it recovers.</p>
+			</section>
+		} else {
+			<ul class="incident-list" role="list">
+				for _, in := range v.Rows {
+					<li class="incident-row" data-state={ incidentState(in) }>
+						<div class="incident-main">
+							<span class="incident-status">
+								if in.Active {
+									<span aria-hidden="true">▼</span> Active
+								} else {
+									<span aria-hidden="true">●</span> Ended
+								}
+							</span>
+							if v.ShowMonitor {
+								<a class="incident-monitor" href={ templ.SafeURL("/monitors/" + in.MonitorID) }>{ in.Monitor }</a>
+							}
+							<a class="incident-link" href={ templ.SafeURL("/incidents/" + in.ID) }>
+								if in.Summary != "" {
+									{ in.Summary }
+								} else {
+									Outage
+								}
+								<span class="visually-hidden">started { in.Started }</span>
+							</a>
+						</div>
+						<p class="incident-when">
+							<time datetime={ in.StartedAt }>{ in.Started }</time>
+							<span class="incident-duration">
+								if in.Active {
+									{ in.Duration } so far
+								} else {
+									{ in.Duration }
+								}
+							</span>
+						</p>
+						if in.Parent || in.Maintenance {
+							<ul class="incident-facts" role="list">
+								if in.Parent {
+									<li>Parent down: notification held</li>
+								}
+								if in.Maintenance {
+									<li>During maintenance</li>
+								}
+							</ul>
+						}
+					</li>
+				}
+			</ul>
+			if v.More {
+				<p class="incident-more">Showing the latest { strconv.Itoa(v.Limit) } ended incidents.</p>
+			}
+		}
+	</div>
+}
+
+func incidentState(in IncidentRowView) string {
+	if in.Active {
+		return "down"
+	}
+	return "ended"
+}
+
+// IncidentDetail is the page of one incident: what happened, in order.
+// There are no workflow states (docs/10): only the timeline and notes.
+templ IncidentDetail(page Page, v IncidentDetailView) {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/monitors.css", "css/monitor_detail.css", "css/incidents.css"}, LiveScripts), "incidents") {
+		<div class="incident-detail">
+			<p class="crumb"><a href="/incidents">Incidents</a></p>
+			@Live() {
+				@IncidentTimeline(v)
+			}
+			if v.Admin {
+				<form class="incident-note" method="post" action={ templ.SafeURL("/incidents/" + v.Incident.ID + "/note") }>
+					@CSRFField(page)
+					<label for="note">Add a note</label>
+					<textarea id="note" name="note" rows="3" maxlength={ strconv.Itoa(v.NoteMax) } required></textarea>
+					if v.Error != "" {
+						<p class="auth-error" role="alert">{ v.Error }</p>
+					}
+					<button class="detail-button" type="submit">Add note</button>
+				</form>
+			}
+		</div>
+	}
+}
+
+// IncidentTimeline replaces itself when the incident changes.
+templ IncidentTimeline(v IncidentDetailView) {
+	<div data-live-incidents hx-get={ "/fragments/incidents/" + v.Incident.ID } hx-trigger="refresh" hx-swap="outerHTML">
+		<h1 class="incident-title">
+			if v.Incident.Active {
+				<span aria-hidden="true">▼</span> Active:
+			} else {
+				Ended:
+			}
+			<a href={ templ.SafeURL("/monitors/" + v.Incident.MonitorID) }>{ v.Incident.Monitor }</a>
+		</h1>
+		<p class="incident-when">
+			Started <time datetime={ v.Incident.StartedAt }>{ v.Incident.Started }</time>,
+			if v.Incident.Active {
+				down for { v.Incident.Duration } so far
+			} else {
+				down for { v.Incident.Duration }
+			}
+		</p>
+		<ol class="incident-timeline" aria-label="Timeline">
+			for _, e := range v.Events {
+				<li class="incident-event">
+					<time datetime={ e.At }>{ e.Time }</time>
+					<span class="incident-event-label">{ e.Label }</span>
+					if e.Message != "" {
+						if e.Note {
+							<p class="incident-note-text">{ e.Message }</p>
+						} else {
+							<span class="incident-event-message">{ e.Message }</span>
+						}
+					}
+				</li>
+			}
+		</ol>
+	</div>
+}

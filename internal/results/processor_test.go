@@ -71,6 +71,7 @@ type harness struct {
 	retries  []retryCall
 	notified []string
 	intents  []incident.Intent
+	changes  []Change
 }
 
 func newHarness(t *testing.T, d *db.DB) *harness {
@@ -90,6 +91,11 @@ func newHarness(t *testing.T, d *db.DB) *harness {
 		func(in incident.Intent) {
 			h.mu.Lock()
 			h.intents = append(h.intents, in)
+			h.mu.Unlock()
+		},
+		func(c Change) {
+			h.mu.Lock()
+			h.changes = append(h.changes, c)
 			h.mu.Unlock()
 		})
 	h.p.flushAfter = 2 * time.Millisecond
@@ -553,7 +559,7 @@ func TestWriteErrorHoldsTheBatchAndPushesBack(t *testing.T) {
 func TestShutdownStoresWhatIsQueued(t *testing.T) {
 	d, _ := testDB(t)
 	// No retry, notify or intent hooks: all are optional.
-	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), time.UTC, nil, nil, nil)
+	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), time.UTC, nil, nil, nil, nil)
 	p.flushAfter = time.Hour
 	id := newMonitor(t, d, "web", nil)
 	ctx, cancel := context.WithCancel(context.Background())

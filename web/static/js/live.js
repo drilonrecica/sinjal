@@ -7,6 +7,8 @@
  * [data-live][data-monitor-id]  one monitor (row, detail header)
  * [data-live-list]              a whole list, refetched when monitors are
  *                               created or deleted, or maintenance changes
+ * [data-live-incidents]         an incident list or timeline, refetched
+ *                               when any incident changes
  * [data-gone-href]              where to go when its monitor is deleted */
 (function () {
   "use strict";
@@ -49,6 +51,15 @@
     each(document, "[data-live-list]", refresh);
   });
 
+  // An incident opened, changed or closed: the incident lists and
+  // timelines refetch themselves. The payload names the incident and its
+  // monitor, but they are cheap to read again, so nothing is picked out.
+  ["opened", "updated", "closed"].forEach(function (what) {
+    document.addEventListener("sse:incident." + what, function () {
+      each(document, "[data-live-incidents]", refresh);
+    });
+  });
+
   document.addEventListener("sse:monitor.deleted", function (e) {
     showing(monitorID(e), function (el) {
       var href = el.getAttribute("data-gone-href");
@@ -63,6 +74,7 @@
   // reconnect, server restart) everything it feeds is refreshed once. A list
   // brings its rows along.
   document.addEventListener("htmx:sseOpen", function (e) {
+    each(document, "[data-live-incidents]", refresh);
     each(e.target, "[data-live-list]", refresh);
     each(e.target, "[data-live]", function (el) {
       if (!el.closest("[data-live-list]")) {

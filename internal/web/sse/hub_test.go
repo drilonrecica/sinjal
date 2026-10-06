@@ -533,3 +533,22 @@ func BenchmarkPublish(b *testing.B) {
 		b.Fatalf("stats = %+v: the benchmark did not measure a fan-out to 8 clients", st)
 	}
 }
+
+func TestFrameCarriesBothIncidentIDs(t *testing.T) {
+	got := string(frame(3, IncidentOpened, "incident_id", "i1", "monitor_id", "m1"))
+	want := "id: 3\nevent: incident.opened\ndata: {\"incident_id\":\"i1\",\"monitor_id\":\"m1\"}\n\n"
+	if got != want {
+		t.Fatalf("frame = %q, want %q", got, want)
+	}
+}
+
+func TestPublishIncident(t *testing.T) {
+	h := quietHub()
+	srv := serveHub(t, h)
+	c := connect(t, srv.URL)
+	waitClients(t, h, 1)
+	h.PublishIncident(IncidentClosed, "i1", "m1")
+	if got := c.next(); !strings.Contains(got, "event: incident.closed\ndata: {\"incident_id\":\"i1\",\"monitor_id\":\"m1\"}") {
+		t.Fatalf("frame %q", got)
+	}
+}

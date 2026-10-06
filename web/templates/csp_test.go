@@ -73,7 +73,12 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 			Errors: map[string]string{"name": "x", "starts_at": "x", "duration": "x", "weekdays": "x", "scope": "x", "form": "x"}}),
 		"maintenanceNew":    MaintenanceFormPage(page, MaintenanceForm{Recurrence: "none", ScopeAll: true, Suppress: true}),
 		"maintenanceDelete": MaintenanceDeleteConfirm(page, DeleteConfirmView{ID: "w1", Name: "Now"}),
-		"totpSetup":         TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
+		"incidentsList":     IncidentsPage(page, testIncidents),
+		"incidentsNone":     IncidentsPage(page, IncidentListView{Fragment: "/fragments/incidents", ShowMonitor: true}),
+		"incidentDetail": IncidentDetail(page, IncidentDetailView{Incident: testIncidents.Rows[0], Admin: true, NoteMax: 1000, Error: "e",
+			Events: []IncidentEventView{{Label: "First failure", Message: "<b>x</b>", Time: "t", At: "a"}, {Label: "Note", Message: "n", Time: "t", At: "a", Note: true}}}),
+		"incidentDetailViewer": IncidentDetail(page, IncidentDetailView{Incident: testIncidents.Rows[1]}),
+		"totpSetup":            TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}
 	for _, tab := range DetailTabs {
 		v := MonitorDetailView{Monitor: testMonitor, Admin: true, Tab: tab.Key,
@@ -83,6 +88,8 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		v.Admin, v.Paused = false, true
 		pages["detailViewer-"+tab.Key] = MonitorDetail(page, v)
 	}
+	incidentsTab := MonitorDetailView{Monitor: testMonitor, Tab: "incidents", Incidents: testIncidents}
+	pages["detail-incidents-rows"] = MonitorDetail(page, incidentsTab)
 	withData := MonitorDetailView{Monitor: testMonitor, Tab: "history", History: HistoryView{Range: "the last 24 hours", RangeError: "x",
 		HasData: true, Summary: "s", Stats: []Fact{{"p95", "1 ms"}}, Uptime: "99.00%", Adjusted: "100.00%",
 		Series: `{"t":[1],"avg":[1],"max":[1],"fail":[0]}`, Overlays: `{"from":0,"to":1,"down":[],"maint":[],"paused":[],"marks":[]}`, Zone: "UTC",
@@ -99,3 +106,9 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		}
 	}
 }
+
+var testIncidents = IncidentListView{Fragment: "/fragments/incidents", ShowMonitor: true, Limit: 100, More: true,
+	Rows: []IncidentRowView{
+		{ID: "i1", MonitorID: "m1", Monitor: "API", Active: true, Started: "10:00 UTC", StartedAt: "2026-10-06T10:00:00Z", Duration: "5m", Summary: "status 503", Parent: true, Maintenance: true},
+		{ID: "i2", MonitorID: "m1", Monitor: "API", Started: "09:00 UTC", StartedAt: "2026-10-06T09:00:00Z", Duration: "2m"},
+	}}

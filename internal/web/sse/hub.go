@@ -15,12 +15,16 @@ import (
 )
 
 // Event names. The payload of the monitor events is {"monitor_id": "..."},
-// that of maintenance.updated {"maintenance_id": "..."}.
+// that of maintenance.updated {"maintenance_id": "..."} and that of the
+// incident events {"incident_id": "...", "monitor_id": "..."}.
 const (
 	MonitorCreated     = "monitor.created"
 	MonitorUpdated     = "monitor.updated"
 	MonitorDeleted     = "monitor.deleted"
 	MaintenanceUpdated = "maintenance.updated" // a window was created, edited or deleted
+	IncidentOpened     = "incident.opened"
+	IncidentUpdated    = "incident.updated" // its timeline changed: a suppression, a note
+	IncidentClosed     = "incident.closed"
 )
 
 const (
@@ -76,12 +80,18 @@ func (h *Hub) Publish(event, monitorID string) {
 	h.publish(event, "monitor_id", monitorID)
 }
 
+// PublishIncident announces that an incident opened, changed or closed. The
+// monitor id lets a monitor's own Incidents tab refresh too.
+func (h *Hub) PublishIncident(event, incidentID, monitorID string) {
+	h.publish(event, "incident_id", incidentID, "monitor_id", monitorID)
+}
+
 // PublishMaintenance announces that a maintenance window changed.
 func (h *Hub) PublishMaintenance(windowID string) {
 	h.publish(MaintenanceUpdated, "maintenance_id", windowID)
 }
 
-func (h *Hub) publish(event, key, id string) {
+func (h *Hub) publish(event string, pairs ...string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.closed {
@@ -93,7 +103,7 @@ func (h *Hub) publish(event, key, id string) {
 	if len(h.clients) == 0 {
 		return
 	}
-	f := frame(h.seq, event, key, id) // built once, shared by all clients
+	f := frame(h.seq, event, pairs...) // built once, shared by all clients
 	for c := range h.clients {
 		select {
 		case c.frames <- f:
@@ -108,8 +118,12 @@ func (h *Hub) publish(event, key, id string) {
 
 // frame is one event on the wire. The payload is JSON on a single line, so
 // no id can break out of its frame.
-func frame(id uint64, event, key, value string) []byte {
-	payload, _ := json.Marshal(map[string]string{key: value})
+func frame(id uint64, event string, pairs ...string) []byte {
+	fields := make(map[string]string, len(pairs)/2)
+	for i := 0; i+1 < len(pairs); i += 2 {
+		fields[pairs[i]] = pairs[i+1]
+	}
+	payload, _ := json.Marshal(fields)
 	b := make([]byte, 0, 32+len(event)+len(payload))
 	b = append(b, "id: "...)
 	b = strconv.AppendUint(b, id, 10)

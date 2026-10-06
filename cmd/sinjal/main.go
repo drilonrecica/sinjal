@@ -132,7 +132,8 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	// The monitor pages schedule what they change, so the engine exists
 	// before the routes; it starts once the listener is open.
 	monitoring := engine.New(database, masterKey, cfg.Workers, "Sinjal/"+version, cfg.Timezone,
-		func(monitorID string) { events.Publish(sse.MonitorUpdated, monitorID) }, logger)
+		func(monitorID string) { events.Publish(sse.MonitorUpdated, monitorID) },
+		events.PublishIncident, logger)
 	router := web.NewRouter(logger, cfg.TrustedProxies)
 	web.Routes(router, web.App{
 		Logger:   logger,

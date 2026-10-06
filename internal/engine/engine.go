@@ -7,6 +7,7 @@ package engine
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"sync"
@@ -44,6 +45,9 @@ type Engine struct {
 	// updated is told the id of a monitor whose row has changed: a stored
 	// result, a pause, a resume. It must not block.
 	updated func(monitorID string)
+	// incidents is told when an incident opened, changed or closed:
+	// the event name, the incident and its monitor.
+	incidents func(event, incidentID, monitorID string)
 
 	// mu makes a pause or resume one step: the database change and the
 	// scheduler command belong together, or two callers could leave a
@@ -54,25 +58,30 @@ type Engine struct {
 
 // New returns an engine that is not running yet. workers is the number of
 // checks that may run at once; userAgent is sent by HTTP checks that set
-// none of their own. updated, which may be nil, is called with the id of a
+// none of their own. incidents, which may be nil, hears of incidents that
+// opened, changed or closed. updated, which may be nil, is called with the id of a
 // monitor after its row changed (the SSE hub); it must not block.
-func New(d *db.DB, key *vault.Key, workers int, userAgent string, loc *time.Location, updated func(monitorID string), logger *slog.Logger) *Engine {
+func New(d *db.DB, key *vault.Key, workers int, userAgent string, loc *time.Location, updated func(monitorID string), incidents func(event, incidentID, monitorID string), logger *slog.Logger) *Engine {
 	if updated == nil {
 		updated = func(string) {}
 	}
+	if incidents == nil {
+		incidents = func(string, string, string) {}
+	}
 	e := &Engine{
-		db:      d,
-		key:     key,
-		log:     logging.Sub(logger, "engine"),
-		http:    httpcheck.NewPool(userAgent),
-		updated: updated,
-		done:    make(chan struct{}),
+		db:        d,
+		key:       key,
+		log:       logging.Sub(logger, "engine"),
+		http:      httpcheck.NewPool(userAgent),
+		updated:   updated,
+		incidents: incidents,
+		done:      make(chan struct{}),
 	}
 	e.pool = scheduler.NewPool(workers, 0, e.check, logging.Sub(logger, "scheduler"))
 	e.sch = scheduler.New(e.pool.Submit)
 	// No consumer for notification intents yet: the dispatcher arrives with
 	// M5. Until then they are decided, recorded and logged.
-	e.proc = results.New(d, logging.Sub(logger, "results"), loc, e.sch.Retry, updated, nil)
+	e.proc = results.New(d, logging.Sub(logger, "results"), loc, e.sch.Retry, updated, nil, e.incidentChanged)
 	return e
 }
 
@@ -128,6 +137,12 @@ func startDelay(i, n int) time.Duration {
 func (e *Engine) Pause(ctx context.Context, id string) (changed bool, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	// Pausing ends the monitor's active incident. It is looked up first,
+	// under the same mutex as the pause, so that the close can be announced.
+	active, err := e.activeIncident(ctx, id)
+	if err != nil {
+		return false, err
+	}
 	changed, err = store.PauseMonitor(ctx, e.db, id, time.Now())
 	if err != nil {
 		return false, err
@@ -137,8 +152,26 @@ func (e *Engine) Pause(ctx context.Context, id string) (changed bool, err error)
 	e.sch.Remove(id)
 	if changed {
 		e.updated(id)
+		if active != "" {
+			e.incidents("incident.closed", active, id)
+		}
 	}
 	return changed, nil
+}
+
+// activeIncident is the id of a monitor's active incident, or "".
+func (e *Engine) activeIncident(ctx context.Context, monitorID string) (string, error) {
+	var id string
+	err := e.db.Reader.QueryRowContext(ctx, `SELECT id FROM incidents WHERE monitor_id = ? AND ended_at IS NULL`, monitorID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
+}
+
+// incidentChanged announces what a result batch did to an incident.
+func (e *Engine) incidentChanged(c results.Change) {
+	e.incidents("incident."+c.Kind, c.IncidentID, c.MonitorID)
 }
 
 // Resume makes a paused monitor pending and checks it at once. Resuming a

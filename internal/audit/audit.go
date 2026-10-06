@@ -42,6 +42,8 @@ const (
 	MaintenanceCreated = "maintenance.created"
 	MaintenanceUpdated = "maintenance.updated"
 	MaintenanceDeleted = "maintenance.deleted"
+
+	IncidentNoted = "incident.noted"
 )
 
 // Event is one audit_events row to write. Empty strings are stored as NULL.

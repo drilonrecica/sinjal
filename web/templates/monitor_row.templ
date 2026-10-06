@@ -77,7 +77,7 @@ templ StatusBadge(state string) {
 // (docs/32_SSE_EVENTS.md). The attributes are static: no payload is ever
 // rendered from an event.
 templ Live() {
-	<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted">
+	<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted, sse:incident.opened, sse:incident.updated, sse:incident.closed">
 		{ children... }
 	</div>
 }

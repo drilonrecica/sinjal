@@ -124,6 +124,11 @@ An incident timeline may include:
 
 Do not build PagerDuty-style incident workflow states.
 
+Implementation (M3-11):
+- `/incidents` lists the active incidents first (newest first), then the latest 100 ended ones; a row shows the status (text and glyph), the monitor, the summary (the message of the confirming failure), the start in the instance time zone, the duration ("so far" while active), and the markers "Parent down: notification held" and "During maintenance". Viewers see the same. Empty state: "No incidents". It refreshes on `incident.*` events.
+- `/incidents/{id}` is the timeline in the order it was written: First failure, Declared down, Notification held back / Held notification sent (with the reason), Recovered or Monitor paused, and Notes. Notification sent/failed entries arrive with M5. Admins get a form to add a note (up to 1,000 characters, plain text, shown escaped); the page refreshes when the incident changes.
+- The monitor detail's Incidents tab is the same list for that monitor, without the monitor's name on each row.
+
 ## Settings
 
 Sections:

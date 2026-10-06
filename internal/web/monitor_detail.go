@@ -51,6 +51,8 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 		v.Overview = overviewFacts(m, now)
 	case "history":
 		v.History, err = h.historyView(r, m)
+	case "incidents":
+		v.Incidents, err = incidentListView(ctx, q, h.loc, now, id)
 	case "configuration":
 		v.Config, err = h.configGroups(r, m, mv.Parent, v.Admin)
 	case "diagnostics":

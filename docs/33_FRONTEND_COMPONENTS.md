@@ -27,6 +27,11 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 - incident timeline
 - diagnostics summary
 
+## Incident components
+
+- incident list (`IncidentList`): one compact row per incident (status glyph and text, monitor, summary, start, duration, markers); the whole page body on `/incidents` and the monitor's Incidents tab; `data-live-incidents`, refetched from its own address on any `incident.*` event
+- incident timeline (`IncidentTimeline`): an ordered list of times, labels and messages; notes are shown as escaped, wrapped text; the admin's note form sits outside the refreshed part so a draft survives a refresh
+
 ## Maintenance components
 
 - maintenance list: sections In effect now / Upcoming / Past, one compact row per window (name, schedule, when, scope, effect)
