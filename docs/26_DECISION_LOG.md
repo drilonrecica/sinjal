@@ -174,3 +174,4 @@ This summarizes the locked design rounds.
 - P0-02: schema gaps closed (user UI prefs, per-user saved views, published manual notes, incident notification state + maintenance overlap, single active incident index, TLS warning dedupe, heartbeat source label, flapping_since); one migration per milestone.
 - P0-03: Docker runtime base is `scratch` + copied CA bundle + embedded tzdata; non-root UID 65532; `sinjal healthcheck` subcommand for `HEALTHCHECK`.
 - P0-04: ICMP hand-written on `x/net/icmp`; unprivileged datagram sockets first, raw-socket fallback, explicit `permission` failure; never privileged containers.
+- P0-05: approved dependency list in `docs/40_DEPENDENCIES.md` (chi, modernc sqlite, templ, x/crypto, x/net, go-webauthn, rsc.io/qr, go.yaml.in/yaml/v3; vendored htmx+SSE, uPlot, Lucide subset); TOTP hand-written on stdlib.

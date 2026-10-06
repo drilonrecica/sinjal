@@ -65,16 +65,20 @@ Every new dependency must answer:
 4. Does it bring transitive dependencies?
 5. Is the feature worth the maintenance cost?
 
-Current preferred dependency categories:
+The approved dependency list, with these answers recorded per dependency, is `docs/40_DEPENDENCIES.md`. It is authoritative: anything not on it (Go module or vendored web asset) requires an explicit decision and an update to that file before it is added.
+
+Summary:
 
 - `github.com/go-chi/chi/v5` — routing
 - `modernc.org/sqlite` — pure-Go SQLite
-- `github.com/a-h/templ` — templates
-- `golang.org/x/crypto` — password hashing/crypto utilities as required
-- a focused WebAuthn/passkey library
-- a small TOTP library if needed
-- a tiny chart library such as uPlot, vendored/bundled for the web UI
-- minimal parsing/helper libraries only when clearly justified
+- `github.com/a-h/templ` — templates (generator pinned via `go.mod` `tool` directive)
+- `golang.org/x/crypto` — Argon2id
+- `golang.org/x/net` — ICMP; `dnsmessage` for DNS test servers
+- `github.com/go-webauthn/webauthn` — passkeys
+- `rsc.io/qr` — TOTP enrolment QR code
+- `go.yaml.in/yaml/v3` — YAML config export/import
+- vendored: htmx + SSE extension, uPlot, Lucide icon subset
+- TOTP is hand-written on stdlib (RFC 6238), not a dependency
 
 Do not add a frontend framework, CSS framework runtime, or generic component kit that causes the interface to look like a stock dashboard.
 
