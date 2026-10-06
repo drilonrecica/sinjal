@@ -64,6 +64,21 @@ Expose override only under advanced/system settings or env configuration.
 
 Do not make normal users tune worker count.
 
+Implementation (`scheduler.Pool`):
+
+- worker count: `SINJAL_WORKERS`, default `min(32, max(8, NumCPU*4))` (`15_CONFIG_BACKUP.md`); the pool starts exactly that many goroutines and no others
+- two bounded queues of 1,024 jobs each: retries (and run-now) and regular jobs; a free worker always takes a retry first
+- handing a job to the pool never blocks the scheduler
+
+Overload (more checks due than the workers can run):
+
+- a job that finds its queue full is dropped and counted (`Rejected`); the monitor is checked again at its next interval, so memory stays bounded however far the pool is behind
+- a job that starts more than 1 s after it was due is counted as a late start (`LateStarts`, with the worst delay in `MaxLate`)
+- each condition logs one WARN per minute at most
+- the counters, with active workers and queue depth, are available from `Pool.Stats()` for Settings → System
+
+A panic inside a check is logged with the monitor id and does not stop the worker.
+
 ## Jitter
 
 Goal:
