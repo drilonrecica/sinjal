@@ -21,6 +21,16 @@ Each channel stores one typed configuration, encrypted as a whole in `notificati
 
 Secrets are write-only in the UI: an input is never filled in, a stored one is announced as "saved", and leaving it empty on edit keeps it. A password belongs to its user name, and a header value to its header name: changing the name means entering the value again. Recipients and the from address are bare addresses, without a display name. URLs may not carry user info. Validation shows every problem at once.
 
+### SMTP delivery
+
+`notify.SendEmail` speaks SMTP with the standard library only:
+- security `tls`: implicit TLS from the first byte (usually port 465); `starttls`: a plain connection that must be upgraded. A server that does not offer STARTTLS gets nothing beyond EHLO: there is no fallback to plain text, so a password never travels in clear.
+- TLS 1.2 or later, certificate checked against the system roots for the configured host.
+- AUTH PLAIN only when a user name is set.
+- One delivery is bounded at 30 seconds (or the caller's shorter context), connection to QUIT; the connection is closed when the context ends, so a server that stops answering cannot hold a sender.
+- The message is one `text/plain; charset=utf-8` part, quoted-printable; a non-ASCII subject is RFC 2047 encoded. No HTML part (docs/36). The EHLO name is `localhost`, so the instance's host name is not disclosed.
+- An error names the failed step and the server's answer on one line (`smtp: authentication failed: 535 5.7.8 …`, `smtp: recipient x@example.com refused: 550 …`, `smtp: connect: timed out`); it never holds the password.
+
 ## Profiles
 
 Reusable profile example:

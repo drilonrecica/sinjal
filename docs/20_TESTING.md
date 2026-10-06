@@ -132,9 +132,10 @@ SINJAL_TEST_SMTP_USER=
 SINJAL_TEST_SMTP_PASS=
 SINJAL_TEST_SMTP_FROM=
 SINJAL_TEST_SMTP_TO=
+SINJAL_TEST_SMTP_SECURITY=   # starttls (default) or tls
 ```
 
-Tests that use them are guarded by a build tag (`manual`) and are skipped when the variables are unset.
+Tests that use them are guarded by a build tag (`manual`) and are skipped when the variables are unset. SMTP: `go test -tags manual -run TestManualSMTP ./internal/notify` sends one `[TEST]` message.
 
 ## Fixtures
 
