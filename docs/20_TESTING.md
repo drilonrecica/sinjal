@@ -52,6 +52,12 @@ Required scenarios:
 19. proxy trust rules
 20. heartbeat expiry
 
+## Black-box integration tests
+
+`tests/integration` builds the real `sinjal` binary and runs it with a scrubbed environment and a temporary data directory. They run as part of `make test` and `make test-race` (skipped with `go test -short`).
+
+Milestone 0 (`m0_test.go`): boot from an empty data directory; database file (0600), `backups/`, `uploads/` created; migration 001 recorded; `/healthz` and `/readyz` answer 200; `/` renders the app shell; assets are hashed, immutable and gzip-capable; SIGTERM exits 0; a restart on the same directory neither migrates nor creates a backup.
+
 ## UI/browser tests
 
 Small focused set only:
