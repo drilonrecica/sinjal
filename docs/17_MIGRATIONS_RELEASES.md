@@ -29,6 +29,13 @@ internal/db/migrations/
 
 One migration per milestone, created with the milestone that first needs the tables. `spec/schema.sql` is the consolidated end-state reference; the migrations are authoritative.
 
+Runner behaviour (`internal/db`):
+- migration files are `NNN_name.sql`, numbered contiguously from 001; each runs in its own transaction and is recorded in `schema_migrations`
+- before applying anything to a database that already has tables, the runner writes `<data dir>/backups/pre-migration-<app version>-<UTC timestamp>.db` with `VACUUM INTO`; if that fails, nothing is migrated and startup aborts
+- the only exception is a brand-new empty database, which has nothing to back up
+- a database whose recorded version is newer than the binary knows is refused untouched (downgrade = restore the pre-upgrade backup)
+- a failed migration rolls back its own transaction; earlier migrations in the same run stay applied
+
 Rules:
 - append-only
 - never edit an already-released migration
