@@ -15,7 +15,7 @@ Aim for practical WCAG 2.2 AA behavior for normal application flows.
 - status never conveyed by color alone
 - reduced-motion support
 - adequate contrast in every theme
-- charts accompanied by textual values/summary
+- charts accompanied by textual values/summary (History tab: a summary paragraph with every figure comes before the chart, which is `role="img"` and points to it with `aria-describedby`; the timeline and sparkline are SVG with titles; every colour has a text key)
 - command palette keyboard accessible
 - mobile touch targets reasonably sized
 

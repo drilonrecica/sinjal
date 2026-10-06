@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 	"time"
 )
 
@@ -51,4 +52,30 @@ func LastDurations(ctx context.Context, q *sql.DB) (map[string]time.Duration, er
 
 func msToDuration(ms float64) time.Duration {
 	return time.Duration(ms * float64(time.Millisecond))
+}
+
+// RecentDurations returns the durations of a monitor's newest n results,
+// oldest first; a failed check, or one without a duration, is a negative
+// value. One index probe, for the detail header's sparkline.
+func RecentDurations(ctx context.Context, q *sql.DB, monitorID string, n int) ([]float64, error) {
+	rows, err := q.QueryContext(ctx, `SELECT success, duration_ms FROM check_results
+		WHERE monitor_id = ? ORDER BY checked_at DESC, id DESC LIMIT ?`, monitorID, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []float64
+	for rows.Next() {
+		var ok bool
+		var ms sql.NullFloat64
+		if err := rows.Scan(&ok, &ms); err != nil {
+			return nil, err
+		}
+		if !ok || !ms.Valid {
+			ms.Float64 = -1
+		}
+		out = append(out, ms.Float64)
+	}
+	slices.Reverse(out)
+	return out, rows.Err()
 }

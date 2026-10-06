@@ -83,6 +83,12 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		v.Admin, v.Paused = false, true
 		pages["detailViewer-"+tab.Key] = MonitorDetail(page, v)
 	}
+	withData := MonitorDetailView{Monitor: testMonitor, Tab: "history", History: HistoryView{Range: "the last 24 hours", RangeError: "x",
+		HasData: true, Summary: "s", Stats: []Fact{{"p95", "1 ms"}}, Uptime: "99.00%", Adjusted: "100.00%",
+		Series: `{"t":[1],"avg":[1],"max":[1],"fail":[0]}`, Overlays: `{"from":0,"to":1,"down":[],"maint":[],"paused":[],"marks":[]}`, Zone: "UTC",
+		Timeline: []TimelineSegment{{X: 0, W: 500, Class: "up", Title: "Up"}, {X: 500, W: 500, Class: "down", Title: "Down"}}, From: "a", To: "b"}}
+	withData.Monitor.Sparkline = Sparkline{Points: "0,1 100,2", Failures: []float64{50}, Label: "l"}
+	pages["detail-history-data"] = MonitorDetail(page, withData)
 	for name, c := range pages {
 		var buf bytes.Buffer
 		if err := c.Render(context.Background(), &buf); err != nil {

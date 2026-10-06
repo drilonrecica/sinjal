@@ -59,7 +59,7 @@ Separate public presentation components from admin components where privacy/bran
 ## JavaScript responsibilities
 
 Allowed:
-- uPlot chart initialization/update
+- uPlot chart initialization/update (`web/static/js/chart.js`: reads `data-series`, `data-overlays`, `data-tz` of `[data-chart]`, draws overlays in uPlot hooks, redraws on resize and theme change; loaded only on a History tab with data)
 - command palette keyboard handling
 - local pre-hydration theme choice
 - small accessibility helpers

@@ -1,0 +1,94 @@
+package templates
+
+// HistoryPanel is the content of the History tab. Every figure is in the
+// text as well: the summary comes first and the chart points to it.
+templ HistoryPanel(v HistoryView) {
+	<p class="history-range">Over { v.Range }</p>
+	if v.RangeError != "" {
+		<p class="auth-alert" role="alert">{ v.RangeError }</p>
+	}
+	<p class="history-summary" id="history-summary">{ v.Summary }</p>
+	if v.HasData {
+		<dl class="monitor-facts history-stats">
+			for _, f := range v.Stats {
+				<div>
+					<dt>{ f.Label }</dt>
+					<dd>{ f.Value }</dd>
+				</div>
+			}
+			<div>
+				<dt>Uptime</dt>
+				<dd>{ v.Uptime }</dd>
+			</div>
+			<div>
+				<dt>Adjusted uptime</dt>
+				<dd>{ v.Adjusted }</dd>
+			</div>
+		</dl>
+		<figure class="chart-figure">
+			<figcaption>Latency, average and maximum per interval</figcaption>
+			<div
+				class="latency-chart"
+				data-chart
+				data-series={ v.Series }
+				data-overlays={ v.Overlays }
+				data-tz={ v.Zone }
+				role="img"
+				aria-label="Latency chart"
+				aria-describedby="history-summary"
+			></div>
+			<ul class="chart-key" role="list">
+				<li><span class="key-swatch key-line" aria-hidden="true"></span>Average latency</li>
+				<li><span class="key-swatch key-max" aria-hidden="true"></span>Maximum</li>
+				<li><span class="key-swatch key-outage" aria-hidden="true"></span>Outage, marked at its start</li>
+				<li><span class="key-swatch key-maintenance" aria-hidden="true"></span>Maintenance</li>
+				<li><span class="key-swatch key-paused" aria-hidden="true"></span>Paused</li>
+			</ul>
+		</figure>
+	} else {
+		@emptyNote("No checks were stored in this range. History starts with the first check.")
+	}
+	if len(v.Timeline) > 0 {
+		@AvailabilityTimeline(v)
+	}
+}
+
+// AvailabilityTimeline is the range as a bar of states. It is SVG with a
+// title per segment and needs no script.
+templ AvailabilityTimeline(v HistoryView) {
+	<figure class="timeline-figure">
+		<figcaption>Availability</figcaption>
+		<svg class="timeline" viewBox="0 0 1000 16" preserveAspectRatio="none" role="img" aria-label="Availability timeline" aria-describedby="history-summary">
+			for _, s := range v.Timeline {
+				<rect class={ "tl-" + s.Class } x={ coord(s.X) } y="0" width={ coord(s.W) } height="16">
+					<title>{ s.Title }</title>
+				</rect>
+			}
+		</svg>
+		<div class="timeline-axis">
+			<span>{ v.From }</span>
+			<span>{ v.To }</span>
+		</div>
+		<ul class="chart-key" role="list">
+			for _, k := range timelineLegend {
+				<li><span class={ "key-swatch", "tl-key-" + k.Class } aria-hidden="true"></span>{ k.Label }</li>
+			}
+		</ul>
+	</figure>
+}
+
+// SparklineSVG is recent latency in the detail header: a line through the
+// successful checks, a tick for each failure, and the same in words.
+templ SparklineSVG(s Sparkline) {
+	if s.Label != "" {
+		<svg class="sparkline" viewBox="0 0 100 24" preserveAspectRatio="none" role="img" aria-label={ s.Label }>
+			<title>{ s.Label }</title>
+			if s.Points != "" {
+				<polyline class="spark-line" points={ s.Points } vector-effect="non-scaling-stroke"></polyline>
+			}
+			for _, x := range s.Failures {
+				<line class="spark-fail" x1={ coord(x) } x2={ coord(x) } y1="16" y2="24" vector-effect="non-scaling-stroke"></line>
+			}
+		</svg>
+	}
+}

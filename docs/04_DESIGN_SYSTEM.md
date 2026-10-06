@@ -106,6 +106,8 @@ Detail pages:
 
 Avoid heavy glow, 3D, gradients, and excessive animation.
 
+Built (M3-10): colours come only from `--chart-line`, `--chart-grid`, `--chart-outage`, `--chart-maintenance` and `--status-*`; `chart.js` reads them with `getComputedStyle` and draws again when `data-theme` changes. Overlays are translucent bands behind the line (outage 18 %, maintenance and paused 22 %); maximum is dashed, average solid. No animation: uPlot draws once, so nothing needs `prefers-reduced-motion`. Monospace axis and legend text, 24-hour times.
+
 ## Forms
 
 - labels always visible

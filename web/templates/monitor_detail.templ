@@ -6,7 +6,7 @@ import "strconv"
 // the five tabs. Tabs are plain links, so every tab has an address and
 // works without JavaScript.
 templ MonitorDetail(page Page, v MonitorDetailView) {
-	@Shell(page.withAssets([]string{"css/monitors.css", "css/monitor_detail.css"}, LiveScripts), "monitors") {
+	@Shell(page.withAssets(detailAssets(v)), "monitors") {
 		<div class="monitor-detail">
 			<p class="crumb"><a href="/monitors">Monitors</a></p>
 			@Live() {
@@ -51,7 +51,7 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 				switch v.Tab {
 					case "history":
 						<h2 id="tab-title">History</h2>
-						@emptyNote("Check history, latency charts and the availability timeline arrive with stored history.")
+						@HistoryPanel(v.History)
 					case "incidents":
 						<h2 id="tab-title">Incidents</h2>
 						@emptyNote("Incidents are recorded from the next milestone on. State changes are already tracked above.")

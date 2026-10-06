@@ -49,6 +49,8 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 	switch v.Tab {
 	case "overview":
 		v.Overview = overviewFacts(m, now)
+	case "history":
+		v.History, err = h.historyView(r, m)
 	case "configuration":
 		v.Config, err = h.configGroups(r, m, mv.Parent, v.Admin)
 	case "diagnostics":

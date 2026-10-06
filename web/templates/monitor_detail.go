@@ -11,6 +11,7 @@ type MonitorDetailView struct {
 	Overview []Fact
 	Config   []ConfigGroup
 	Failures []FailureView
+	History  HistoryView
 }
 
 // Fact is one label/value pair.
@@ -74,4 +75,16 @@ func tabURL(id, key string) string {
 type DeleteConfirmView struct {
 	ID   string
 	Name string
+}
+
+// detailAssets are the detail page's styles and scripts; the History tab
+// adds uPlot and the chart glue, which no other page loads.
+func detailAssets(v MonitorDetailView) ([]string, []string) {
+	// charts.css also styles the header's sparkline, on every tab.
+	styles := []string{"css/monitors.css", "css/monitor_detail.css", "css/charts.css"}
+	if v.Tab != "history" || !v.History.HasData {
+		return styles, LiveScripts
+	}
+	return append(styles, "css/uplot.min.css"),
+		append(LiveScripts[:len(LiveScripts):len(LiveScripts)], "js/uplot.min.js", "js/chart.js")
 }

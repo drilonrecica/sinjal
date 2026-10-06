@@ -31,12 +31,16 @@ type Monitors struct {
 	engine *engine.Engine
 	events *sse.Hub
 	log    *slog.Logger
+	loc    *time.Location // the instance time zone, for history ranges
 	now    func() time.Time
 }
 
-// NewMonitors returns the monitor handler.
-func NewMonitors(d *db.DB, key *vault.Key, eng *engine.Engine, events *sse.Hub, logger *slog.Logger) *Monitors {
-	return &Monitors{db: d, key: key, engine: eng, events: events, log: logging.Sub(logger, "http"), now: time.Now}
+// NewMonitors returns the monitor handler; loc nil means UTC.
+func NewMonitors(d *db.DB, key *vault.Key, eng *engine.Engine, events *sse.Hub, loc *time.Location, logger *slog.Logger) *Monitors {
+	if loc == nil {
+		loc = time.UTC
+	}
+	return &Monitors{db: d, key: key, engine: eng, events: events, loc: loc, log: logging.Sub(logger, "http"), now: time.Now}
 }
 
 // RegisterMonitors mounts the monitor list, the detail page and their live
@@ -62,9 +66,10 @@ type viewInput struct {
 	Tags       []string
 	Latency    time.Duration
 	HasLatency bool
-	URL        string // checked address, only read for admins
-	Parent     string // parent monitor's name
-	ParentDown bool   // the parent monitor is down
+	URL        string    // checked address, only read for admins
+	Parent     string    // parent monitor's name
+	ParentDown bool      // the parent monitor is down
+	Recent     []float64 // durations for the sparkline; the detail header only
 	Admin      bool
 }
 
@@ -83,6 +88,7 @@ func monitorView(m store.Monitor, in viewInput, now time.Time) templates.Monitor
 		Parent:     in.Parent,
 		Tags:       in.Tags,
 		ParentDown: in.ParentDown,
+		Sparkline:  sparkline(in.Recent),
 	}
 	if in.HasLatency {
 		v.Latency = formatLatency(in.Latency)
@@ -232,6 +238,9 @@ func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.Mo
 			return m, templates.MonitorView{}, err
 		}
 		in.URL = cfg.URL
+	}
+	if in.Recent, err = store.RecentDurations(ctx, q, id, sparklinePoints); err != nil {
+		return m, templates.MonitorView{}, err
 	}
 	if m.ParentMonitorID != "" {
 		p, err := store.GetMonitor(ctx, q, m.ParentMonitorID)

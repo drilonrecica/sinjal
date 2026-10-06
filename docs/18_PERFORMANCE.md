@@ -74,7 +74,7 @@ Development machine: Intel Core i5-7500 (4 cores), Linux, Go 1.27, `go test -ben
 | 4 raw insert | `store.BenchmarkInsertCheckResult` (128 rows per transaction) | 16.6 µs per row (about 60,000 rows/s), 14 allocations |
 | 8 SSE fan-out | `sse.BenchmarkPublish` (one event, 8 clients) | 0.9 µs, 4 allocations (M2-14) |
 
-### M3 (M3-02 to M3-09)
+### M3 (M3-02 to M3-10)
 
 | Scenario | Benchmark | Result |
 |---|---|---|
@@ -82,5 +82,7 @@ Development machine: Intel Core i5-7500 (4 cores), Linux, Go 1.27, `go test -ben
 | 3 result batching | same, with parent suppression (M3-05) | 98–100 µs per result (92–97 µs on the same run without it), 79 allocations (75). In this benchmark one monitor in ten fails every check and stays DOWN; each costs one indexed read per batch to know whether its DOWN is held back (`store.PendingDown`). The parent is read only when an intent is decided |
 | uptime | `store.BenchmarkUptime` (one monitor, one year, 2,000 incidents, 50 pauses, a daily excluded window) | 3.2 ms, 12,500 allocations, mostly parsing the 2,000 incident rows and expanding 365 occurrences; one call per monitor and range shown, not for the list of 1,000 |
 | history read | `store.BenchmarkLatencyHistory7d` (one monitor, a week at 30 s: 20,160 raw rows among 40,320; summary with exact p95 and a 720-point series) | 21 ms, 121,000 allocations (rows scanned in Go). Three SQL statements (aggregates, `ORDER BY` for p95, `GROUP BY` for buckets) took 85 ms. The cost is linear in raw rows in range: until M6 rollups and retention, a 30-day range on raw data is about 4× this |
+| sparkline data | last 30 results of each of 1,000 monitors in one query (correlated `LIMIT 30` per monitor) | 48 ms, 150,000 allocations: over the list's 50 ms budget on its own, so the sparkline is on the detail header (one monitor, one index probe) and not in the list |
+| page weight | first-party + vendored JS, gzip -9 | 47.0 KB of the 100 KB budget: htmx 17.1, uPlot 22.3, SSE extension 2.8, chart.js 2.0, passkey.js 1.8, live.js 1.0. uPlot and chart.js load only on a History tab with data |
 
 Every result is written by the one processor goroutine in batched transactions; no worker writes to SQLite and no goroutine exists per monitor. Scenarios 5–7 (rollups, dashboard query, incident transaction) are measured with their features (M3, M6).

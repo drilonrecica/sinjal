@@ -19,6 +19,7 @@ type MonitorView struct {
 	// held back (docs/10_INCIDENTS.md "Parent dependency").
 	ParentDown bool
 	Tags       []string
+	Sparkline  Sparkline // recent latency; filled for the detail header only
 }
 
 // Monitor states as shown. Flapping is an overlay on up/down in storage
@@ -188,5 +189,6 @@ templ MonitorHeader(m MonitorView) {
 				<dd>{ m.Uptime }</dd>
 			</div>
 		</dl>
+		@SparklineSVG(m.Sparkline)
 	</header>
 }
