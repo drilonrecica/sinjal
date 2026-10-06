@@ -179,6 +179,8 @@ Measure connect duration.
 
 Close socket promptly.
 
+Implementation (`internal/monitor/tcpcheck`): one `net.Dialer.DialContext` under the monitor timeout; nothing is sent or read, and the connection is closed right after the connect time is taken. Failure kinds: `timeout` (no connection within the timeout), `dns` (name did not resolve), `connect` (refused, unreachable and other dial errors), `unknown` (cancelled by shutdown, not a verdict on the target). Validation: host is an IP or DNS name (no scheme, port, brackets or zone), port 1-65535, timeout above zero. Private and loopback targets are allowed.
+
 ## ICMP
 
 Inputs:
