@@ -12,9 +12,23 @@ import (
 // stored, and their inputs always render empty.
 type MonitorForm struct {
 	ID      string // "" while creating
+	Type    string // http, tcp, icmp, dns or heartbeat; fixed once created
 	Name    string
 	Tags    string // comma-separated
 	Enabled bool   // create only: start checking at once
+
+	Host string // tcp, icmp
+	Port string // tcp
+
+	DNSHostname string
+	QueryType   string
+	Resolver    string
+	Expected    string // one value per line
+	MatchMode   string // "all" or "any"
+
+	ExpectedInterval string // heartbeat, seconds
+	Grace            string // heartbeat, seconds
+	SourceLabel      string
 
 	URL             string
 	Method          string
@@ -68,6 +82,28 @@ type Option struct {
 	Label string
 }
 
+// MonitorTypes are the types offered on the create page, in order.
+var MonitorTypes = []Option{
+	{"http", "HTTP(S)"},
+	{"tcp", "TCP port"},
+	{"icmp", "Ping"},
+	{"dns", "DNS"},
+	{"heartbeat", "Heartbeat"},
+}
+
+// TypeLabel names a monitor type for people.
+func TypeLabel(typ string) string {
+	for _, o := range MonitorTypes {
+		if o.Value == typ {
+			return o.Label
+		}
+	}
+	return typ
+}
+
+// DNSQueryTypes are the DNS record types a monitor can query.
+var DNSQueryTypes = []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS"}
+
 // Editing reports whether the form edits an existing monitor.
 func (f MonitorForm) Editing() bool { return f.ID != "" }
 
@@ -95,7 +131,8 @@ func (f MonitorForm) AdvancedOpen() bool {
 
 // FormFieldOrder is the order of the error summary: the order of the page.
 var FormFieldOrder = []string{
-	"name", "tags", "url", "method", "request_body", "headers", "auth", "basic_user", "basic_password",
+	"type", "name", "tags", "host", "port", "hostname", "query_type", "resolver", "expected", "match_mode",
+	"expected_interval", "grace", "source_label", "url", "method", "request_body", "headers", "auth", "basic_user", "basic_password",
 	"bearer_token", "sh_new_name", "sh_new_value", "secret_headers", "expected_status", "body_contains", "body_not_contains",
 	"json_assertions", "interval", "timeout", "retry_delay", "failure_threshold", "success_threshold",
 	"parent_monitor_id", "custom_user_agent", "max_body_kib", "tls_warning_days", "proxy_url", "ip_family",
@@ -103,7 +140,9 @@ var FormFieldOrder = []string{
 
 // fieldLabels names the fields in the error summary.
 var fieldLabels = map[string]string{
-	"name": "Name", "tags": "Tags", "url": "URL", "method": "Method", "request_body": "Request body",
+	"type": "Type", "name": "Name", "tags": "Tags", "host": "Host", "port": "Port", "hostname": "Host name",
+	"query_type": "Record type", "resolver": "Resolver", "expected": "Expected values", "match_mode": "Match",
+	"expected_interval": "Expected every", "grace": "Grace period", "source_label": "Source label", "url": "URL", "method": "Method", "request_body": "Request body",
 	"headers": "Headers", "auth": "Authentication", "basic_user": "User name", "basic_password": "Password",
 	"bearer_token": "Token", "sh_new_name": "New header name", "sh_new_value": "New header value",
 	"secret_headers": "Secret headers", "expected_status": "Expected status",

@@ -12,19 +12,24 @@ import (
 
 // heartbeat adds an enabled heartbeat monitor, created now, with the
 // given interval and grace in seconds, and returns its id and token. The
-// create path arrives with the form (M4-06); the rows are written here.
+// interval may be below the store's 10 s minimum: it is set afterwards.
 func (e *env) heartbeat(name string, interval, grace int) (string, string) {
 	e.t.Helper()
-	id := e.monitor(name, "http://heartbeat.invalid", nil)
 	token, hash, err := store.NewHeartbeatToken()
 	if err != nil {
 		e.t.Fatal(err)
 	}
+	id, err := store.CreateMonitor(context.Background(), e.d, store.MonitorInput{
+		Type: store.TypeHeartbeat, Name: name, Enabled: true, RetryDelayMS: 20,
+		Heartbeat: store.HeartbeatSettings{ExpectedIntervalSeconds: 60, TokenHash: hash},
+	}, created)
+	if err != nil {
+		e.t.Fatal(err)
+	}
 	ts := time.Now().UTC().Format(time.RFC3339)
-	e.exec(`UPDATE monitors SET type = 'heartbeat', created_at = ?, current_state_since = ? WHERE id = ?`, ts, ts, id)
-	e.exec(`DELETE FROM http_monitor_config WHERE monitor_id = ?`, id)
-	e.exec(`INSERT INTO heartbeat_monitor_config (monitor_id, token_hash, expected_interval_seconds, grace_seconds)
-		VALUES (?, ?, ?, ?)`, id, hash, interval, grace)
+	e.exec(`UPDATE monitors SET created_at = ?, current_state_since = ? WHERE id = ?`, ts, ts, id)
+	e.exec(`UPDATE heartbeat_monitor_config SET expected_interval_seconds = ?, grace_seconds = ? WHERE monitor_id = ?`,
+		interval, grace, id)
 	return id, token
 }
 

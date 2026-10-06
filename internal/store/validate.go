@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"net/url"
 	"slices"
 	"sort"
 	"strings"
 
 	"github.com/drilonrecica/sinjal/internal/monitor"
+	"github.com/drilonrecica/sinjal/internal/monitor/dnscheck"
+	"github.com/drilonrecica/sinjal/internal/monitor/tcpcheck"
 )
 
 // Validation bounds (docs/38). The body cap ceiling is the 1 MiB hard read
@@ -58,9 +61,10 @@ func (e FieldErrors) add(field, msg string) {
 }
 
 // validate checks every rule that needs no database and normalises what it
-// accepts: the method is upper-cased, the status expression and TLS warning
-// days take their canonical form. id is "" for a new monitor.
-func (m *HTTPMonitor) validate(id string) FieldErrors {
+// accepts: the HTTP method is upper-cased, the status expression and TLS
+// warning days take their canonical form, DNS expected values are
+// normalized and deduplicated. id is "" for a new monitor.
+func (m *MonitorInput) validate(id string) FieldErrors {
 	errs := FieldErrors{}
 	switch {
 	case m.Name == "":
@@ -68,14 +72,18 @@ func (m *HTTPMonitor) validate(id string) FieldErrors {
 	case len([]rune(m.Name)) > MaxNameLen:
 		errs.add("name", fmt.Sprintf("Use at most %d characters.", MaxNameLen))
 	}
-	if m.IntervalSeconds < MinIntervalSeconds || m.IntervalSeconds > MaxIntervalSeconds {
-		errs.add("interval_seconds", fmt.Sprintf("Use an interval from %d seconds to 24 hours.", MinIntervalSeconds))
-	}
-	switch {
-	case m.TimeoutMS <= 0:
-		errs.add("timeout_ms", "Use a timeout above zero.")
-	case m.TimeoutMS >= m.IntervalSeconds*1000:
-		errs.add("timeout_ms", "The timeout must be shorter than the interval.")
+	// A heartbeat monitor's interval is its expected interval, checked
+	// with its config; it runs no check, so it has no timeout to check.
+	if m.Type != TypeHeartbeat {
+		if m.IntervalSeconds < MinIntervalSeconds || m.IntervalSeconds > MaxIntervalSeconds {
+			errs.add("interval_seconds", fmt.Sprintf("Use an interval from %d seconds to 24 hours.", MinIntervalSeconds))
+		}
+		switch {
+		case m.TimeoutMS <= 0:
+			errs.add("timeout_ms", "Use a timeout above zero.")
+		case m.TimeoutMS >= m.IntervalSeconds*1000:
+			errs.add("timeout_ms", "The timeout must be shorter than the interval.")
+		}
 	}
 	if m.FailureThreshold < 1 || m.FailureThreshold > MaxThreshold {
 		errs.add("failure_threshold", fmt.Sprintf("Use a number from 1 to %d.", MaxThreshold))
@@ -94,8 +102,77 @@ func (m *HTTPMonitor) validate(id string) FieldErrors {
 			errs.add("tags", err.(*InputError).Message)
 		}
 	}
-	m.Config.validate(errs)
+	switch m.Type {
+	case TypeHTTP:
+		m.HTTP.validate(errs)
+	case TypeTCP:
+		m.TCP.validate(errs)
+	case TypeICMP:
+		if tcpcheck.ValidateHost(m.ICMP.Host) != nil {
+			errs.add("host", hostMsg)
+		}
+	case TypeDNS:
+		m.DNS.validate(errs)
+	case TypeHeartbeat:
+		m.Heartbeat.validate(errs)
+	default:
+		errs.add("type", "Choose a monitor type.")
+	}
 	return errs
+}
+
+const hostMsg = "Enter a host name or IP address, without scheme, port or path."
+
+func (c *TCPConfig) validate(errs FieldErrors) {
+	if tcpcheck.ValidateHost(c.Host) != nil {
+		errs.add("host", hostMsg)
+	}
+	if c.Port < 1 || c.Port > 65535 {
+		errs.add("port", "Use a port from 1 to 65535.")
+	}
+}
+
+func (c *DNSConfig) validate(errs FieldErrors) {
+	if tcpcheck.ValidateHost(c.Hostname) != nil {
+		errs.add("hostname", "Enter a host name, such as example.com.")
+	} else if _, err := netip.ParseAddr(c.Hostname); err == nil {
+		errs.add("hostname", "Enter a host name, not an IP address.")
+	}
+	if !slices.Contains(dnscheck.QueryTypes, c.QueryType) {
+		errs.add("query_type", "Use A, AAAA, CNAME, MX, TXT or NS.")
+	} else if vals, err := dnscheck.NormalizeExpected(c.QueryType, c.Expected); err != nil {
+		errs.add("expected", sentence(err.Error()))
+	} else {
+		c.Expected = vals
+	}
+	if c.Resolver != "" {
+		if _, err := dnscheck.ResolverAddr(c.Resolver); err != nil {
+			errs.add("resolver", "Enter an IP address, optionally with a port, such as 192.0.2.1 or [2001:db8::1]:53.")
+		}
+	}
+	if c.MatchMode != dnscheck.MatchAll && c.MatchMode != dnscheck.MatchAny {
+		errs.add("match_mode", "Use all or any.")
+	}
+}
+
+func (h *HeartbeatSettings) validate(errs FieldErrors) {
+	if h.ExpectedIntervalSeconds < MinIntervalSeconds || h.ExpectedIntervalSeconds > MaxIntervalSeconds {
+		errs.add("expected_interval_seconds", fmt.Sprintf("Use an interval from %d seconds to 24 hours.", MinIntervalSeconds))
+	}
+	if h.GraceSeconds < 0 || h.GraceSeconds > MaxIntervalSeconds {
+		errs.add("grace_seconds", "Use a grace period from 0 seconds to 24 hours.")
+	}
+	if len([]rune(h.SourceLabel)) > MaxSourceLabelLen {
+		errs.add("source_label", fmt.Sprintf("Use at most %d characters.", MaxSourceLabelLen))
+	}
+}
+
+// sentence turns a lower-case error text into a sentence.
+func sentence(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:] + "."
 }
 
 func (c *HTTPConfig) validate(errs FieldErrors) {
@@ -254,7 +331,7 @@ func normalizeTLSDays(text string) (string, string) {
 // the monitor (docs/38). id is "" for a new monitor, which no chain can
 // reach yet. It returns errs when any rule (including the ones checked
 // before the transaction) failed.
-func checkRefs(ctx context.Context, x execer, id string, m *HTTPMonitor, errs FieldErrors) error {
+func checkRefs(ctx context.Context, x execer, id string, m *MonitorInput, errs FieldErrors) error {
 	if m.ParentMonitorID != "" && m.ParentMonitorID != id {
 		cur := m.ParentMonitorID
 		// Each step moves to a distinct monitor, so the walk ends at a root,
@@ -300,11 +377,10 @@ func checkRefs(ctx context.Context, x execer, id string, m *HTTPMonitor, errs Fi
 // levels deep; a longer chain is treated as a cycle.
 const maxParentDepth = 64
 
-// CheckHTTPMonitor runs every rule CreateHTTPMonitor and UpdateHTTPMonitor
-// run, against the current database, and writes nothing. A form uses it to
-// show all problems at once when some of its input could not even be
-// parsed. id is "" for a new monitor. It returns nil when in is valid.
-func CheckHTTPMonitor(ctx context.Context, q *sql.DB, id string, in HTTPMonitor) error {
+// CheckMonitor runs every rule CreateMonitor and UpdateMonitor run, against
+// the current database, and writes nothing. A form uses it to show all
+// problems at once when some of its input could not even be parsed. id is "" for a new monitor. It returns nil when in is valid.
+func CheckMonitor(ctx context.Context, q *sql.DB, id string, in MonitorInput) error {
 	in.applyDefaults()
 	return checkRefs(ctx, q, id, &in, in.validate(id))
 }

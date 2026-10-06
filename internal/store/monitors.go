@@ -69,55 +69,91 @@ type HTTPConfig struct {
 	IPFamily           string
 }
 
-// HTTPMonitor is the editable shape of an HTTP monitor: the monitor row's
-// user-set fields, its config and its tags. Zero numeric fields and empty
-// text fields take the defaults above.
-type HTTPMonitor struct {
+// MonitorInput is the editable shape of a monitor: the monitor row's
+// user-set fields, the config of its type and its tags. Only the config
+// matching Type is read. Zero numeric fields and empty text fields take the
+// defaults above.
+type MonitorInput struct {
+	Type                  string // TypeHTTP when empty
 	Name                  string
 	Enabled               bool
-	IntervalSeconds       int
+	IntervalSeconds       int // heartbeat: taken from Heartbeat.ExpectedIntervalSeconds
 	TimeoutMS             int
 	FailureThreshold      int
 	RetryDelayMS          int
 	SuccessThreshold      int
 	ParentMonitorID       string
 	NotificationProfileID string
-	Config                HTTPConfig
+	HTTP                  HTTPConfig
+	TCP                   TCPConfig
+	ICMP                  ICMPConfig
+	DNS                   DNSConfig
+	Heartbeat             HeartbeatSettings
 	Tags                  []string
 }
 
-func (m *HTTPMonitor) applyDefaults() {
+func (m *MonitorInput) applyDefaults() {
 	set := func(p *int, def int) {
 		if *p == 0 {
 			*p = def
 		}
+	}
+	if m.Type == "" {
+		m.Type = TypeHTTP
+	}
+	if m.Type == TypeHeartbeat {
+		// A heartbeat monitor runs no check of its own: its cadence is the
+		// expected interval, and the timeout is never used.
+		m.IntervalSeconds = m.Heartbeat.ExpectedIntervalSeconds
 	}
 	set(&m.IntervalSeconds, DefaultIntervalSeconds)
 	set(&m.TimeoutMS, DefaultTimeoutMS)
 	set(&m.FailureThreshold, DefaultFailureThreshold)
 	set(&m.RetryDelayMS, DefaultRetryDelayMS)
 	set(&m.SuccessThreshold, DefaultSuccessThreshold)
-	set(&m.Config.MaxBodyBytes, DefaultMaxBodyBytes)
 	m.Name = strings.TrimSpace(m.Name)
-	c := &m.Config
-	c.URL = strings.TrimSpace(c.URL)
-	if c.Method == "" {
-		c.Method = "GET"
-	}
-	if c.ExpectedStatus == "" {
-		c.ExpectedStatus = DefaultExpectedStatus
-	}
-	if c.TLSWarningDays == "" {
-		c.TLSWarningDays = DefaultTLSWarningDays
+	switch m.Type {
+	case TypeHTTP:
+		c := &m.HTTP
+		set(&c.MaxBodyBytes, DefaultMaxBodyBytes)
+		c.URL = strings.TrimSpace(c.URL)
+		if c.Method == "" {
+			c.Method = "GET"
+		}
+		if c.ExpectedStatus == "" {
+			c.ExpectedStatus = DefaultExpectedStatus
+		}
+		if c.TLSWarningDays == "" {
+			c.TLSWarningDays = DefaultTLSWarningDays
+		}
+	case TypeTCP:
+		m.TCP.Host = strings.TrimSpace(m.TCP.Host)
+	case TypeICMP:
+		m.ICMP.Host = strings.TrimSpace(m.ICMP.Host)
+	case TypeDNS:
+		c := &m.DNS
+		c.Hostname, c.Resolver = strings.TrimSpace(c.Hostname), strings.TrimSpace(c.Resolver)
+		if c.QueryType == "" {
+			c.QueryType = "A"
+		}
+		if c.MatchMode == "" {
+			c.MatchMode = "all"
+		}
+	case TypeHeartbeat:
+		m.Heartbeat.SourceLabel = strings.TrimSpace(m.Heartbeat.SourceLabel)
 	}
 }
 
-// CreateHTTPMonitor inserts the monitor, its HTTP config and its tags in one
-// transaction and returns the new id. The initial state is pending (no check
-// has run), or paused when created disabled. Invalid input is a FieldErrors
-// covering every rule of docs/38, and nothing is written.
-func CreateHTTPMonitor(ctx context.Context, d *db.DB, in HTTPMonitor, now time.Time) (string, error) {
+// CreateMonitor inserts the monitor, the config of its type and its tags in
+// one transaction and returns the new id. The initial state is pending (no
+// check has run), or paused when created disabled. Invalid input is a
+// FieldErrors covering every rule of docs/38, and nothing is written. A
+// heartbeat monitor needs Heartbeat.TokenHash (NewHeartbeatToken).
+func CreateMonitor(ctx context.Context, d *db.DB, in MonitorInput, now time.Time) (string, error) {
 	in.applyDefaults()
+	if in.Type == TypeHeartbeat && len(in.Heartbeat.TokenHash) == 0 {
+		return "", errors.New("store: a heartbeat monitor needs a token hash")
+	}
 	errs := in.validate("")
 	id := ids.New()
 	ts := formatTime(now)
@@ -138,13 +174,13 @@ func CreateHTTPMonitor(ctx context.Context, d *db.DB, in HTTPMonitor, now time.T
 			(id, name, type, enabled, current_state, current_state_since, interval_seconds, timeout_ms,
 			 failure_threshold, retry_delay_ms, success_threshold, parent_monitor_id, notification_profile_id,
 			 created_at, updated_at)
-			VALUES (?, ?, 'http', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, in.Name, b2i(in.Enabled), state, ts, in.IntervalSeconds, in.TimeoutMS,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, in.Name, in.Type, b2i(in.Enabled), state, ts, in.IntervalSeconds, in.TimeoutMS,
 			in.FailureThreshold, in.RetryDelayMS, in.SuccessThreshold, nullStr(in.ParentMonitorID), nullStr(in.NotificationProfileID),
 			ts, ts); err != nil {
 			return err
 		}
-		if err := insertHTTPConfig(ctx, tx, id, in.Config); err != nil {
+		if err := insertConfig(ctx, tx, id, &in); err != nil {
 			return err
 		}
 		if err := setTags(ctx, tx, id, in.Tags); err != nil {
@@ -165,11 +201,13 @@ func CreateHTTPMonitor(ctx context.Context, d *db.DB, in HTTPMonitor, now time.T
 	return id, nil
 }
 
-// UpdateHTTPMonitor replaces the editable fields, config and tags of an
-// HTTP monitor. State, enabled-ness and check history are untouched
-// (pausing and resuming are separate operations). Invalid input is a
-// FieldErrors and nothing is written.
-func UpdateHTTPMonitor(ctx context.Context, d *db.DB, id string, in HTTPMonitor, now time.Time) error {
+// UpdateMonitor replaces the editable fields, config and tags of a monitor
+// of type in.Type; the type itself never changes (ErrNotFound for a monitor
+// of another type). State, enabled-ness and check history are untouched
+// (pausing and resuming are separate operations), as are a heartbeat
+// monitor's token and last beat. Invalid input is a FieldErrors and nothing
+// is written.
+func UpdateMonitor(ctx context.Context, d *db.DB, id string, in MonitorInput, now time.Time) error {
 	in.applyDefaults()
 	errs := in.validate(id)
 	return db.Retry(ctx, func() error {
@@ -183,19 +221,16 @@ func UpdateHTTPMonitor(ctx context.Context, d *db.DB, id string, in HTTPMonitor,
 		}
 		res, err := tx.ExecContext(ctx, `UPDATE monitors SET name = ?, interval_seconds = ?, timeout_ms = ?,
 			failure_threshold = ?, retry_delay_ms = ?, success_threshold = ?, parent_monitor_id = ?,
-			notification_profile_id = ?, updated_at = ? WHERE id = ? AND type = 'http'`,
+			notification_profile_id = ?, updated_at = ? WHERE id = ? AND type = ?`,
 			in.Name, in.IntervalSeconds, in.TimeoutMS, in.FailureThreshold, in.RetryDelayMS, in.SuccessThreshold,
-			nullStr(in.ParentMonitorID), nullStr(in.NotificationProfileID), formatTime(now), id)
+			nullStr(in.ParentMonitorID), nullStr(in.NotificationProfileID), formatTime(now), id, in.Type)
 		if err != nil {
 			return err
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
 			return ErrNotFound
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM http_monitor_config WHERE monitor_id = ?`, id); err != nil {
-			return err
-		}
-		if err := insertHTTPConfig(ctx, tx, id, in.Config); err != nil {
+		if err := replaceConfig(ctx, tx, id, &in); err != nil {
 			return err
 		}
 		if err := setTags(ctx, tx, id, in.Tags); err != nil {
@@ -338,23 +373,4 @@ func nullStr(s string) any {
 		return nil
 	}
 	return s
-}
-
-// HTTPURLs returns the checked address of every HTTP monitor, for list
-// pages. Like ListMonitors it never touches monitor_secrets.
-func HTTPURLs(ctx context.Context, q *sql.DB) (map[string]string, error) {
-	rows, err := q.QueryContext(ctx, `SELECT monitor_id, url FROM http_monitor_config`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]string{}
-	for rows.Next() {
-		var id, u string
-		if err := rows.Scan(&id, &u); err != nil {
-			return nil, err
-		}
-		out[id] = u
-	}
-	return out, rows.Err()
 }

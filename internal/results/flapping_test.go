@@ -13,7 +13,7 @@ import (
 // check after a success is a transition, as is every success after it.
 func flappy(t *testing.T, d *db.DB, name string) string {
 	t.Helper()
-	return newMonitor(t, d, name, func(m *store.HTTPMonitor) { m.FailureThreshold = 1 })
+	return newMonitor(t, d, name, func(m *store.MonitorInput) { m.FailureThreshold = 1 })
 }
 
 // flappingSince is the monitor's overlay in seconds after base, "-" when

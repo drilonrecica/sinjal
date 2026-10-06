@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-func TestCheckHTTPMonitor(t *testing.T) {
+func TestCheckMonitor(t *testing.T) {
 	d := testDB(t)
 	ctx := t.Context()
-	if err := CheckHTTPMonitor(ctx, d.Reader, "", HTTPMonitor{Name: "a", Config: HTTPConfig{URL: "https://example.com"}}); err != nil {
+	if err := CheckMonitor(ctx, d.Reader, "", MonitorInput{Name: "a", HTTP: HTTPConfig{URL: "https://example.com"}}); err != nil {
 		t.Fatalf("valid monitor: %v", err)
 	}
-	err := CheckHTTPMonitor(ctx, d.Reader, "", HTTPMonitor{ParentMonitorID: "missing", Config: HTTPConfig{URL: "ftp://x"}})
+	err := CheckMonitor(ctx, d.Reader, "", MonitorInput{ParentMonitorID: "missing", HTTP: HTTPConfig{URL: "ftp://x"}})
 	var fe FieldErrors
 	if !errors.As(err, &fe) || fe["name"] == "" || fe["url"] == "" || fe["parent_monitor_id"] == "" {
 		t.Fatalf("got %v, want name, url and parent errors", err)

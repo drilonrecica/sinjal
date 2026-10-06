@@ -141,7 +141,7 @@ func BenchmarkMonitorList(b *testing.B) {
 		if err != nil || len(lat) != 1000 {
 			b.Fatalf("latencies %d, %v", len(lat), err)
 		}
-		urls, err := HTTPURLs(ctx, d.Reader)
+		urls, err := Targets(ctx, d.Reader)
 		if err != nil || len(urls) != 1000 {
 			b.Fatalf("urls %d, %v", len(urls), err)
 		}

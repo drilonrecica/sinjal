@@ -60,14 +60,14 @@ func checkResults(t *testing.T, d *db.DB, id string) []result {
 }
 
 // seed creates an enabled HTTP monitor in a stopped server's database.
-func seed(t *testing.T, d *db.DB, name, url string, edit func(*store.HTTPMonitor)) string {
+func seed(t *testing.T, d *db.DB, name, url string, edit func(*store.MonitorInput)) string {
 	t.Helper()
-	in := store.HTTPMonitor{Name: name, Enabled: true, RetryDelayMS: 300,
-		Config: store.HTTPConfig{URL: url, FollowRedirects: true}}
+	in := store.MonitorInput{Name: name, Enabled: true, RetryDelayMS: 300,
+		HTTP: store.HTTPConfig{URL: url, FollowRedirects: true}}
 	if edit != nil {
 		edit(&in)
 	}
-	id, err := store.CreateHTTPMonitor(context.Background(), d, in, time.Now())
+	id, err := store.CreateMonitor(context.Background(), d, in, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,28 +159,28 @@ func TestMonitoringScenarios(t *testing.T) {
 	flaky := seed(t, d, "2 retry success", tg.URL+"/flaky", nil)
 	recovering := seed(t, d, "3 down then recovery", tg.URL+"/recover", nil)
 	// 14 body cap.
-	big := seed(t, d, "14 body cap", tg.URL+"/big", func(m *store.HTTPMonitor) { m.Config.BodyContains = "NEEDLE" })
+	big := seed(t, d, "14 body cap", tg.URL+"/big", func(m *store.MonitorInput) { m.HTTP.BodyContains = "NEEDLE" })
 	// 15 redirects.
-	chain := seed(t, d, "15 chain", tg.URL+"/r/3", func(m *store.HTTPMonitor) { m.Config.ExpectedStatus = "200" })
-	noFollow := seed(t, d, "15 not followed", tg.URL+"/r/1", func(m *store.HTTPMonitor) {
-		m.Config.FollowRedirects = false
-		m.Config.ExpectedStatus = "200"
+	chain := seed(t, d, "15 chain", tg.URL+"/r/3", func(m *store.MonitorInput) { m.HTTP.ExpectedStatus = "200" })
+	noFollow := seed(t, d, "15 not followed", tg.URL+"/r/1", func(m *store.MonitorInput) {
+		m.HTTP.FollowRedirects = false
+		m.HTTP.ExpectedStatus = "200"
 	})
 	loop := seed(t, d, "15 loop", tg.URL+"/loop", nil)
 	// 16 timeout.
-	hang := seed(t, d, "16 timeout", tg.URL+"/hang", func(m *store.HTTPMonitor) { m.TimeoutMS = 1000 })
+	hang := seed(t, d, "16 timeout", tg.URL+"/hang", func(m *store.MonitorInput) { m.TimeoutMS = 1000 })
 	// Assertion failures.
-	status := seed(t, d, "status", tg.URL+"/ok", func(m *store.HTTPMonitor) { m.Config.ExpectedStatus = "201" })
-	contains := seed(t, d, "contains", tg.URL+"/ok", func(m *store.HTTPMonitor) { m.Config.BodyContains = "healthy" })
-	notContains := seed(t, d, "not contains", tg.URL+"/ok", func(m *store.HTTPMonitor) { m.Config.BodyNotContains = `"ok"` })
-	jsonEq := seed(t, d, "json equals", tg.URL+"/ok", func(m *store.HTTPMonitor) {
-		m.Config.JSONAssertions = `[{"path":"$.items[0].id","op":"equals","value":"b"}]`
+	status := seed(t, d, "status", tg.URL+"/ok", func(m *store.MonitorInput) { m.HTTP.ExpectedStatus = "201" })
+	contains := seed(t, d, "contains", tg.URL+"/ok", func(m *store.MonitorInput) { m.HTTP.BodyContains = "healthy" })
+	notContains := seed(t, d, "not contains", tg.URL+"/ok", func(m *store.MonitorInput) { m.HTTP.BodyNotContains = `"ok"` })
+	jsonEq := seed(t, d, "json equals", tg.URL+"/ok", func(m *store.MonitorInput) {
+		m.HTTP.JSONAssertions = `[{"path":"$.items[0].id","op":"equals","value":"b"}]`
 	})
-	jsonOK := seed(t, d, "json passes", tg.URL+"/ok", func(m *store.HTTPMonitor) {
-		m.Config.JSONAssertions = `[{"path":"$.status","op":"equals","value":"ok"},{"path":"$.n","op":"equals","value":42.0},{"path":"$.missing","op":"not_exists"}]`
+	jsonOK := seed(t, d, "json passes", tg.URL+"/ok", func(m *store.MonitorInput) {
+		m.HTTP.JSONAssertions = `[{"path":"$.status","op":"equals","value":"ok"},{"path":"$.n","op":"equals","value":42.0},{"path":"$.missing","op":"not_exists"}]`
 	})
-	notJSON := seed(t, d, "json parse", tg.URL+"/notjson", func(m *store.HTTPMonitor) {
-		m.Config.JSONAssertions = `[{"path":"$.status","op":"exists"}]`
+	notJSON := seed(t, d, "json parse", tg.URL+"/notjson", func(m *store.MonitorInput) {
+		m.HTTP.JSONAssertions = `[{"path":"$.status","op":"exists"}]`
 	})
 	// Scenario 3 needs a check after the target recovers: a one-second
 	// interval (validation allows nothing below ten).

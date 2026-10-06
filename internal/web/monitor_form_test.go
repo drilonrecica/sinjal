@@ -347,7 +347,7 @@ func TestMonitorFormParsing(t *testing.T) {
 	if got != want {
 		t.Errorf("assertions =\n%s\nwant\n%s", got, want)
 	}
-	if f := formFromMonitor(store.Monitor{}, store.HTTPConfig{JSONAssertions: `[{"path":"$.a","op":"exists"}]`}, nil); len(f.Assertions) != 1 {
+	if f := formFromMonitor(store.Monitor{}, monitorConfig{HTTP: store.HTTPConfig{JSONAssertions: `[{"path":"$.a","op":"exists"}]`}}, nil); len(f.Assertions) != 1 {
 		t.Errorf("stored assertions read as %d rows", len(f.Assertions))
 	}
 	if n := len(padAssertions(nil)); n != 3 {
@@ -358,7 +358,7 @@ func TestMonitorFormParsing(t *testing.T) {
 	}
 	// Round trip: what the store holds comes back as it was typed.
 	f := formFromMonitor(store.Monitor{IntervalSeconds: 30, TimeoutMS: 500, RetryDelayMS: 5000},
-		store.HTTPConfig{Headers: `[{"name":"A","value":"1"}]`, TLSWarningDays: "[30,7]", MaxBodyBytes: 1 << 20}, []string{"a", "b"})
+		monitorConfig{HTTP: store.HTTPConfig{Headers: `[{"name":"A","value":"1"}]`, TLSWarningDays: "[30,7]", MaxBodyBytes: 1 << 20}}, []string{"a", "b"})
 	if f.Timeout != "0.5" || f.Headers != "A: 1" || f.TLSDays != "30, 7" || f.MaxBodyKiB != "1024" || f.Tags != "a, b" {
 		t.Errorf("form = %+v", f)
 	}

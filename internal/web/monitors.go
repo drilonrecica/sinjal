@@ -66,7 +66,7 @@ type viewInput struct {
 	Tags       []string
 	Latency    time.Duration
 	HasLatency bool
-	URL        string    // checked address, only read for admins
+	Target     string    // store.Target, only read for admins
 	Parent     string    // parent monitor's name
 	ParentDown bool      // the parent monitor is down
 	Recent     []float64 // durations for the sparkline; the detail header only
@@ -105,7 +105,7 @@ func monitorView(m store.Monitor, in viewInput, now time.Time) templates.Monitor
 		v.LastCheck = formatSince(now.Sub(*m.LastCheckAt)) + " ago"
 	}
 	if in.Admin {
-		v.Target = targetSummary(in.URL)
+		v.Target = targetSummary(m.Type, in.Target)
 	}
 	return v
 }
@@ -121,9 +121,22 @@ func displayState(m store.Monitor) string {
 	return m.State
 }
 
-// targetSummary is scheme://host of a checked address: no credentials, path
-// or query, which may carry secrets (docs/13_AUTH_SECURITY.md).
-func targetSummary(raw string) string {
+// targetSummary is what the list shows of a monitor's target (raw is
+// store.Target): scheme://host of an HTTP address, without credentials,
+// path or query, which may carry secrets (docs/13_AUTH_SECURITY.md);
+// host:port, host or "hostname TYPE" as stored; a heartbeat monitor's
+// source label, or "push" without one. Never a heartbeat token.
+func targetSummary(typ, raw string) string {
+	switch typ {
+	case store.TypeHTTP:
+	case store.TypeHeartbeat:
+		if raw == "" {
+			return "push"
+		}
+		return raw
+	default:
+		return raw
+	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return ""
@@ -194,7 +207,7 @@ func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, e
 	monitors, err := store.ListMonitors(ctx, q)
 	var tags map[string][]string
 	var latencies map[string]time.Duration
-	var urls map[string]string
+	var targets map[string]string
 	if err == nil {
 		tags, err = store.TagsByMonitor(ctx, q)
 	}
@@ -202,7 +215,7 @@ func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, e
 		latencies, err = store.LastDurations(ctx, q)
 	}
 	if err == nil && admin {
-		urls, err = store.HTTPURLs(ctx, q)
+		targets, err = store.Targets(ctx, q)
 	}
 	if err != nil {
 		return nil, err
@@ -218,7 +231,7 @@ func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, e
 	for _, m := range monitors {
 		d, ok := latencies[m.ID]
 		out = append(out, monitorView(m, viewInput{
-			Tags: tags[m.ID], Latency: d, HasLatency: ok, URL: urls[m.ID],
+			Tags: tags[m.ID], Latency: d, HasLatency: ok, Target: targets[m.ID],
 			Parent: names[m.ParentMonitorID], ParentDown: down[m.ParentMonitorID], Admin: admin,
 		}, now))
 	}
@@ -240,12 +253,10 @@ func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.Mo
 	if in.Latency, in.HasLatency, err = store.LastDuration(ctx, q, id); err != nil {
 		return m, templates.MonitorView{}, err
 	}
-	if in.Admin && m.Type == "http" {
-		cfg, err := store.GetHTTPConfig(ctx, q, id)
-		if err != nil {
+	if in.Admin {
+		if in.Target, err = store.Target(ctx, q, id); err != nil {
 			return m, templates.MonitorView{}, err
 		}
-		in.URL = cfg.URL
 	}
 	if in.Recent, err = store.RecentDurations(ctx, q, id, sparklinePoints); err != nil {
 		return m, templates.MonitorView{}, err

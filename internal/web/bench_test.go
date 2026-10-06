@@ -19,9 +19,9 @@ func BenchmarkMonitorListPage(b *testing.B) {
 
 	ids := make([]string, 1000)
 	for i := range ids {
-		id, err := store.CreateHTTPMonitor(b.Context(), e.db, store.HTTPMonitor{
+		id, err := store.CreateMonitor(b.Context(), e.db, store.MonitorInput{
 			Name: fmt.Sprintf("monitor %04d", i), Enabled: true, Tags: []string{"prod", fmt.Sprintf("group-%d", i%20)},
-			Config: store.HTTPConfig{URL: fmt.Sprintf("https://host%04d.example.com/health", i), FollowRedirects: true},
+			HTTP: store.HTTPConfig{URL: fmt.Sprintf("https://host%04d.example.com/health", i), FollowRedirects: true},
 		}, monitorsNow)
 		if err != nil {
 			b.Fatal(err)

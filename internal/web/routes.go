@@ -86,7 +86,7 @@ func Routes(r chi.Router, app App) {
 				RegisterSettingsAuth(r, settingsAuth, recentAuth)
 				RegisterPasskeyRegistration(r, passkeys, recentAuth)
 				RegisterSettingsSystem(r, system) // read-only, but shows client addresses
-				RegisterMonitorChanges(r, monitors)
+				RegisterMonitorChanges(r, monitors, recentAuth)
 				RegisterMaintenanceChanges(r, maint)
 				RegisterIncidentChanges(r, incidents)
 			})

@@ -11,31 +11,20 @@ import (
 	"github.com/drilonrecica/sinjal/internal/store"
 )
 
-// addHeartbeat inserts a heartbeat monitor (no create form until M4-06) and
-// returns its id and token. Its interval is long, so only beats change it.
+// addHeartbeat adds a heartbeat monitor and returns its id and token. Its
+// interval is long, so only beats change it.
 func (e *appEnv) addHeartbeat(t *testing.T) (string, string) {
 	t.Helper()
-	id, err := store.CreateHTTPMonitor(context.Background(), e.db, store.HTTPMonitor{
-		Name: "job", Enabled: true, Config: store.HTTPConfig{URL: "http://job.invalid"},
-	}, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
 	token, hash, err := store.NewHeartbeatToken()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, q := range []struct {
-		sql  string
-		args []any
-	}{
-		{`UPDATE monitors SET type = 'heartbeat' WHERE id = ?`, []any{id}},
-		{`DELETE FROM http_monitor_config WHERE monitor_id = ?`, []any{id}},
-		{`INSERT INTO heartbeat_monitor_config (monitor_id, token_hash, expected_interval_seconds) VALUES (?, ?, 3600)`, []any{id, hash}},
-	} {
-		if _, err := e.db.Writer.Exec(q.sql, q.args...); err != nil {
-			t.Fatal(err)
-		}
+	id, err := store.CreateMonitor(context.Background(), e.db, store.MonitorInput{
+		Type: store.TypeHeartbeat, Name: "job", Enabled: true,
+		Heartbeat: store.HeartbeatSettings{ExpectedIntervalSeconds: 3600, TokenHash: hash},
+	}, time.Now())
+	if err != nil {
+		t.Fatal(err)
 	}
 	return id, token
 }

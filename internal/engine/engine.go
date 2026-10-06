@@ -17,6 +17,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/incident"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/monitor/httpcheck"
+	"github.com/drilonrecica/sinjal/internal/monitor/icmpcheck"
 	"github.com/drilonrecica/sinjal/internal/results"
 	"github.com/drilonrecica/sinjal/internal/scheduler"
 	"github.com/drilonrecica/sinjal/internal/store"
@@ -31,13 +32,14 @@ const (
 	startWindow = 10 * time.Second
 )
 
-// Engine owns the scheduler, the worker pool, the result processor and the
-// HTTP transports.
+// Engine owns the scheduler, the worker pool, the result processor, the
+// HTTP transports and the ICMP pinger.
 type Engine struct {
 	db   *db.DB
 	key  *vault.Key
 	log  *slog.Logger
 	http *httpcheck.Pool
+	icmp *icmpcheck.Pinger
 	sch  *scheduler.Scheduler
 	pool *scheduler.Pool
 	proc *results.Processor
@@ -73,6 +75,7 @@ func New(d *db.DB, key *vault.Key, workers int, userAgent string, loc *time.Loca
 		key:       key,
 		log:       logging.Sub(logger, "engine"),
 		http:      httpcheck.NewPool(userAgent),
+		icmp:      icmpcheck.New(),
 		updated:   updated,
 		incidents: incidents,
 		done:      make(chan struct{}),
@@ -258,8 +261,8 @@ func (e *Engine) run(ctx context.Context, id string) (results.Result, bool) {
 	if err == nil && m.State == string(incident.Paused) {
 		return results.Result{}, false
 	}
-	if err == nil && m.Type == "heartbeat" {
-		return e.heartbeat(ctx, m, started)
+	if err == nil && m.Type != store.TypeHTTP {
+		return e.runOther(ctx, m, started)
 	}
 	var c store.HTTPConfig
 	if err == nil {

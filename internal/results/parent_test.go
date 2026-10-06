@@ -12,7 +12,7 @@ import (
 // child creates a monitor that depends on parent.
 func child(t *testing.T, d *db.DB, name, parent string) string {
 	t.Helper()
-	return newMonitor(t, d, name, func(m *store.HTTPMonitor) { m.ParentMonitorID = parent })
+	return newMonitor(t, d, name, func(m *store.MonitorInput) { m.ParentMonitorID = parent })
 }
 
 // intentsOf is intentList for one monitor.

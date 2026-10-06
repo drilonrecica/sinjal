@@ -12,8 +12,11 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/drilonrecica/sinjal/internal/audit"
+	"github.com/drilonrecica/sinjal/internal/engine"
 	"github.com/drilonrecica/sinjal/internal/monitor"
+	"github.com/drilonrecica/sinjal/internal/monitor/dnscheck"
 	"github.com/drilonrecica/sinjal/internal/monitor/httpcheck"
+	"github.com/drilonrecica/sinjal/internal/monitor/icmpcheck"
 	"github.com/drilonrecica/sinjal/internal/store"
 	"github.com/drilonrecica/sinjal/internal/web/sse"
 	"github.com/drilonrecica/sinjal/web/templates"
@@ -48,8 +51,17 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 	now := h.now()
 	switch v.Tab {
 	case "overview":
-		v.Overview = overviewFacts(m, now)
-		v.History, err = h.historyView(r, m, false)
+		var hb *store.HeartbeatConfig
+		if m.Type == store.TypeHeartbeat {
+			var c store.HeartbeatConfig
+			if c, err = store.GetHeartbeatConfig(ctx, q, id); err == nil {
+				hb = &c
+			}
+		}
+		if err == nil {
+			v.Overview = overviewFacts(m, hb, now)
+			v.History, err = h.historyView(r, m, false)
+		}
 	case "history":
 		v.History, err = h.historyView(r, m, true)
 	case "incidents":
@@ -71,19 +83,34 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 }
 
 // overviewFacts are the facts under the header that do not change with
-// every check.
-func overviewFacts(m store.Monitor, now time.Time) []templates.Fact {
+// every check. hb is the config of a heartbeat monitor, nil for the other
+// types: it is not checked on an interval but expects beats.
+func overviewFacts(m store.Monitor, hb *store.HeartbeatConfig, now time.Time) []templates.Fact {
 	ago := func(t *time.Time) string {
 		if t == nil {
 			return "never"
 		}
 		return formatSince(now.Sub(*t)) + " ago"
 	}
-	fs := []templates.Fact{
-		{Label: "Checked every", Value: formatSince(time.Duration(m.IntervalSeconds) * time.Second)},
-		{Label: "Last success", Value: ago(m.LastSuccessAt)},
-		{Label: "Last failure", Value: ago(m.LastFailureAt)},
+	var fs []templates.Fact
+	if hb != nil {
+		late := hb.Deadline()
+		lateAt := "in " + formatSince(late.Sub(now))
+		if !late.After(now) {
+			lateAt = formatSince(now.Sub(late)) + " ago"
+		}
+		fs = append(fs,
+			templates.Fact{Label: "Expects a beat every", Value: formatSince(hb.ExpectedInterval) + graceNote(hb.Grace)},
+			templates.Fact{Label: "Last beat", Value: ago(hb.LastBeatAt)},
+			templates.Fact{Label: "Late after", Value: late.UTC().Format("2006-01-02 15:04:05") + " UTC (" + lateAt + ")"},
+		)
+	} else {
+		fs = append(fs, templates.Fact{Label: "Checked every", Value: formatSince(time.Duration(m.IntervalSeconds) * time.Second)})
 	}
+	fs = append(fs,
+		templates.Fact{Label: "Last success", Value: ago(m.LastSuccessAt)},
+		templates.Fact{Label: "Last failure", Value: ago(m.LastFailureAt)},
+	)
 	if m.TLSNotAfter != nil {
 		days := int(math.Floor(m.TLSNotAfter.Sub(now).Hours() / 24))
 		when := "expired"
@@ -93,6 +120,14 @@ func overviewFacts(m store.Monitor, now time.Time) []templates.Fact {
 		fs = append(fs, templates.Fact{Label: "Certificate expires", Value: m.TLSNotAfter.UTC().Format("2006-01-02") + " (" + when + ")"})
 	}
 	return append(fs, templates.Fact{Label: "Created", Value: m.CreatedAt.UTC().Format("2006-01-02")})
+}
+
+// graceNote is ", grace 5m" for a heartbeat's grace period, "" for none.
+func graceNote(d time.Duration) string {
+	if d <= 0 {
+		return ""
+	}
+	return ", grace " + formatSince(d)
 }
 
 func plural(n int, unit string) string {
@@ -116,18 +151,45 @@ func (h *Monitors) configGroups(r *http.Request, m store.Monitor, parent string,
 		return s
 	}
 	seconds := func(ms int) string { return formatSeconds(ms) + " s" }
-	gs := []templates.ConfigGroup{{Title: "Checking", Facts: []templates.Fact{
-		{Label: "Type", Value: strings.ToUpper(m.Type)},
-		{Label: "Interval", Value: strconv.Itoa(m.IntervalSeconds) + " s"},
-		{Label: "Timeout", Value: seconds(m.TimeoutMS)},
+	checking := []templates.Fact{{Label: "Type", Value: templates.TypeLabel(m.Type)}}
+	var hb store.HeartbeatConfig
+	if m.Type == store.TypeHeartbeat {
+		if hb, err = store.GetHeartbeatConfig(ctx, q, m.ID); err != nil {
+			return nil, err
+		}
+		checking = append(checking,
+			templates.Fact{Label: "Expected every", Value: strconv.Itoa(int(hb.ExpectedInterval.Seconds())) + " s"},
+			templates.Fact{Label: "Grace period", Value: strconv.Itoa(int(hb.Grace.Seconds())) + " s"},
+		)
+	} else {
+		checking = append(checking,
+			templates.Fact{Label: "Interval", Value: strconv.Itoa(m.IntervalSeconds) + " s"},
+			templates.Fact{Label: "Timeout", Value: seconds(m.TimeoutMS)},
+		)
+	}
+	gs := []templates.ConfigGroup{{Title: "Checking", Facts: append(checking, []templates.Fact{
 		{Label: "Failures before down", Value: strconv.Itoa(m.FailureThreshold)},
 		{Label: "Retry delay", Value: seconds(m.RetryDelayMS)},
 		{Label: "Successes before up", Value: strconv.Itoa(m.SuccessThreshold)},
 		{Label: "Depends on", Value: orNone(parent, "Nothing")},
 		{Label: "Tags", Value: orNone(strings.Join(tags, ", "), "None")},
-	}}}
-	if !admin || m.Type != "http" {
+	}...)}}
+	if !admin {
 		return gs, nil
+	}
+	switch m.Type {
+	case store.TypeHTTP:
+	case store.TypeHeartbeat:
+		return append(gs, templates.ConfigGroup{Title: "Heartbeat", Facts: []templates.Fact{
+			{Label: "Source label", Value: orNone(hb.SourceLabel, "None")},
+			{Label: "Push URL", Value: "Shown only when issued"},
+		}}), nil
+	default:
+		cfg, err := loadConfig(ctx, q, m)
+		if err != nil {
+			return nil, err
+		}
+		return append(gs, targetGroup(m.Type, cfg)), nil
 	}
 
 	c, err := store.GetHTTPConfig(ctx, q, m.ID)
@@ -198,6 +260,37 @@ func (h *Monitors) configGroups(r *http.Request, m store.Monitor, parent string,
 	), nil
 }
 
+// targetGroup is the Configuration group of a TCP, ICMP or DNS monitor.
+func targetGroup(typ string, c monitorConfig) templates.ConfigGroup {
+	switch typ {
+	case store.TypeTCP:
+		return templates.ConfigGroup{Title: "Target", Facts: []templates.Fact{
+			{Label: "Host", Value: c.TCP.Host},
+			{Label: "Port", Value: strconv.Itoa(c.TCP.Port)},
+		}}
+	case store.TypeICMP:
+		return templates.ConfigGroup{Title: "Target", Facts: []templates.Fact{{Label: "Host", Value: c.ICMP.Host}}}
+	}
+	d := c.DNS
+	resolver, expected, match := d.Resolver, strings.Join(d.Expected, "; "), "Every expected value"
+	if resolver == "" {
+		resolver = "This server's own"
+	}
+	if expected == "" {
+		expected = "None: any answer counts"
+	}
+	if d.MatchMode == "any" {
+		match = "At least one expected value"
+	}
+	return templates.ConfigGroup{Title: "Query", Facts: []templates.Fact{
+		{Label: "Host name", Value: d.Hostname},
+		{Label: "Record type", Value: d.QueryType},
+		{Label: "Resolver", Value: resolver},
+		{Label: "Expected values", Value: expected},
+		{Label: "Match", Value: match},
+	}}
+}
+
 // failureKinds are the readable names of the stored failure kinds.
 var failureKinds = map[string]string{
 	httpcheck.KindTimeout:       "Timeout",
@@ -210,6 +303,12 @@ var failureKinds = map[string]string{
 	httpcheck.KindJSONParse:     "Invalid JSON",
 	httpcheck.KindProtocol:      "Protocol",
 	httpcheck.KindUnknown:       "Other",
+	icmpcheck.KindPermission:    "Permission",
+	dnscheck.KindNXDomain:       "No such name",
+	dnscheck.KindNoAnswer:       "No such record",
+	dnscheck.KindMismatch:       "Unexpected answer",
+	dnscheck.KindError:          "DNS error",
+	engine.KindHeartbeatMissed:  "Missed heartbeat",
 }
 
 // failureView formats one failed check. The message and the snippet are

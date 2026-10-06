@@ -11,9 +11,9 @@ import (
 	"github.com/drilonrecica/sinjal/internal/db"
 )
 
-func create(t testing.TB, d *db.DB, in HTTPMonitor) string {
+func create(t testing.TB, d *db.DB, in MonitorInput) string {
 	t.Helper()
-	id, err := CreateHTTPMonitor(context.Background(), d, in, now)
+	id, err := CreateMonitor(context.Background(), d, in, now)
 	if err != nil {
 		t.Fatal(err)
 	}

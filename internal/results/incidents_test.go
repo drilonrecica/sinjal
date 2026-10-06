@@ -129,7 +129,7 @@ func TestIncidentLifecycle(t *testing.T) {
 func TestIncidentWithThresholdOne(t *testing.T) {
 	d, _ := testDB(t)
 	h := newHarness(t, d).run()
-	id := newMonitor(t, d, "web", func(m *store.HTTPMonitor) { m.FailureThreshold = 1 })
+	id := newMonitor(t, d, "web", func(m *store.MonitorInput) { m.FailureThreshold = 1 })
 	h.feed(ok(id, 1), failWith(id, 2, "dns", "no such host"))
 	same(t, "incidents", incidents(t, d, id), []string{"2 - dns no such host"})
 	same(t, "events", events(t, d, id), []string{"detected 2 no such host", "declared_down 2 no such host"})
@@ -152,7 +152,7 @@ func TestBlipOpensNoIncident(t *testing.T) {
 func TestIncidentClosesAtTheSuccessThreshold(t *testing.T) {
 	d, _ := testDB(t)
 	h := newHarness(t, d).run()
-	id := newMonitor(t, d, "web", func(m *store.HTTPMonitor) { m.FailureThreshold, m.SuccessThreshold = 3, 2 })
+	id := newMonitor(t, d, "web", func(m *store.MonitorInput) { m.FailureThreshold, m.SuccessThreshold = 3, 2 })
 	h.feed(fail(id, 1), fail(id, 2), fail(id, 3))
 	same(t, "incidents", incidents(t, d, id), []string{"1 - http_status status 503, expected 200-399"})
 	h.feed(ok(id, 4), fail(id, 5), ok(id, 6))

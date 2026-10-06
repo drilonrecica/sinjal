@@ -1,0 +1,45 @@
+package templates
+
+// HeartbeatToken is the one-time view of a heartbeat monitor's push URL.
+type HeartbeatToken struct {
+	MonitorID   string
+	Name        string
+	URL         string // push URL with the token in the path
+	BearerURL   string // push URL for the bearer form
+	Token       string
+	Regenerated bool // a new token replaced an old one
+}
+
+// HeartbeatTokenPage shows a heartbeat push URL right after it was issued.
+// It is the only place the token ever appears. The copy buttons need
+// js/copy.js and stay hidden without it.
+templ HeartbeatTokenPage(page Page, t HeartbeatToken) {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/monitor_form.css"}, []string{"js/copy.js"}), "monitors") {
+		<div class="monitor-form-page token-page">
+			<p class="crumb"><a href="/monitors">Monitors</a></p>
+			<h1>Push URL for { t.Name }</h1>
+			<p role="status">
+				if t.Regenerated {
+					A new push URL was issued. The old one has stopped working.
+				} else {
+					The heartbeat monitor was created.
+				}
+			</p>
+			<p class="auth-alert">This is the only time the URL is shown: copy it now. If it is lost, regenerate it from the monitor's Configuration tab.</p>
+			<section class="form-section" aria-labelledby="push-title">
+				<h2 id="push-title">Send a beat</h2>
+				<div class="token-box">
+					<code id="push-url">{ t.URL }</code>
+					<button type="button" class="token-copy" data-copy="push-url" hidden>Copy URL</button>
+				</div>
+				<p class="auth-hint">A GET or POST to this address counts as a beat; POST is preferred. For example, at the end of the job:</p>
+				<pre class="token-example"><code>curl -fsS -m 10 -X POST { t.URL }</code></pre>
+				<p class="auth-hint">To keep the token out of URLs and logs, send it as a bearer token instead:</p>
+				<pre class="token-example"><code>curl -fsS -m 10 -X POST -H "Authorization: Bearer { t.Token }" { t.BearerURL }</code></pre>
+			</section>
+			<div class="form-actions">
+				<a class="auth-submit" href={ templ.SafeURL("/monitors/" + t.MonitorID) }>Go to the monitor</a>
+			</div>
+		</div>
+	}
+}

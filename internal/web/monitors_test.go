@@ -16,9 +16,9 @@ var monitorsNow = time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 // addMonitor creates an HTTP monitor and returns its id.
 func (e *appEnv) addMonitor(t *testing.T, name, url string, tags ...string) string {
 	t.Helper()
-	id, err := store.CreateHTTPMonitor(t.Context(), e.db, store.HTTPMonitor{
+	id, err := store.CreateMonitor(t.Context(), e.db, store.MonitorInput{
 		Name: name, Enabled: true, Tags: tags,
-		Config: store.HTTPConfig{URL: url, FollowRedirects: true},
+		HTTP: store.HTTPConfig{URL: url, FollowRedirects: true},
 	}, monitorsNow)
 	if err != nil {
 		t.Fatal(err)
@@ -140,8 +140,19 @@ func TestTargetSummary(t *testing.T) {
 		"://bad":                       "",
 		"https://example.com/\x7f":     "",
 	} {
-		if got := targetSummary(in); got != want {
+		if got := targetSummary("http", in); got != want {
 			t.Errorf("targetSummary(%q) = %q, want %q", in, got, want)
+		}
+	}
+	for _, c := range []struct{ typ, raw, want string }{
+		{"tcp", "db.internal:5432", "db.internal:5432"},
+		{"icmp", "192.0.2.1", "192.0.2.1"},
+		{"dns", "example.com MX", "example.com MX"},
+		{"heartbeat", "nightly backup", "nightly backup"},
+		{"heartbeat", "", "push"},
+	} {
+		if got := targetSummary(c.typ, c.raw); got != c.want {
+			t.Errorf("targetSummary(%s, %q) = %q, want %q", c.typ, c.raw, got, c.want)
 		}
 	}
 }
@@ -167,7 +178,7 @@ func TestFormatLatencyAndSince(t *testing.T) {
 
 func TestMonitorViewDefaults(t *testing.T) {
 	m := store.Monitor{ID: "m", Name: "n", Type: "http", Enabled: true, State: "pending", StateSince: monitorsNow}
-	v := monitorView(m, viewInput{Admin: true, URL: "https://x.example"}, monitorsNow.Add(90*time.Second))
+	v := monitorView(m, viewInput{Admin: true, Target: "https://x.example"}, monitorsNow.Add(90*time.Second))
 	if v.Latency != "—" || v.LastCheck != "never" || v.Uptime != "—" || v.Since != "1m" || v.Target != "https://x.example" {
 		t.Errorf("view = %+v", v)
 	}

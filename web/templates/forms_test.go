@@ -100,7 +100,7 @@ func TestSettingsNavigation(t *testing.T) {
 
 // testMonitorForm exercises every optional part of the monitor form.
 var testMonitorForm = MonitorForm{
-	ID: "m1", Name: "API <b>", URL: "https://example.com", Method: "POST", Auth: "basic", HasBasic: true,
+	ID: "m1", Type: "http", Name: "API <b>", URL: "https://example.com", Method: "POST", Auth: "basic", HasBasic: true,
 	SecretHeaders: []string{"X-Api-Key"}, Parents: []Option{{"m2", "DB"}}, Parent: "m2",
 	Assertions: []AssertionField{{Path: "$.a", Op: "equals", Value: `"ok"`}, {}},
 	Errors:     map[string]string{"name": "Enter a name.", "proxy_url": "bad", "secret_headers": "bad", "form": "x"},
@@ -133,7 +133,43 @@ func TestMonitorFormPage(t *testing.T) {
 			t.Errorf("a secret input has a value: %s", in)
 		}
 	}
-	if html := renderString(t, MonitorFormPage(page, MonitorForm{})); strings.Contains(html, "summary-title") || strings.Contains(html, "form-advanced\" open") {
+	if html := renderString(t, MonitorFormPage(page, MonitorForm{Type: "http"})); strings.Contains(html, "summary-title") || strings.Contains(html, "form-advanced\" open") {
 		t.Error("a clean form shows errors or an open Advanced section")
+	}
+}
+
+// Each type shows its own target fields and none of the HTTP ones; the
+// type is chosen by links on create and fixed on edit.
+func TestMonitorFormTypes(t *testing.T) {
+	page := NewPage("t", "", "")
+	for typ, want := range map[string][]string{
+		"tcp":       {`id="host"`, `id="port"`},
+		"icmp":      {`id="host"`, "permission error"},
+		"dns":       {`id="hostname"`, `id="query_type"`, `id="resolver"`, `id="expected"`, `id="match_mode"`},
+		"heartbeat": {`id="expected_interval"`, `id="grace"`, `id="source_label"`, "shown once"},
+	} {
+		html := renderString(t, MonitorFormPage(page, MonitorForm{Type: typ}))
+		for _, w := range append(want, `name="type" value="`+typ+`"`, `href="/monitors/new?type=`+typ+`" aria-current="page"`) {
+			if !strings.Contains(html, w) {
+				t.Errorf("%s form lacks %q", typ, w)
+			}
+		}
+		for _, absent := range []string{`id="url"`, `id="expected_status"`, "form-advanced"} {
+			if strings.Contains(html, absent) {
+				t.Errorf("%s form has %q", typ, absent)
+			}
+		}
+		if typ == "heartbeat" && (strings.Contains(html, `id="interval"`) || strings.Contains(html, `id="timeout"`)) {
+			t.Error("heartbeat form has an interval or timeout")
+		}
+	}
+	html := renderString(t, MonitorFormPage(page, MonitorForm{ID: "m1", Type: "dns", QueryType: "MX", MatchMode: "any"}))
+	for _, w := range []string{`<p class="type-fixed">DNS</p>`, `<option value="MX" selected>`, `<option value="any" selected>`} {
+		if !strings.Contains(html, w) {
+			t.Errorf("dns edit form lacks %q", w)
+		}
+	}
+	if strings.Contains(html, `name="type"`) || strings.Contains(html, "type-switch") {
+		t.Error("the edit form offers a type change")
 	}
 }

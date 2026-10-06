@@ -52,16 +52,16 @@ func count(t *testing.T, d *db.DB, q string, args ...any) int {
 	return n
 }
 
-func sample(name string) HTTPMonitor {
-	return HTTPMonitor{Name: name, Enabled: true, Config: HTTPConfig{URL: "https://example.com/" + name, FollowRedirects: true, TLSExpiryEnabled: true}}
+func sample(name string) MonitorInput {
+	return MonitorInput{Name: name, Enabled: true, HTTP: HTTPConfig{URL: "https://example.com/" + name, FollowRedirects: true, TLSExpiryEnabled: true}}
 }
 
-func TestCreateHTTPMonitorAppliesDefaults(t *testing.T) {
+func TestCreateMonitorAppliesDefaults(t *testing.T) {
 	ctx := context.Background()
 	d := testDB(t)
 	in := sample("web")
 	in.Tags = []string{"prod", "edge"}
-	id, err := CreateHTTPMonitor(ctx, d, in, now)
+	id, err := CreateMonitor(ctx, d, in, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestCreateDisabledMonitorIsPaused(t *testing.T) {
 	d := testDB(t)
 	in := sample("off")
 	in.Enabled = false
-	id, err := CreateHTTPMonitor(context.Background(), d, in, now)
+	id, err := CreateMonitor(context.Background(), d, in, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,18 +110,18 @@ func TestCreateValidatesAndWritesNothingOnFailure(t *testing.T) {
 	d := testDB(t)
 	var fe FieldErrors
 	for name, c := range map[string]struct {
-		mod   func(*HTTPMonitor)
+		mod   func(*MonitorInput)
 		field string
 	}{
-		"no name":      {func(m *HTTPMonitor) { m.Name = "  " }, "name"},
-		"long name":    {func(m *HTTPMonitor) { m.Name = strings.Repeat("x", 101) }, "name"},
-		"no url":       {func(m *HTTPMonitor) { m.Config.URL = "" }, "url"},
-		"empty tag":    {func(m *HTTPMonitor) { m.Tags = []string{"ok", " "} }, "tags"},
-		"comma in tag": {func(m *HTTPMonitor) { m.Tags = []string{"a,b"} }, "tags"},
+		"no name":      {func(m *MonitorInput) { m.Name = "  " }, "name"},
+		"long name":    {func(m *MonitorInput) { m.Name = strings.Repeat("x", 101) }, "name"},
+		"no url":       {func(m *MonitorInput) { m.HTTP.URL = "" }, "url"},
+		"empty tag":    {func(m *MonitorInput) { m.Tags = []string{"ok", " "} }, "tags"},
+		"comma in tag": {func(m *MonitorInput) { m.Tags = []string{"a,b"} }, "tags"},
 	} {
 		in := sample("x")
 		c.mod(&in)
-		if _, err := CreateHTTPMonitor(ctx, d, in, now); !errors.As(err, &fe) || fe[c.field] == "" {
+		if _, err := CreateMonitor(ctx, d, in, now); !errors.As(err, &fe) || fe[c.field] == "" {
 			t.Errorf("%s: error = %v, want a %s field error", name, err, c.field)
 		}
 	}
@@ -140,12 +140,12 @@ func TestGetMonitorNotFound(t *testing.T) {
 	}
 }
 
-func TestUpdateHTTPMonitor(t *testing.T) {
+func TestUpdateMonitor(t *testing.T) {
 	ctx := context.Background()
 	d := testDB(t)
 	in := sample("web")
 	in.Tags = []string{"a", "b"}
-	id, _ := CreateHTTPMonitor(ctx, d, in, now)
+	id, _ := CreateMonitor(ctx, d, in, now)
 	if _, err := d.Writer.Exec(`UPDATE monitors SET current_state='up', last_check_at=? WHERE id=?`, formatTime(now), id); err != nil {
 		t.Fatal(err)
 	}
@@ -155,9 +155,9 @@ func TestUpdateHTTPMonitor(t *testing.T) {
 
 	later := now.Add(time.Hour)
 	up := sample("web2")
-	up.IntervalSeconds, up.Config.ExpectedStatus, up.Config.Headers = 60, "200", `[{"name":"X","value":"y"}]`
+	up.IntervalSeconds, up.HTTP.ExpectedStatus, up.HTTP.Headers = 60, "200", `[{"name":"X","value":"y"}]`
 	up.Tags = []string{"B", "c"} // "B" is the existing "b"
-	if err := UpdateHTTPMonitor(ctx, d, id, up, later); err != nil {
+	if err := UpdateMonitor(ctx, d, id, up, later); err != nil {
 		t.Fatal(err)
 	}
 	m, _ := GetMonitor(ctx, d.Reader, id)
@@ -178,7 +178,7 @@ func TestUpdateHTTPMonitor(t *testing.T) {
 	if !reflect.DeepEqual(tags, []string{"b", "c"}) {
 		t.Errorf("tags = %v, want unused tag a gone and b reused case-insensitively", tags)
 	}
-	if err := UpdateHTTPMonitor(ctx, d, "nope", up, later); !errors.Is(err, ErrNotFound) {
+	if err := UpdateMonitor(ctx, d, "nope", up, later); !errors.Is(err, ErrNotFound) {
 		t.Errorf("update of a missing monitor = %v", err)
 	}
 }
@@ -189,7 +189,7 @@ func TestDeleteMonitorCascades(t *testing.T) {
 	k := testKey(t, d)
 	in := sample("web")
 	in.Tags = []string{"t"}
-	id, _ := CreateHTTPMonitor(ctx, d, in, now)
+	id, _ := CreateMonitor(ctx, d, in, now)
 	if err := SetSecret(ctx, d, k, id, "auth.bearer", []byte("s3cret"), now); err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestListAndGetNeverTouchSecrets(t *testing.T) {
 	d := testDB(t)
 	k := testKey(t, d)
 	for _, n := range []string{"b", "A", "c"} {
-		id, err := CreateHTTPMonitor(ctx, d, sample(n), now)
+		id, err := CreateMonitor(ctx, d, sample(n), now)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -242,8 +242,8 @@ func TestListAndGetNeverTouchSecrets(t *testing.T) {
 func TestTags(t *testing.T) {
 	ctx := context.Background()
 	d := testDB(t)
-	a, _ := CreateHTTPMonitor(ctx, d, sample("a"), now)
-	b, _ := CreateHTTPMonitor(ctx, d, sample("b"), now)
+	a, _ := CreateMonitor(ctx, d, sample("a"), now)
+	b, _ := CreateMonitor(ctx, d, sample("b"), now)
 	if err := SetMonitorTags(ctx, d, a, []string{"prod", "Prod", " web "}); err != nil {
 		t.Fatal(err)
 	}
@@ -275,8 +275,8 @@ func TestSecrets(t *testing.T) {
 	ctx := context.Background()
 	d := testDB(t)
 	k := testKey(t, d)
-	a, _ := CreateHTTPMonitor(ctx, d, sample("a"), now)
-	b, _ := CreateHTTPMonitor(ctx, d, sample("b"), now)
+	a, _ := CreateMonitor(ctx, d, sample("a"), now)
+	b, _ := CreateMonitor(ctx, d, sample("b"), now)
 
 	if err := SetSecret(ctx, d, k, a, "auth.bearer", []byte("hunter2"), now); err != nil {
 		t.Fatal(err)
@@ -328,8 +328,8 @@ func TestSecretsDecryptsAllForExecutor(t *testing.T) {
 	ctx := context.Background()
 	d := testDB(t)
 	k := testKey(t, d)
-	id, _ := CreateHTTPMonitor(ctx, d, sample("a"), now)
-	other, _ := CreateHTTPMonitor(ctx, d, sample("b"), now)
+	id, _ := CreateMonitor(ctx, d, sample("a"), now)
+	other, _ := CreateMonitor(ctx, d, sample("b"), now)
 	_ = SetSecret(ctx, d, k, id, "auth.basic", []byte("u:p"), now)
 	_ = SetSecret(ctx, d, k, id, "header.X-Api-Key", []byte("k1"), now)
 	_ = SetSecret(ctx, d, k, other, "auth.bearer", []byte("not mine"), now)
@@ -345,15 +345,15 @@ func TestSecretsDecryptsAllForExecutor(t *testing.T) {
 	}
 }
 
-func TestHTTPURLs(t *testing.T) {
+func TestTargets(t *testing.T) {
 	d := testDB(t)
 	a := create(t, d, sample("a"))
 	b := create(t, d, sample("b"))
-	got, err := HTTPURLs(context.Background(), d.Reader)
+	got, err := Targets(context.Background(), d.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 2 || got[a] != "https://example.com/a" || got[b] != "https://example.com/b" {
-		t.Errorf("HTTPURLs = %v", got)
+		t.Errorf("Targets = %v", got)
 	}
 }

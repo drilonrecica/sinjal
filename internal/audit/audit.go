@@ -34,10 +34,11 @@ const (
 	ViewerDisabled = "user.viewer_disabled"
 	ViewerEnabled  = "user.viewer_enabled"
 
-	MonitorCreated = "monitor.created"
-	MonitorDeleted = "monitor.deleted"
-	MonitorPaused  = "monitor.paused"
-	MonitorResumed = "monitor.resumed"
+	MonitorCreated          = "monitor.created"
+	MonitorDeleted          = "monitor.deleted"
+	MonitorPaused           = "monitor.paused"
+	MonitorResumed          = "monitor.resumed"
+	MonitorTokenRegenerated = "monitor.heartbeat_token_regenerated"
 
 	MaintenanceCreated = "maintenance.created"
 	MaintenanceUpdated = "maintenance.updated"

@@ -280,7 +280,7 @@ State:
 Do not store arbitrary heartbeat payloads in v1.
 
 Implementation (M4-05):
-- token: 32 random bytes, base64url without padding (43 characters); only its SHA-256 is stored (`heartbeat_monitor_config.token_hash`). `store.SetHeartbeatToken` issues a new one and the old one stops working at once; the admin routes that reveal it once (create, regenerate with re-authentication) come with the form (M4-06)
+- token: 32 random bytes, base64url without padding (43 characters); only its SHA-256 is stored (`heartbeat_monitor_config.token_hash`). `store.SetHeartbeatToken` issues a new one and the old one stops working at once. The token is revealed once: in the response to the create (`POST /monitors`) and to `POST /monitors/{id}/heartbeat/token` (regenerate, recent re-authentication), M4-06
 - endpoint: `GET|POST /api/v1/heartbeat/{token}`, or `POST /api/v1/heartbeat` with `Authorization: Bearer <token>`; `204` when recorded, `404` for an unknown token, `429` (with `Retry-After`) over 60 requests a minute from one client address, failed guesses included. The body is never read; the access log records the route pattern, never the token
 - a beat stores `last_beat_at`, hands a successful result to the result processor (so state, incidents and notifications follow the usual rules) and moves the monitor's deadline job a period ahead. A paused monitor's beat is recorded and changes nothing else
 - deadline: a period (`expected interval + grace`) after the last beat, or after the monitor was created or last resumed when that is later, so a beat from before a pause does not make a resumed monitor late at once

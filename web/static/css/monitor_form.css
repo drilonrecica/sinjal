@@ -168,3 +168,77 @@
     border-bottom: 1px dashed var(--border);
   }
 }
+
+/* Type choice on the create page: links, so it works without JavaScript. */
+.type-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.type-switch a {
+  min-height: 2.75rem; /* touch target */
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.type-switch a:hover {
+  border-color: var(--accent);
+}
+
+.type-switch a[aria-current="page"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  font-weight: 650;
+}
+
+.type-fixed {
+  margin: 0;
+}
+
+/* One-time heartbeat push URL. */
+.token-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.token-box code,
+.token-example {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.token-box code {
+  flex: 1 1 20rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.token-copy {
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.token-example {
+  margin: 0;
+  padding: var(--space-3);
+  white-space: pre-wrap;
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
+}

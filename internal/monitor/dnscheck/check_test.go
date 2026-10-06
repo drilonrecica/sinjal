@@ -3,6 +3,7 @@ package dnscheck
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -469,11 +470,48 @@ func TestValidate(t *testing.T) {
 		{with(func(c *Config) { c.QueryType = "MX"; c.Expected = []string{"1 2 3"} }), false},
 		{with(func(c *Config) { c.QueryType = "TXT"; c.Expected = []string{""} }), false},
 		{with(func(c *Config) { c.QueryType = "TXT"; c.Expected = []string{strings.Repeat("x", maxTXT+1)} }), false},
-		{with(func(c *Config) { c.Expected = make([]string, MaxExpected+1) }), false},
+		{with(func(c *Config) { c.Expected = ips(MaxExpected + 1) }), false},
+		{with(func(c *Config) { c.Expected = append(ips(MaxExpected), "192.0.2.1") }), true},
 	}
 	for i, c := range cases {
 		if err := c.cfg.Validate(); (err == nil) != c.valid {
 			t.Errorf("case %d (%+v): %v", i, c.cfg, err)
 		}
+	}
+}
+
+// ips returns n distinct IPv4 addresses.
+func ips(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = fmt.Sprintf("192.0.2.%d", i+1)
+	}
+	return out
+}
+
+func TestNormalizeExpected(t *testing.T) {
+	cases := []struct {
+		qtype string
+		in    []string
+		want  []string
+	}{
+		{"A", []string{"192.0.2.1", " 192.0.2.1 ", "192.0.2.2"}, []string{"192.0.2.1", "192.0.2.2"}},
+		{"AAAA", []string{"2001:DB8::1", "2001:db8:0::1"}, []string{"2001:db8::1"}},
+		{"CNAME", []string{"Target.Example.com.", "target.example.com"}, []string{"target.example.com"}},
+		{"MX", []string{"MX.example.com", "10 mx.example.com", "mx.example.com."}, []string{"mx.example.com", "10 mx.example.com"}},
+		{"TXT", []string{"v=spf1", "V=SPF1", "v=spf1"}, []string{"v=spf1", "V=SPF1"}},
+		{"NS", nil, []string{}},
+	}
+	for _, c := range cases {
+		got, err := NormalizeExpected(c.qtype, c.in)
+		if err != nil || !slices.Equal(got, c.want) {
+			t.Errorf("%s %q: got %q, %v; want %q", c.qtype, c.in, got, err, c.want)
+		}
+	}
+	if _, err := NormalizeExpected("SOA", nil); err == nil {
+		t.Error("SOA accepted")
+	}
+	if _, err := NormalizeExpected("A", ips(MaxExpected+1)); err == nil {
+		t.Error("21 distinct values accepted")
 	}
 }

@@ -76,14 +76,14 @@ func newEnv(t *testing.T) *env {
 
 // monitor creates an enabled HTTP monitor for url: thresholds 2 and 1, a
 // 20 ms retry delay and the default 30 s interval, after applying edit.
-func (e *env) monitor(name, url string, edit func(*store.HTTPMonitor)) string {
+func (e *env) monitor(name, url string, edit func(*store.MonitorInput)) string {
 	e.t.Helper()
-	in := store.HTTPMonitor{Name: name, Enabled: true, RetryDelayMS: 20, TimeoutMS: 5000,
-		Config: store.HTTPConfig{URL: url, FollowRedirects: true, TLSExpiryEnabled: true}}
+	in := store.MonitorInput{Name: name, Enabled: true, RetryDelayMS: 20, TimeoutMS: 5000,
+		HTTP: store.HTTPConfig{URL: url, FollowRedirects: true, TLSExpiryEnabled: true}}
 	if edit != nil {
 		edit(&in)
 	}
-	id, err := store.CreateHTTPMonitor(context.Background(), e.d, in, created)
+	id, err := store.CreateMonitor(context.Background(), e.d, in, created)
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestStartChecksEnabledMonitors(t *testing.T) {
 	e := newEnv(t)
 	a, b, off := newTarget(t), newTarget(t), newTarget(t)
 	ida, idb := e.monitor("a", a.URL, nil), e.monitor("b", b.URL, nil)
-	idOff := e.monitor("off", off.URL, func(m *store.HTTPMonitor) { m.Enabled = false })
+	idOff := e.monitor("off", off.URL, func(m *store.MonitorInput) { m.Enabled = false })
 
 	r := e.start()
 	eventually(t, "both monitors to be up", func() bool {
@@ -430,7 +430,7 @@ func TestShutdownDropsACancelledCheck(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	url, entered, _ := blockingTarget(t)
-	id := e.monitor("slow", url, func(m *store.HTTPMonitor) { m.FailureThreshold = 1 })
+	id := e.monitor("slow", url, func(m *store.MonitorInput) { m.FailureThreshold = 1 })
 
 	r := e.start()
 	<-entered
@@ -467,7 +467,7 @@ func TestUnusableConfigIsAFailedCheck(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	tg := newTarget(t)
-	id := e.monitor("broken", tg.URL, func(m *store.HTTPMonitor) { m.FailureThreshold = 1 })
+	id := e.monitor("broken", tg.URL, func(m *store.MonitorInput) { m.FailureThreshold = 1 })
 	e.exec(`UPDATE http_monitor_config SET headers_json = 'nope' WHERE monitor_id = ?`, id)
 
 	e.start()
@@ -489,8 +489,8 @@ func TestUnreadableSecretIsAFailedCheck(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	tg := newTarget(t)
-	id := e.monitor("locked", tg.URL, func(m *store.HTTPMonitor) { m.FailureThreshold = 1 })
-	other := e.monitor("other", tg.URL, func(m *store.HTTPMonitor) { m.Enabled = false })
+	id := e.monitor("locked", tg.URL, func(m *store.MonitorInput) { m.FailureThreshold = 1 })
+	other := e.monitor("other", tg.URL, func(m *store.MonitorInput) { m.Enabled = false })
 	if err := store.SetSecret(context.Background(), e.d, e.key, other, "auth.bearer", []byte("s3cret-token"), created); err != nil {
 		t.Fatal(err)
 	}
@@ -516,8 +516,8 @@ func TestCheckSendsSecrets(t *testing.T) {
 		auth.Store(r.Header.Get("Authorization") + "|" + r.Header.Get("X-Plain") + "|" + r.UserAgent())
 	}))
 	t.Cleanup(srv.Close)
-	id := e.monitor("auth", srv.URL, func(m *store.HTTPMonitor) {
-		m.Config.Headers = `[{"name":"X-Plain","value":"yes"}]`
+	id := e.monitor("auth", srv.URL, func(m *store.MonitorInput) {
+		m.HTTP.Headers = `[{"name":"X-Plain","value":"yes"}]`
 	})
 	if err := store.SetSecret(context.Background(), e.d, e.key, id, "auth.bearer", []byte("tok"), created); err != nil {
 		t.Fatal(err)
@@ -611,7 +611,7 @@ func TestChangesAreAnnounced(t *testing.T) {
 	e := newEnv(t)
 	tg := newTarget(t)
 	id := e.monitor("api", tg.URL, nil)
-	other := e.monitor("other", tg.URL, func(m *store.HTTPMonitor) { m.Enabled = false })
+	other := e.monitor("other", tg.URL, func(m *store.MonitorInput) { m.Enabled = false })
 
 	r := e.start()
 	eventually(t, "the first result to be announced", func() bool { return e.announced(id) == 1 })
@@ -706,7 +706,7 @@ func TestSchedule(t *testing.T) {
 	eventually(t, "the paused monitor off the schedule", func() bool { return r.sch.Len() == 0 })
 
 	// Created disabled: never scheduled.
-	off := e.monitor("off", tg.URL, func(m *store.HTTPMonitor) { m.Enabled = false })
+	off := e.monitor("off", tg.URL, func(m *store.MonitorInput) { m.Enabled = false })
 	if err := r.Schedule(ctx, off); err != nil {
 		t.Fatal(err)
 	}

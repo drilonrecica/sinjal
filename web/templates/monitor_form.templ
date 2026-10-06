@@ -31,11 +31,30 @@ templ MonitorFormPage(page Page, f MonitorForm) {
 				@CSRFField(page)
 				<fieldset class="form-section">
 					<legend>Basics</legend>
-					@field("type", "Type", f.Errors) {
-						<select id="type" name="type" aria-describedby="type-hint">
-							<option value="http" selected>HTTP(S)</option>
-						</select>
-						<p id="type-hint" class="auth-hint">TCP, ping, DNS and heartbeat monitors come later.</p>
+					if f.Editing() {
+						<div class="form-group">
+							<p class="form-group-title">Type</p>
+							<p class="type-fixed">{ TypeLabel(f.Type) }</p>
+						</div>
+					} else {
+						<input type="hidden" name="type" value={ f.Type }/>
+						<div class="form-group" role="group" aria-labelledby="type-title">
+							<p id="type-title" class="form-group-title">Type</p>
+							<nav id="type" class="type-switch" aria-labelledby="type-title">
+								for _, t := range MonitorTypes {
+									<a
+										href={ templ.SafeURL("/monitors/new?type=" + t.Value) }
+										if f.Type == t.Value {
+											aria-current="page"
+										}
+									>{ t.Label }</a>
+								}
+							</nav>
+							<p class="auth-hint">Choose the type first: switching starts the form over.</p>
+							if msg, ok := f.Errors["type"]; ok {
+								<p class="auth-error">{ msg }</p>
+							}
+						</div>
 					}
 					@field("name", "Name", f.Errors) {
 						<input id="name" name="name" type="text" value={ f.Name } required maxlength="100" autocomplete="off" { fieldAttrs("name", f.Errors)... }/>
@@ -48,119 +67,184 @@ templ MonitorFormPage(page Page, f MonitorForm) {
 						@checkbox("enabled", "Start checking now", f.Enabled, "Leave unticked to create the monitor paused.")
 					}
 				</fieldset>
-				<fieldset class="form-section">
-					<legend>Request</legend>
-					@field("url", "URL", f.Errors) {
-						<input id="url" name="url" type="url" value={ f.URL } required maxlength="2048" autocomplete="off" spellcheck="false" placeholder="https://example.com/health" { fieldAttrs("url", f.Errors)... }/>
-					}
-					@field("method", "Method", f.Errors) {
-						<select id="method" name="method" { fieldAttrs("method", f.Errors)... }>
-							for _, m := range []string{"GET", "HEAD", "POST"} {
-								<option value={ m } selected?={ f.Method == m }>{ m }</option>
-							}
-						</select>
-					}
-					@field("request_body", "Request body", f.Errors) {
-						<textarea id="request_body" name="request_body" rows="3" spellcheck="false" { fieldAttrs("request_body", f.Errors, "request_body-hint")... }>{ f.RequestBody }</textarea>
-						<p id="request_body-hint" class="auth-hint">POST only.</p>
-					}
-					@checkbox("follow_redirects", "Follow redirects", f.FollowRedirects, "Up to 10. When off, a redirect is judged by its own status code.")
-					@field("headers", "Headers", f.Errors) {
-						<textarea id="headers" name="headers" rows="3" spellcheck="false" { fieldAttrs("headers", f.Errors, "headers-hint")... }>{ f.Headers }</textarea>
-						<p id="headers-hint" class="auth-hint">Optional. One per line, as <code>Name: value</code>. Values here are stored in plain text; use a secret header for keys and tokens.</p>
-					}
-					@field("auth", "Authentication", f.Errors) {
-						<select id="auth" name="auth" { fieldAttrs("auth", f.Errors, "auth-hint")... }>
-							<option value="" selected?={ f.Auth == "" }>None</option>
-							<option value="basic" selected?={ f.Auth == "basic" }>Basic (user name and password)</option>
-							<option value="bearer" selected?={ f.Auth == "bearer" }>Bearer token</option>
-						</select>
-						<p id="auth-hint" class="auth-hint">Credentials are stored encrypted and never shown again.</p>
-					}
-					<div class="form-pair">
-						@field("basic_user", "User name (basic)", f.Errors) {
-							<input id="basic_user" name="basic_user" type="text" autocomplete="off" spellcheck="false" { fieldAttrs("basic_user", f.Errors, keepHint(f.HasBasic, "basic_user"))... }/>
-							@keepNote(f.HasBasic, "basic_user")
+				if f.Type == "http" {
+					<fieldset class="form-section">
+						<legend>Request</legend>
+						@field("url", "URL", f.Errors) {
+							<input id="url" name="url" type="url" value={ f.URL } required maxlength="2048" autocomplete="off" spellcheck="false" placeholder="https://example.com/health" { fieldAttrs("url", f.Errors)... }/>
 						}
-						@field("basic_password", "Password (basic)", f.Errors) {
-							<input id="basic_password" name="basic_password" type="password" autocomplete="new-password" { fieldAttrs("basic_password", f.Errors)... }/>
-						}
-					</div>
-					@field("bearer_token", "Token (bearer)", f.Errors) {
-						<input id="bearer_token" name="bearer_token" type="password" autocomplete="off" { fieldAttrs("bearer_token", f.Errors, keepHint(f.HasBearer, "bearer_token"))... }/>
-						@keepNote(f.HasBearer, "bearer_token")
-					}
-					<div class="form-group" role="group" aria-labelledby="secret_headers-title">
-						<p id="secret_headers-title" class="form-group-title">Secret headers</p>
-						<p class="auth-hint">Headers whose values are stored encrypted, such as an API key.</p>
-						for _, name := range f.SecretHeaders {
-							<div class="form-pair secret-header">
-								@field("sh_value."+name, name, f.Errors) {
-									<input id={ "sh_value." + name } name={ "sh_value." + name } type="password" autocomplete="off" aria-describedby={ "sh_value." + name + "-hint" }/>
-									<p id={ "sh_value." + name + "-hint" } class="auth-hint">Set. Leave blank to keep the current value.</p>
+						@field("method", "Method", f.Errors) {
+							<select id="method" name="method" { fieldAttrs("method", f.Errors)... }>
+								for _, m := range []string{"GET", "HEAD", "POST"} {
+									<option value={ m } selected?={ f.Method == m }>{ m }</option>
 								}
-								@checkbox("sh_remove."+name, "Remove "+name, false, "")
-							</div>
+							</select>
+						}
+						@field("request_body", "Request body", f.Errors) {
+							<textarea id="request_body" name="request_body" rows="3" spellcheck="false" { fieldAttrs("request_body", f.Errors, "request_body-hint")... }>{ f.RequestBody }</textarea>
+							<p id="request_body-hint" class="auth-hint">POST only.</p>
+						}
+						@checkbox("follow_redirects", "Follow redirects", f.FollowRedirects, "Up to 10. When off, a redirect is judged by its own status code.")
+						@field("headers", "Headers", f.Errors) {
+							<textarea id="headers" name="headers" rows="3" spellcheck="false" { fieldAttrs("headers", f.Errors, "headers-hint")... }>{ f.Headers }</textarea>
+							<p id="headers-hint" class="auth-hint">Optional. One per line, as <code>Name: value</code>. Values here are stored in plain text; use a secret header for keys and tokens.</p>
+						}
+						@field("auth", "Authentication", f.Errors) {
+							<select id="auth" name="auth" { fieldAttrs("auth", f.Errors, "auth-hint")... }>
+								<option value="" selected?={ f.Auth == "" }>None</option>
+								<option value="basic" selected?={ f.Auth == "basic" }>Basic (user name and password)</option>
+								<option value="bearer" selected?={ f.Auth == "bearer" }>Bearer token</option>
+							</select>
+							<p id="auth-hint" class="auth-hint">Credentials are stored encrypted and never shown again.</p>
 						}
 						<div class="form-pair">
-							@field("sh_new_name", "New header name", f.Errors) {
-								<input id="sh_new_name" name="sh_new_name" type="text" autocomplete="off" spellcheck="false" placeholder="X-Api-Key" { fieldAttrs("sh_new_name", f.Errors)... }/>
+							@field("basic_user", "User name (basic)", f.Errors) {
+								<input id="basic_user" name="basic_user" type="text" autocomplete="off" spellcheck="false" { fieldAttrs("basic_user", f.Errors, keepHint(f.HasBasic, "basic_user"))... }/>
+								@keepNote(f.HasBasic, "basic_user")
 							}
-							@field("sh_new_value", "New header value", f.Errors) {
-								<input id="sh_new_value" name="sh_new_value" type="password" autocomplete="off" { fieldAttrs("sh_new_value", f.Errors)... }/>
+							@field("basic_password", "Password (basic)", f.Errors) {
+								<input id="basic_password" name="basic_password" type="password" autocomplete="new-password" { fieldAttrs("basic_password", f.Errors)... }/>
 							}
 						</div>
-						if msg, ok := f.Errors["secret_headers"]; ok {
-							<p id="secret_headers" class="auth-error">{ msg }</p>
+						@field("bearer_token", "Token (bearer)", f.Errors) {
+							<input id="bearer_token" name="bearer_token" type="password" autocomplete="off" { fieldAttrs("bearer_token", f.Errors, keepHint(f.HasBearer, "bearer_token"))... }/>
+							@keepNote(f.HasBearer, "bearer_token")
 						}
-					</div>
-				</fieldset>
-				<fieldset class="form-section">
-					<legend>Assertions</legend>
-					@field("expected_status", "Expected status", f.Errors) {
-						<input id="expected_status" name="expected_status" type="text" value={ f.ExpectedStatus } autocomplete="off" spellcheck="false" { fieldAttrs("expected_status", f.Errors, "expected_status-hint")... }/>
-						<p id="expected_status-hint" class="auth-hint">Codes such as <code>200</code>, <code>200-299</code> or <code>200,204</code>.</p>
-					}
-					@field("body_contains", "Body contains", f.Errors) {
-						<input id="body_contains" name="body_contains" type="text" value={ f.BodyContains } autocomplete="off" spellcheck="false" { fieldAttrs("body_contains", f.Errors, "body-hint")... }/>
-					}
-					@field("body_not_contains", "Body does not contain", f.Errors) {
-						<input id="body_not_contains" name="body_not_contains" type="text" value={ f.BodyNotContains } autocomplete="off" spellcheck="false" { fieldAttrs("body_not_contains", f.Errors, "body-hint")... }/>
-						<p id="body-hint" class="auth-hint">Optional, case-sensitive text.</p>
-					}
-					<div class="form-group" role="group" aria-labelledby="json_assertions-title">
-						<p id="json_assertions-title" class="form-group-title">JSON assertions</p>
-						<p id="json_assertions-hint" class="auth-hint">A path such as <code>$.status</code> or <code>$.items[0].id</code>. Expected values are JSON: <code>"ok"</code>, <code>42</code>, <code>true</code>, <code>null</code>; plain text counts as a string. Rows without a path are ignored.</p>
-						for i, a := range f.Assertions {
-							<div class="assertion-row">
-								<div class="auth-field">
-									<label for={ "json_path_" + strconv.Itoa(i) }>Path { strconv.Itoa(i + 1) }</label>
-									<input id={ "json_path_" + strconv.Itoa(i) } name={ "json_path_" + strconv.Itoa(i) } type="text" value={ a.Path } autocomplete="off" spellcheck="false"/>
+						<div class="form-group" role="group" aria-labelledby="secret_headers-title">
+							<p id="secret_headers-title" class="form-group-title">Secret headers</p>
+							<p class="auth-hint">Headers whose values are stored encrypted, such as an API key.</p>
+							for _, name := range f.SecretHeaders {
+								<div class="form-pair secret-header">
+									@field("sh_value."+name, name, f.Errors) {
+										<input id={ "sh_value." + name } name={ "sh_value." + name } type="password" autocomplete="off" aria-describedby={ "sh_value." + name + "-hint" }/>
+										<p id={ "sh_value." + name + "-hint" } class="auth-hint">Set. Leave blank to keep the current value.</p>
+									}
+									@checkbox("sh_remove."+name, "Remove "+name, false, "")
 								</div>
-								<div class="auth-field">
-									<label for={ "json_op_" + strconv.Itoa(i) }>Check { strconv.Itoa(i + 1) }</label>
-									<select id={ "json_op_" + strconv.Itoa(i) } name={ "json_op_" + strconv.Itoa(i) }>
-										for _, op := range JSONOps {
-											<option value={ op.Value } selected?={ a.Op == op.Value }>{ op.Label }</option>
-										}
-									</select>
-								</div>
-								<div class="auth-field">
-									<label for={ "json_value_" + strconv.Itoa(i) }>Expected { strconv.Itoa(i + 1) }</label>
-									<input id={ "json_value_" + strconv.Itoa(i) } name={ "json_value_" + strconv.Itoa(i) } type="text" value={ a.Value } autocomplete="off" spellcheck="false"/>
-								</div>
+							}
+							<div class="form-pair">
+								@field("sh_new_name", "New header name", f.Errors) {
+									<input id="sh_new_name" name="sh_new_name" type="text" autocomplete="off" spellcheck="false" placeholder="X-Api-Key" { fieldAttrs("sh_new_name", f.Errors)... }/>
+								}
+								@field("sh_new_value", "New header value", f.Errors) {
+									<input id="sh_new_value" name="sh_new_value" type="password" autocomplete="off" { fieldAttrs("sh_new_value", f.Errors)... }/>
+								}
 							</div>
+							if msg, ok := f.Errors["secret_headers"]; ok {
+								<p id="secret_headers" class="auth-error">{ msg }</p>
+							}
+						</div>
+					</fieldset>
+					<fieldset class="form-section">
+						<legend>Assertions</legend>
+						@field("expected_status", "Expected status", f.Errors) {
+							<input id="expected_status" name="expected_status" type="text" value={ f.ExpectedStatus } autocomplete="off" spellcheck="false" { fieldAttrs("expected_status", f.Errors, "expected_status-hint")... }/>
+							<p id="expected_status-hint" class="auth-hint">Codes such as <code>200</code>, <code>200-299</code> or <code>200,204</code>.</p>
 						}
-						if msg, ok := f.Errors["json_assertions"]; ok {
-							<p id="json_assertions" class="auth-error">{ msg }</p>
+						@field("body_contains", "Body contains", f.Errors) {
+							<input id="body_contains" name="body_contains" type="text" value={ f.BodyContains } autocomplete="off" spellcheck="false" { fieldAttrs("body_contains", f.Errors, "body-hint")... }/>
 						}
-					</div>
-				</fieldset>
+						@field("body_not_contains", "Body does not contain", f.Errors) {
+							<input id="body_not_contains" name="body_not_contains" type="text" value={ f.BodyNotContains } autocomplete="off" spellcheck="false" { fieldAttrs("body_not_contains", f.Errors, "body-hint")... }/>
+							<p id="body-hint" class="auth-hint">Optional, case-sensitive text.</p>
+						}
+						<div class="form-group" role="group" aria-labelledby="json_assertions-title">
+							<p id="json_assertions-title" class="form-group-title">JSON assertions</p>
+							<p id="json_assertions-hint" class="auth-hint">A path such as <code>$.status</code> or <code>$.items[0].id</code>. Expected values are JSON: <code>"ok"</code>, <code>42</code>, <code>true</code>, <code>null</code>; plain text counts as a string. Rows without a path are ignored.</p>
+							for i, a := range f.Assertions {
+								<div class="assertion-row">
+									<div class="auth-field">
+										<label for={ "json_path_" + strconv.Itoa(i) }>Path { strconv.Itoa(i + 1) }</label>
+										<input id={ "json_path_" + strconv.Itoa(i) } name={ "json_path_" + strconv.Itoa(i) } type="text" value={ a.Path } autocomplete="off" spellcheck="false"/>
+									</div>
+									<div class="auth-field">
+										<label for={ "json_op_" + strconv.Itoa(i) }>Check { strconv.Itoa(i + 1) }</label>
+										<select id={ "json_op_" + strconv.Itoa(i) } name={ "json_op_" + strconv.Itoa(i) }>
+											for _, op := range JSONOps {
+												<option value={ op.Value } selected?={ a.Op == op.Value }>{ op.Label }</option>
+											}
+										</select>
+									</div>
+									<div class="auth-field">
+										<label for={ "json_value_" + strconv.Itoa(i) }>Expected { strconv.Itoa(i + 1) }</label>
+										<input id={ "json_value_" + strconv.Itoa(i) } name={ "json_value_" + strconv.Itoa(i) } type="text" value={ a.Value } autocomplete="off" spellcheck="false"/>
+									</div>
+								</div>
+							}
+							if msg, ok := f.Errors["json_assertions"]; ok {
+								<p id="json_assertions" class="auth-error">{ msg }</p>
+							}
+						</div>
+					</fieldset>
+				}
+				if f.Type == "tcp" || f.Type == "icmp" {
+					<fieldset class="form-section">
+						<legend>Target</legend>
+						@field("host", "Host", f.Errors) {
+							<input id="host" name="host" type="text" value={ f.Host } required maxlength="253" autocomplete="off" spellcheck="false" placeholder="db.internal or 192.0.2.10" { fieldAttrs("host", f.Errors, "host-hint")... }/>
+							if f.Type == "icmp" {
+								<p id="host-hint" class="auth-hint">A host name or IP address. A name is resolved and its first address is pinged. If this server may not send pings, checks fail with a permission error that names the fix.</p>
+							} else {
+								<p id="host-hint" class="auth-hint">A host name or IP address, without scheme or port.</p>
+							}
+						}
+						if f.Type == "tcp" {
+							@numberField("port", "Port", f.Port, f.Errors, "1 to 65535. Up when a connection opens.")
+						}
+					</fieldset>
+				}
+				if f.Type == "dns" {
+					<fieldset class="form-section">
+						<legend>Query</legend>
+						@field("hostname", "Host name", f.Errors) {
+							<input id="hostname" name="hostname" type="text" value={ f.DNSHostname } required maxlength="253" autocomplete="off" spellcheck="false" placeholder="example.com" { fieldAttrs("hostname", f.Errors)... }/>
+						}
+						@field("query_type", "Record type", f.Errors) {
+							<select id="query_type" name="query_type" { fieldAttrs("query_type", f.Errors)... }>
+								for _, q := range DNSQueryTypes {
+									<option value={ q } selected?={ f.QueryType == q }>{ q }</option>
+								}
+							</select>
+						}
+						@field("resolver", "Resolver", f.Errors) {
+							<input id="resolver" name="resolver" type="text" value={ f.Resolver } autocomplete="off" spellcheck="false" placeholder="192.0.2.53" { fieldAttrs("resolver", f.Errors, "resolver-hint")... }/>
+							<p id="resolver-hint" class="auth-hint">Optional. An IP address, with a port if not 53. Blank uses this server's own resolvers.</p>
+						}
+						@field("expected", "Expected values", f.Errors) {
+							<textarea id="expected" name="expected" rows="3" spellcheck="false" { fieldAttrs("expected", f.Errors, "expected-hint")... }>{ f.Expected }</textarea>
+							<p id="expected-hint" class="auth-hint">Optional, one per line, up to 20: an address (A, AAAA), a host name (CNAME, NS), <code>host</code> or <code>10 host</code> (MX), the exact text (TXT). Without values any answer counts.</p>
+						}
+						@field("match_mode", "Match", f.Errors) {
+							<select id="match_mode" name="match_mode" { fieldAttrs("match_mode", f.Errors)... }>
+								<option value="all" selected?={ f.MatchMode != "any" }>Every expected value is in the answer</option>
+								<option value="any" selected?={ f.MatchMode == "any" }>At least one is</option>
+							</select>
+						}
+					</fieldset>
+				}
+				if f.Type == "heartbeat" {
+					<fieldset class="form-section">
+						<legend>Heartbeat</legend>
+						@numberField("expected_interval", "Expected every (seconds)", f.ExpectedInterval, f.Errors, "How often the job checks in: 10 seconds to 24 hours. 3600 is hourly.")
+						@numberField("grace", "Grace period (seconds)", f.Grace, f.Errors, "Extra time before a late beat counts as missed. Default 0.")
+						@field("source_label", "Source label", f.Errors) {
+							<input id="source_label" name="source_label" type="text" value={ f.SourceLabel } maxlength="100" autocomplete="off" { fieldAttrs("source_label", f.Errors, "source_label-hint")... }/>
+							<p id="source_label-hint" class="auth-hint">Optional. Where the beats come from, such as “backup job on db-1”.</p>
+						}
+						if f.Editing() {
+							<p class="auth-hint">The push URL is not shown again. Get a new one with “Regenerate push URL” on the monitor's Configuration tab.</p>
+						} else {
+							<p class="auth-hint">The push URL is shown once, right after the monitor is created.</p>
+						}
+					</fieldset>
+				}
 				<fieldset class="form-section">
 					<legend>Retry and timing</legend>
 					<div class="form-grid">
-						@numberField("interval", "Interval (seconds)", f.Interval, f.Errors, "Default 30. At least 10.")
-						@numberField("timeout", "Timeout (seconds)", f.Timeout, f.Errors, "Default 5. Shorter than the interval.")
+						if f.Type != "heartbeat" {
+							@numberField("interval", "Interval (seconds)", f.Interval, f.Errors, "Default 30. At least 10.")
+							@numberField("timeout", "Timeout (seconds)", f.Timeout, f.Errors, "Default 5. Shorter than the interval.")
+						}
 						@numberField("failure_threshold", "Failures before down", f.FailureThreshold, f.Errors, "Default 2: one failure and one failed retry.")
 						@numberField("retry_delay", "Retry delay (seconds)", f.RetryDelay, f.Errors, "Default 5. Wait before the confirmation check.")
 						@numberField("success_threshold", "Successes before up", f.SuccessThreshold, f.Errors, "Default 1.")
@@ -182,32 +266,34 @@ templ MonitorFormPage(page Page, f MonitorForm) {
 					<legend>Notifications</legend>
 					<p class="auth-hint">Notification profiles arrive with notifications. Nothing is sent yet.</p>
 				</fieldset>
-				<details class="form-section form-advanced" open?={ f.AdvancedOpen() }>
-					<summary>Advanced</summary>
-					<div class="form-advanced-body">
-						@field("custom_user_agent", "User-Agent", f.Errors) {
-							<input id="custom_user_agent" name="custom_user_agent" type="text" value={ f.UserAgent } maxlength="256" autocomplete="off" spellcheck="false" { fieldAttrs("custom_user_agent", f.Errors, "ua-hint")... }/>
-							<p id="ua-hint" class="auth-hint">Leave blank to send Sinjal's own.</p>
-						}
-						@numberField("max_body_kib", "Body limit (KiB)", f.MaxBodyKiB, f.Errors, "1 to 1024. Only this much of a response is read.")
-						@checkbox("tls_expiry", "Warn before the certificate expires", f.TLSExpiry, "HTTPS only.")
-						@field("tls_warning_days", "Warning days", f.Errors) {
-							<input id="tls_warning_days" name="tls_warning_days" type="text" value={ f.TLSDays } autocomplete="off" { fieldAttrs("tls_warning_days", f.Errors, "tls-hint")... }/>
-							<p id="tls-hint" class="auth-hint">Days before expiry, for example: 30, 14, 7.</p>
-						}
-						@checkbox("insecure_skip_verify", "Accept invalid certificates", f.Insecure, "Not recommended: the check then cannot tell the real server from an impostor.")
-						@field("proxy_url", "Proxy", f.Errors) {
-							<input id="proxy_url" name="proxy_url" type="text" value={ f.Proxy } autocomplete="off" spellcheck="false" placeholder="http://proxy:3128" { fieldAttrs("proxy_url", f.Errors)... }/>
-						}
-						@field("ip_family", "IP version", f.Errors) {
-							<select id="ip_family" name="ip_family" { fieldAttrs("ip_family", f.Errors)... }>
-								<option value="" selected?={ f.IPFamily == "" }>Automatic</option>
-								<option value="ipv4" selected?={ f.IPFamily == "ipv4" }>IPv4 only</option>
-								<option value="ipv6" selected?={ f.IPFamily == "ipv6" }>IPv6 only</option>
-							</select>
-						}
-					</div>
-				</details>
+				if f.Type == "http" {
+					<details class="form-section form-advanced" open?={ f.AdvancedOpen() }>
+						<summary>Advanced</summary>
+						<div class="form-advanced-body">
+							@field("custom_user_agent", "User-Agent", f.Errors) {
+								<input id="custom_user_agent" name="custom_user_agent" type="text" value={ f.UserAgent } maxlength="256" autocomplete="off" spellcheck="false" { fieldAttrs("custom_user_agent", f.Errors, "ua-hint")... }/>
+								<p id="ua-hint" class="auth-hint">Leave blank to send Sinjal's own.</p>
+							}
+							@numberField("max_body_kib", "Body limit (KiB)", f.MaxBodyKiB, f.Errors, "1 to 1024. Only this much of a response is read.")
+							@checkbox("tls_expiry", "Warn before the certificate expires", f.TLSExpiry, "HTTPS only.")
+							@field("tls_warning_days", "Warning days", f.Errors) {
+								<input id="tls_warning_days" name="tls_warning_days" type="text" value={ f.TLSDays } autocomplete="off" { fieldAttrs("tls_warning_days", f.Errors, "tls-hint")... }/>
+								<p id="tls-hint" class="auth-hint">Days before expiry, for example: 30, 14, 7.</p>
+							}
+							@checkbox("insecure_skip_verify", "Accept invalid certificates", f.Insecure, "Not recommended: the check then cannot tell the real server from an impostor.")
+							@field("proxy_url", "Proxy", f.Errors) {
+								<input id="proxy_url" name="proxy_url" type="text" value={ f.Proxy } autocomplete="off" spellcheck="false" placeholder="http://proxy:3128" { fieldAttrs("proxy_url", f.Errors)... }/>
+							}
+							@field("ip_family", "IP version", f.Errors) {
+								<select id="ip_family" name="ip_family" { fieldAttrs("ip_family", f.Errors)... }>
+									<option value="" selected?={ f.IPFamily == "" }>Automatic</option>
+									<option value="ipv4" selected?={ f.IPFamily == "ipv4" }>IPv4 only</option>
+									<option value="ipv6" selected?={ f.IPFamily == "ipv6" }>IPv6 only</option>
+								</select>
+							}
+						</div>
+					</details>
+				}
 				<div class="form-actions">
 					if f.Editing() {
 						<button class="auth-submit" type="submit">Save changes</button>

@@ -40,14 +40,14 @@ func testDB(t testing.TB) (*db.DB, string) {
 
 // newMonitor creates an enabled HTTP monitor (pending, thresholds 2 and 1,
 // retry delay 20 ms) after applying edit.
-func newMonitor(t testing.TB, d *db.DB, name string, edit func(*store.HTTPMonitor)) string {
+func newMonitor(t testing.TB, d *db.DB, name string, edit func(*store.MonitorInput)) string {
 	t.Helper()
-	in := store.HTTPMonitor{Name: name, Enabled: true, RetryDelayMS: 20,
-		Config: store.HTTPConfig{URL: "https://example.com/" + name, FollowRedirects: true, TLSExpiryEnabled: true}}
+	in := store.MonitorInput{Name: name, Enabled: true, RetryDelayMS: 20,
+		HTTP: store.HTTPConfig{URL: "https://example.com/" + name, FollowRedirects: true, TLSExpiryEnabled: true}}
 	if edit != nil {
 		edit(&in)
 	}
-	id, err := store.CreateHTTPMonitor(context.Background(), d, in, base)
+	id, err := store.CreateMonitor(context.Background(), d, in, base)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,7 @@ func TestRecovery(t *testing.T) {
 func TestThresholdsFromTheMonitorRow(t *testing.T) {
 	d, _ := testDB(t)
 	h := newHarness(t, d).run()
-	id := newMonitor(t, d, "web", func(m *store.HTTPMonitor) {
+	id := newMonitor(t, d, "web", func(m *store.MonitorInput) {
 		m.FailureThreshold, m.SuccessThreshold, m.RetryDelayMS = 3, 3, 1500
 	})
 	states := func(results ...Result) string {
@@ -367,7 +367,7 @@ func TestFlushesAfterTheWaitTime(t *testing.T) {
 func TestLateResultsOfPausedAndDeletedMonitors(t *testing.T) {
 	d, _ := testDB(t)
 	h := newHarness(t, d).run()
-	paused := newMonitor(t, d, "paused", func(m *store.HTTPMonitor) { m.Enabled = false })
+	paused := newMonitor(t, d, "paused", func(m *store.MonitorInput) { m.Enabled = false })
 	live := newMonitor(t, d, "live", nil)
 	gone := newMonitor(t, d, "gone", nil)
 	if err := store.DeleteMonitor(context.Background(), d, gone); err != nil {
@@ -418,7 +418,7 @@ func TestCountersAreKeptOnlyWhileNeeded(t *testing.T) {
 	d, _ := testDB(t)
 	h := newHarness(t, d).run()
 	a := newMonitor(t, d, "a", nil)
-	b := newMonitor(t, d, "b", func(m *store.HTTPMonitor) { m.SuccessThreshold = 3 })
+	b := newMonitor(t, d, "b", func(m *store.MonitorInput) { m.SuccessThreshold = 3 })
 	c := newMonitor(t, d, "c", nil)
 	h.feed(fail(a, 1), fail(b, 1), fail(b, 2), ok(b, 3), fail(c, 1), ok(c, 2))
 	if err := store.DeleteMonitor(context.Background(), d, a); err != nil {

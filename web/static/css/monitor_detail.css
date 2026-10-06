@@ -191,3 +191,18 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+
+/* Heartbeat: regenerate the push URL (Configuration tab). */
+.token-regenerate {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.detail-hint {
+  margin: 0;
+  max-width: 40rem;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

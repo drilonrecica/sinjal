@@ -112,7 +112,7 @@ Use for:
 
 ### Monitor form
 
-`MonitorFormPage` (`web/templates/monitor_form.templ`, `css/monitor_form.css` on top of the form primitives in `css/auth.css`) is fed by `MonitorForm`, which keeps numbers as typed so a rejected value comes back unchanged. The translation to `store.HTTPMonitor` (seconds → ms, KiB → bytes, `Name: value` lines → `headers_json`, assertion rows → `json_assertions_json`) lives in `internal/web/monitor_form.go`. Primitives used: text input and select through `field` (label, hint, error with `aria-describedby` / `aria-invalid`), `checkbox`, `numberField`, secret inputs with a "keep" note, the collapsible Advanced section and a validation summary (`role="alert"`, links in page order).
+`MonitorFormPage` (`web/templates/monitor_form.templ`, `css/monitor_form.css` on top of the form primitives in `css/auth.css`) is fed by `MonitorForm`, which keeps numbers as typed so a rejected value comes back unchanged. The translation to `store.MonitorInput` (seconds → ms, KiB → bytes, `Name: value` lines → `headers_json`, assertion rows → `json_assertions_json`, expected DNS values one per line) lives in `internal/web/monitor_form.go`. Each type renders only its own section; the type is a row of links on create (`.type-switch`) and text on edit. `HeartbeatTokenPage` (`web/templates/heartbeat_token.templ`) is the one-time push URL page; its copy buttons come from `js/copy.js` (`button[data-copy]`, hidden until the script finds the Clipboard API). Primitives used: text input and select through `field` (label, hint, error with `aria-describedby` / `aria-invalid`), `checkbox`, `numberField`, secret inputs with a "keep" note, the collapsible Advanced section and a validation summary (`role="alert"`, links in page order).
 
 ## Styling
 

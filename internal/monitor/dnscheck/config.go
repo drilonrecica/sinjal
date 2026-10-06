@@ -27,10 +27,14 @@ const (
 	MatchAny = "any" // at least one must be
 )
 
-// MaxExpected caps the expected values of one monitor.
-const MaxExpected = 32
+// MaxExpected caps the expected values of one monitor, counted after
+// duplicates are removed (docs/38).
+const MaxExpected = 20
 
 const maxTXT = 1024 // longest expected TXT value
+
+// QueryTypes are the supported query types, in the order a form lists them.
+var QueryTypes = []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS"}
 
 // queryTypes are the supported query types (docs/06).
 var queryTypes = map[string]dnsmessage.Type{
@@ -73,13 +77,8 @@ func (c Config) Validate() error {
 	if c.MatchMode != "" && c.MatchMode != MatchAll && c.MatchMode != MatchAny {
 		return errors.New("match mode must be all or any")
 	}
-	if len(c.Expected) > MaxExpected {
-		return fmt.Errorf("at most %d expected values", MaxExpected)
-	}
-	for _, v := range c.Expected {
-		if _, err := parseExpected(c.QueryType, v); err != nil {
-			return fmt.Errorf("expected value %q: %w", v, err)
-		}
+	if _, err := NormalizeExpected(c.QueryType, c.Expected); err != nil {
+		return err
 	}
 	if c.Timeout <= 0 {
 		return errors.New("timeout must be greater than zero")
@@ -99,6 +98,36 @@ func ResolverAddr(s string) (string, error) {
 		return "", errors.New("resolver must be an IP address, optionally with a port (192.0.2.1:53, [2001:db8::1]:53)")
 	}
 	return ap.String(), nil
+}
+
+// NormalizeExpected checks expected values against a supported query type
+// and returns them normalized as answers are (see Result.Answers; an MX
+// value without a preference is its host), without duplicates, in their
+// first order. More than MaxExpected distinct values is an error.
+func NormalizeExpected(qtype string, vals []string) ([]string, error) {
+	if _, ok := queryTypes[qtype]; !ok {
+		return nil, errors.New("query type must be A, AAAA, CNAME, MX, TXT or NS")
+	}
+	out := make([]string, 0, len(vals))
+	seen := map[string]bool{}
+	for _, v := range vals {
+		e, err := parseExpected(qtype, v)
+		if err != nil {
+			return nil, fmt.Errorf("expected value %q: %w", v, err)
+		}
+		n := e.value
+		if e.host != "" {
+			n = e.host
+		}
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	if len(out) > MaxExpected {
+		return nil, fmt.Errorf("at most %d expected values", MaxExpected)
+	}
+	return out, nil
 }
 
 // expected is one parsed expected value.

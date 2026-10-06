@@ -61,6 +61,13 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 							<h3>{ g.Title }</h3>
 							@facts(g.Facts)
 						}
+						if v.Admin && v.Monitor.Type == "heartbeat" {
+							<form class="token-regenerate" method="post" action={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/heartbeat/token") }>
+								@CSRFField(page)
+								<button class="detail-button" type="submit" aria-describedby="regenerate-hint">Regenerate push URL</button>
+								<p id="regenerate-hint" class="detail-hint">The push URL is only shown when it is issued. A new one replaces it at once: update the job that sends beats. You may be asked to confirm your identity first.</p>
+							</form>
+						}
 						if !v.Admin {
 							<p class="tab-note">The checked address and request details are visible to admins only.</p>
 						}

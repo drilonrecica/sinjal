@@ -1,6 +1,8 @@
 package web
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,17 +25,20 @@ import (
 // The create/edit monitor page (docs/03 "Monitor creation/editing",
 // docs/38). The form speaks in the units people think in (seconds, KiB,
 // "Name: value" lines); this file translates between it and
-// store.HTTPMonitor. Secret values only travel from the browser to the
+// store.MonitorInput. Secret values only travel from the browser to the
 // store: inputs render empty and blank means "keep".
 
 // monitorFormMaxBody bounds a posted form: a 64 KiB request body plus
 // the rest of the fields with room to spare.
 const monitorFormMaxBody = 512 << 10
 
-// RegisterMonitorChanges mounts the create and edit forms and the pause,
-// resume and delete actions. They must sit behind RequireAdmin: the form
-// shows the full configuration, and every one of them changes monitors.
-func RegisterMonitorChanges(r chi.Router, h *Monitors) {
+// RegisterMonitorChanges mounts the create and edit forms, the pause,
+// resume and delete actions and the heartbeat token regeneration, which
+// also needs a recent re-authentication (recent). They must sit behind
+// RequireAdmin: the form shows the full configuration, and every one of
+// them changes monitors.
+func RegisterMonitorChanges(r chi.Router, h *Monitors, recent func(http.Handler) http.Handler) {
+	r.With(recent).Post("/monitors/{id}/heartbeat/token", h.regenerateToken)
 	r.Get("/monitors/new", h.newForm)
 	r.Post("/monitors", h.create)
 	r.Get("/monitors/{id}/edit", h.editForm)
@@ -45,37 +50,85 @@ func RegisterMonitorChanges(r chi.Router, h *Monitors) {
 
 // Form field names whose store rule key differs (the form uses other units).
 var storeFieldToForm = map[string]string{
-	"interval_seconds":        "interval",
-	"timeout_ms":              "timeout",
-	"retry_delay_ms":          "retry_delay",
-	"max_body_bytes":          "max_body_kib",
-	"notification_profile_id": "form",
+	"interval_seconds":          "interval",
+	"timeout_ms":                "timeout",
+	"retry_delay_ms":            "retry_delay",
+	"max_body_bytes":            "max_body_kib",
+	"notification_profile_id":   "form",
+	"expected_interval_seconds": "expected_interval",
+	"grace_seconds":             "grace",
 }
 
-// newMonitorForm is the form for a new monitor, prefilled with the defaults.
-func newMonitorForm() templates.MonitorForm {
+// monitorConfig is the stored config of a monitor; only the field of its
+// type is set.
+type monitorConfig struct {
+	HTTP      store.HTTPConfig
+	TCP       store.TCPConfig
+	ICMP      store.ICMPConfig
+	DNS       store.DNSConfig
+	Heartbeat store.HeartbeatConfig
+}
+
+// loadConfig reads the config of m's type.
+func loadConfig(ctx context.Context, q *sql.DB, m store.Monitor) (monitorConfig, error) {
+	var c monitorConfig
+	var err error
+	switch m.Type {
+	case store.TypeHTTP:
+		c.HTTP, err = store.GetHTTPConfig(ctx, q, m.ID)
+	case store.TypeTCP:
+		c.TCP, err = store.GetTCPConfig(ctx, q, m.ID)
+	case store.TypeICMP:
+		c.ICMP, err = store.GetICMPConfig(ctx, q, m.ID)
+	case store.TypeDNS:
+		c.DNS, err = store.GetDNSConfig(ctx, q, m.ID)
+	case store.TypeHeartbeat:
+		c.Heartbeat, err = store.GetHeartbeatConfig(ctx, q, m.ID)
+	default:
+		err = store.ErrNotFound
+	}
+	return c, err
+}
+
+// formType is typ when it is a monitor type, else HTTP.
+func formType(typ string) string {
+	if slices.Contains(store.Types, typ) {
+		return typ
+	}
+	return store.TypeHTTP
+}
+
+// newMonitorForm is the form for a new monitor of type typ (HTTP when it
+// is not a type), prefilled with the defaults.
+func newMonitorForm(typ string) templates.MonitorForm {
 	return formFromMonitor(store.Monitor{
+		Type:             formType(typ),
 		Enabled:          true,
 		IntervalSeconds:  store.DefaultIntervalSeconds,
 		TimeoutMS:        store.DefaultTimeoutMS,
 		RetryDelayMS:     store.DefaultRetryDelayMS,
 		FailureThreshold: store.DefaultFailureThreshold,
 		SuccessThreshold: store.DefaultSuccessThreshold,
-	}, store.HTTPConfig{
-		Method:           "GET",
-		FollowRedirects:  true,
-		ExpectedStatus:   store.DefaultExpectedStatus,
-		MaxBodyBytes:     store.DefaultMaxBodyBytes,
-		TLSExpiryEnabled: true,
-		TLSWarningDays:   store.DefaultTLSWarningDays,
+	}, monitorConfig{
+		HTTP: store.HTTPConfig{
+			Method:           "GET",
+			FollowRedirects:  true,
+			ExpectedStatus:   store.DefaultExpectedStatus,
+			MaxBodyBytes:     store.DefaultMaxBodyBytes,
+			TLSExpiryEnabled: true,
+			TLSWarningDays:   store.DefaultTLSWarningDays,
+		},
+		DNS: store.DNSConfig{QueryType: "A", MatchMode: "all"},
 	}, nil)
 }
 
 // formFromMonitor fills the form from stored values. Secrets are added by
 // the caller (names only).
-func formFromMonitor(m store.Monitor, c store.HTTPConfig, tags []string) templates.MonitorForm {
+func formFromMonitor(m store.Monitor, cfg monitorConfig, tags []string) templates.MonitorForm {
+	c := cfg.HTTP
 	f := templates.MonitorForm{
 		ID:               m.ID,
+		Type:             m.Type,
 		Name:             m.Name,
 		Tags:             strings.Join(tags, ", "),
 		Enabled:          m.Enabled,
@@ -98,6 +151,23 @@ func formFromMonitor(m store.Monitor, c store.HTTPConfig, tags []string) templat
 		Insecure:         c.InsecureSkipVerify,
 		Proxy:            c.ProxyURL,
 		IPFamily:         c.IPFamily,
+	}
+	switch m.Type {
+	case store.TypeTCP:
+		f.Host, f.Port = cfg.TCP.Host, strconv.Itoa(cfg.TCP.Port)
+	case store.TypeICMP:
+		f.Host = cfg.ICMP.Host
+	case store.TypeDNS:
+		d := cfg.DNS
+		f.DNSHostname, f.QueryType, f.Resolver, f.MatchMode = d.Hostname, d.QueryType, d.Resolver, d.MatchMode
+		f.Expected = strings.Join(d.Expected, "\n")
+	case store.TypeHeartbeat:
+		h := cfg.Heartbeat
+		if h.ExpectedInterval > 0 {
+			f.ExpectedInterval = strconv.Itoa(int(h.ExpectedInterval.Seconds()))
+		}
+		f.Grace = strconv.Itoa(int(h.Grace.Seconds()))
+		f.SourceLabel = h.SourceLabel
 	}
 	if hs, err := monitor.ParseHeaders(c.Headers); err == nil {
 		lines := make([]string, len(hs))
@@ -144,6 +214,7 @@ func padAssertions(rows []templates.AssertionField) []templates.AssertionField {
 // formFromValues echoes a posted form as typed.
 func formFromValues(v url.Values) templates.MonitorForm {
 	f := templates.MonitorForm{
+		Type:             formType(v.Get("type")),
 		Name:             v.Get("name"),
 		Tags:             v.Get("tags"),
 		Enabled:          v.Get("enabled") != "",
@@ -169,6 +240,16 @@ func formFromValues(v url.Values) templates.MonitorForm {
 		Insecure:         v.Get("insecure_skip_verify") != "",
 		Proxy:            v.Get("proxy_url"),
 		IPFamily:         v.Get("ip_family"),
+		Host:             v.Get("host"),
+		Port:             v.Get("port"),
+		DNSHostname:      v.Get("hostname"),
+		QueryType:        v.Get("query_type"),
+		Resolver:         v.Get("resolver"),
+		Expected:         v.Get("expected"),
+		MatchMode:        v.Get("match_mode"),
+		ExpectedInterval: v.Get("expected_interval"),
+		Grace:            v.Get("grace"),
+		SourceLabel:      v.Get("source_label"),
 		Errors:           map[string]string{},
 	}
 	for i := range maxAssertionRows {
@@ -185,9 +266,10 @@ func formFromValues(v url.Values) templates.MonitorForm {
 // monitorFromForm converts the form into the store's input. Values that
 // cannot even be parsed get a message in f.Errors and leave their field
 // at zero; the store's own rules run afterwards.
-func monitorFromForm(f templates.MonitorForm) store.HTTPMonitor {
+func monitorFromForm(f templates.MonitorForm) store.MonitorInput {
 	errs := f.Errors
-	in := store.HTTPMonitor{
+	in := store.MonitorInput{
+		Type:             f.Type,
 		Name:             f.Name,
 		Enabled:          f.Enabled,
 		IntervalSeconds:  wholeNumber(f.Interval, "interval", errs),
@@ -196,7 +278,7 @@ func monitorFromForm(f templates.MonitorForm) store.HTTPMonitor {
 		FailureThreshold: wholeNumber(f.FailureThreshold, "failure_threshold", errs),
 		SuccessThreshold: wholeNumber(f.SuccessThreshold, "success_threshold", errs),
 		ParentMonitorID:  f.Parent,
-		Config: store.HTTPConfig{
+		HTTP: store.HTTPConfig{
 			URL:                f.URL,
 			Method:             f.Method,
 			FollowRedirects:    f.FollowRedirects,
@@ -224,12 +306,33 @@ func monitorFromForm(f templates.MonitorForm) store.HTTPMonitor {
 		if kib < 0 || kib > store.MaxMaxBodyBytes/1024 {
 			addErr(errs, "max_body_kib", "Use a body limit from 1 to 1024 KiB.")
 		} else {
-			in.Config.MaxBodyBytes = kib * 1024
+			in.HTTP.MaxBodyBytes = kib * 1024
 		}
 	}
-	in.Config.Headers = headersJSON(f.Headers, errs)
-	in.Config.TLSWarningDays = tlsDaysJSON(f.TLSDays, errs)
-	in.Config.JSONAssertions = assertionsJSON(f.Assertions)
+	switch f.Type {
+	case store.TypeHTTP:
+		in.HTTP.Headers = headersJSON(f.Headers, errs)
+		in.HTTP.TLSWarningDays = tlsDaysJSON(f.TLSDays, errs)
+		in.HTTP.JSONAssertions = assertionsJSON(f.Assertions)
+	case store.TypeTCP:
+		in.TCP = store.TCPConfig{Host: f.Host, Port: wholeNumber(f.Port, "port", errs)}
+	case store.TypeICMP:
+		in.ICMP = store.ICMPConfig{Host: f.Host}
+	case store.TypeDNS:
+		in.DNS = store.DNSConfig{Hostname: f.DNSHostname, QueryType: f.QueryType, Resolver: f.Resolver, MatchMode: f.MatchMode}
+		// TXT values are compared exactly, so only the line ending goes.
+		for line := range strings.SplitSeq(f.Expected, "\n") {
+			if line = strings.TrimSuffix(line, "\r"); strings.TrimSpace(line) != "" {
+				in.DNS.Expected = append(in.DNS.Expected, line)
+			}
+		}
+	case store.TypeHeartbeat:
+		in.Heartbeat = store.HeartbeatSettings{
+			ExpectedIntervalSeconds: wholeNumber(f.ExpectedInterval, "expected_interval", errs),
+			GraceSeconds:            wholeNumber(f.Grace, "grace", errs),
+			SourceLabel:             f.SourceLabel,
+		}
+	}
 	return in
 }
 
@@ -511,17 +614,17 @@ func (h *Monitors) fail(w http.ResponseWriter, r *http.Request, what string, err
 
 // newForm serves GET /monitors/new.
 func (h *Monitors) newForm(w http.ResponseWriter, r *http.Request) {
-	h.renderForm(w, r, http.StatusOK, newMonitorForm(), nil)
+	h.renderForm(w, r, http.StatusOK, newMonitorForm(r.URL.Query().Get("type")), nil)
 }
 
 // editForm serves GET /monitors/{id}/edit.
 func (h *Monitors) editForm(w http.ResponseWriter, r *http.Request) {
 	ctx, q, id := r.Context(), h.db.Reader, chi.URLParam(r, "id")
 	m, err := store.GetMonitor(ctx, q, id)
-	var c store.HTTPConfig
+	var c monitorConfig
 	var tags []string
 	if err == nil {
-		c, err = store.GetHTTPConfig(ctx, q, id)
+		c, err = loadConfig(ctx, q, m)
 	}
 	if err == nil {
 		tags, err = store.MonitorTags(ctx, q, id)
@@ -550,25 +653,27 @@ func (h *Monitors) editForm(w http.ResponseWriter, r *http.Request) {
 
 // create serves POST /monitors.
 func (h *Monitors) create(w http.ResponseWriter, r *http.Request) {
-	h.save(w, r, "")
+	h.save(w, r, nil)
 }
 
 // update serves POST /monitors/{id}.
 func (h *Monitors) update(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if _, err := store.GetMonitor(r.Context(), h.db.Reader, id); errors.Is(err, store.ErrNotFound) {
+	m, err := store.GetMonitor(r.Context(), h.db.Reader, chi.URLParam(r, "id"))
+	if errors.Is(err, store.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
 		h.fail(w, r, "loading a monitor", err)
 		return
 	}
-	h.save(w, r, id)
+	h.save(w, r, &m)
 }
 
 // save validates a posted form completely, then writes the monitor and its
-// secrets, schedules it and announces it. id is "" for a new monitor.
-func (h *Monitors) save(w http.ResponseWriter, r *http.Request, id string) {
+// secrets, schedules it and announces it. old is nil for a new monitor;
+// an existing one keeps its type whatever the post says. A new heartbeat
+// monitor gets its token here, and the page that follows shows it once.
+func (h *Monitors) save(w http.ResponseWriter, r *http.Request, old *store.Monitor) {
 	cs, _ := SessionFromContext(r.Context())
 	r.Body = http.MaxBytesReader(w, r.Body, monitorFormMaxBody)
 	if err := r.ParseForm(); err != nil {
@@ -576,15 +681,24 @@ func (h *Monitors) save(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	ctx := r.Context()
+	id := ""
+	if old != nil {
+		id = old.ID
+	}
 	stored, err := h.storedSecrets(r, id)
 	if err != nil {
 		h.fail(w, r, "reading secret names", err)
 		return
 	}
 	f := formFromValues(r.PostForm)
-	f.ID = id
+	if old != nil {
+		f.ID, f.Type = old.ID, old.Type
+	}
 	in := monitorFromForm(f)
-	secrets := secretsFromValues(r.PostForm, stored, in.Config.Headers, f.Errors)
+	var secrets secretEdits
+	if in.Type == store.TypeHTTP {
+		secrets = secretsFromValues(r.PostForm, stored, in.HTTP.Headers, f.Errors)
+	}
 
 	invalid := func(err error) bool {
 		var fe store.FieldErrors
@@ -601,7 +715,7 @@ func (h *Monitors) save(w http.ResponseWriter, r *http.Request, id string) {
 	}
 	if len(f.Errors) > 0 {
 		// Show the store's findings for the other fields too.
-		if err := store.CheckHTTPMonitor(ctx, h.db.Reader, id, in); err != nil && !invalid(err) {
+		if err := store.CheckMonitor(ctx, h.db.Reader, id, in); err != nil && !invalid(err) {
 			h.fail(w, r, "validating a monitor", err)
 			return
 		}
@@ -609,14 +723,18 @@ func (h *Monitors) save(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 
-	if id == "" {
-		id, err = store.CreateHTTPMonitor(ctx, h.db, in, h.now())
-	} else {
-		var m store.Monitor
-		if m, err = store.GetMonitor(ctx, h.db.Reader, id); err == nil {
-			in.NotificationProfileID = m.NotificationProfileID // not on the form yet
-			err = store.UpdateHTTPMonitor(ctx, h.db, id, in, h.now())
+	var token string
+	if old == nil {
+		if in.Type == store.TypeHeartbeat {
+			if token, in.Heartbeat.TokenHash, err = store.NewHeartbeatToken(); err != nil {
+				h.fail(w, r, "issuing a heartbeat token", err)
+				return
+			}
 		}
+		id, err = store.CreateMonitor(ctx, h.db, in, h.now())
+	} else {
+		in.NotificationProfileID = old.NotificationProfileID // not on the form yet
+		err = store.UpdateMonitor(ctx, h.db, id, in, h.now())
 	}
 	switch {
 	case invalid(err):
@@ -630,10 +748,12 @@ func (h *Monitors) save(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	// The secrets go in before the monitor is scheduled, so its first
-	// check already sends them.
-	if err := h.applySecrets(r, id, secrets); err != nil {
-		h.fail(w, r, "storing monitor secrets", err)
-		return
+	// check already sends them. Only HTTP monitors have any.
+	if in.Type == store.TypeHTTP {
+		if err := h.applySecrets(r, id, secrets); err != nil {
+			h.fail(w, r, "storing monitor secrets", err)
+			return
+		}
 	}
 	if err := h.engine.Schedule(ctx, id); err != nil {
 		h.log.Error("monitor saved but not scheduled", "monitor_id", id, "error", err)
@@ -645,6 +765,10 @@ func (h *Monitors) save(w http.ResponseWriter, r *http.Request, id string) {
 		h.events.Publish(sse.MonitorCreated, id)
 		h.log.Info("monitor created", "user_id", cs.User.ID, "monitor_id", id)
 		h.audit(r, audit.MonitorCreated, id, in.Name)
+	}
+	if token != "" {
+		h.showToken(w, r, id, in.Name, token, false)
+		return
 	}
 	http.Redirect(w, r, "/monitors/"+id, http.StatusSeeOther)
 }

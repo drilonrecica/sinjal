@@ -21,9 +21,9 @@ import (
 // database: thresholds 2 and 1, a 20 ms retry delay.
 func seedMonitor(t *testing.T, d *db.DB, name, url string) string {
 	t.Helper()
-	id, err := store.CreateHTTPMonitor(context.Background(), d, store.HTTPMonitor{
+	id, err := store.CreateMonitor(context.Background(), d, store.MonitorInput{
 		Name: name, Enabled: true, RetryDelayMS: 20,
-		Config: store.HTTPConfig{URL: url, FollowRedirects: true, TLSExpiryEnabled: true},
+		HTTP: store.HTTPConfig{URL: url, FollowRedirects: true, TLSExpiryEnabled: true},
 	}, time.Now())
 	if err != nil {
 		t.Fatal(err)

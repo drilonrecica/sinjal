@@ -212,7 +212,7 @@ func TestMonitorListFragment(t *testing.T) {
 func TestOverviewFacts(t *testing.T) {
 	later := monitorsNow.Add(-90 * time.Second)
 	expiry := monitorsNow.Add(10*24*time.Hour + time.Hour)
-	fs := overviewFacts(store.Monitor{IntervalSeconds: 60, LastSuccessAt: &later, TLSNotAfter: &expiry, CreatedAt: monitorsNow}, monitorsNow)
+	fs := overviewFacts(store.Monitor{IntervalSeconds: 60, LastSuccessAt: &later, TLSNotAfter: &expiry, CreatedAt: monitorsNow}, nil, monitorsNow)
 	got := map[string]string{}
 	for _, f := range fs {
 		got[f.Label] = f.Value
@@ -222,7 +222,7 @@ func TestOverviewFacts(t *testing.T) {
 		t.Errorf("facts = %v", got)
 	}
 	past := monitorsNow.Add(-time.Hour)
-	if fs := overviewFacts(store.Monitor{TLSNotAfter: &past}, monitorsNow); !strings.Contains(fs[3].Value, "expired") {
+	if fs := overviewFacts(store.Monitor{TLSNotAfter: &past}, nil, monitorsNow); !strings.Contains(fs[3].Value, "expired") {
 		t.Errorf("expired certificate: %v", fs[3])
 	}
 }
