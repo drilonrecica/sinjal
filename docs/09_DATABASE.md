@@ -87,6 +87,17 @@ Daily internal job:
 
 Do not VACUUM every day by default.
 
+## History queries
+
+Ranges (`internal/history.Parse`): presets 1 hour, 24 hours (default), 7, 30 and 90 days and 1 year, ending now; day presets are calendar days in the instance time zone. A custom range is `from`/`to` as local date and time; an end in the future becomes now; it must end after it starts, start in the past and span at most 400 days, otherwise the default preset is shown with the reason.
+
+`store.LatencyHistory(monitor, from, to, buckets)` reads the range once along `idx_check_results_monitor_time` (in index order, no sort) and returns:
+
+- the summary: checks, failures, samples, current (newest sample in the range), min, average, max and exact p95 (nearest rank, the sample at rank ⌈0.95 n⌉), over successful checks with a duration; a failure's duration is how long it took to fail and is not latency
+- the series: the range in at most `buckets` equal buckets of whole seconds, only those holding results, each with checks, failures, average and max latency; the chart asks for 720
+
+One pass in Go is faster than SQL aggregates plus an `ORDER BY` for the percentile plus a `GROUP BY` for the buckets (21 ms instead of 85 ms for a week of 30 s results, `18_PERFORMANCE.md`). Its cost grows with the raw rows in range, so ranges beyond raw retention are served from the rollups once M6 adds them (M6-05), with approximate p95.
+
 ## p95
 
 For raw ranges, calculate exact p95 from raw samples.
