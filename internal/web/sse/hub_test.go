@@ -164,7 +164,7 @@ func TestEventIDsCountEveryEvent(t *testing.T) {
 // A payload is one line of JSON whatever the id contains: nothing a caller
 // passes can start a second frame.
 func TestFrameEscapesTheMonitorID(t *testing.T) {
-	got := string(frame(7, MonitorUpdated, "a\"b\n\nevent: x"))
+	got := string(frame(7, MonitorUpdated, "monitor_id", "a\"b\n\nevent: x"))
 	want := "id: 7\nevent: monitor.updated\ndata: {\"monitor_id\":\"a\\\"b\\n\\nevent: x\"}\n\n"
 	if got != want {
 		t.Fatalf("frame = %q, want %q", got, want)

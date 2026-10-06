@@ -1,0 +1,131 @@
+/* Maintenance: compact rows like the monitor list, grouped by when they
+ * apply; the form reuses the monitor form's primitives. */
+
+.maint-zone {
+  margin: 0 0 var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.maint-section {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+.maint-section h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 1rem;
+}
+.maint-count {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.maint-list {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.maint-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.maint-row:last-child {
+  border-bottom: 0;
+}
+.maint-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.maint-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.maint-schedule,
+.maint-when {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.maint-when {
+  margin: 0;
+  text-align: right;
+}
+.maint-facts {
+  grid-column: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.maint-actions {
+  grid-column: 2;
+  justify-self: end;
+}
+
+.maint-choice {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.maint-choice > legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-weight: 600;
+}
+.maint-radio,
+.maint-weekday,
+.maint-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem; /* touch target */
+}
+.maint-radio input,
+.maint-weekday input,
+.maint-option input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.maint-weekdays,
+.maint-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+  padding-left: var(--space-5);
+}
+.maint-delete {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 40rem) {
+  .maint-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .maint-when {
+    text-align: left;
+  }
+  .maint-actions {
+    grid-column: 1;
+    justify-self: start;
+  }
+}

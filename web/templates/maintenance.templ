@@ -1,0 +1,232 @@
+package templates
+
+import "strconv"
+
+// MaintenanceList is the Maintenance page (docs/03 "Maintenance"): windows
+// in effect, upcoming and past, each with its schedule, scope and what it
+// does. The list refreshes when a window changes anywhere.
+templ MaintenanceList(page Page, v MaintenanceListView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/maintenance.css"}, LiveScripts), "maintenance") {
+		<div class="page-head">
+			<h1>Maintenance</h1>
+			if v.Admin {
+				<a class="action" href="/maintenance/new">Schedule maintenance</a>
+			}
+		</div>
+		<p class="maint-zone">Times are in { v.Zone }.</p>
+		<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:maintenance.updated">
+			@MaintenanceSections(v)
+		</div>
+	}
+}
+
+// MaintenanceSections is the content of the list. It replaces itself from
+// /fragments/maintenance when live.js sends it "refresh".
+templ MaintenanceSections(v MaintenanceListView) {
+	<div data-live-list hx-get="/fragments/maintenance" hx-trigger="refresh" hx-swap="outerHTML">
+		if v.Empty() {
+			<section class="empty-state" aria-labelledby="maint-empty-title">
+				<h2 id="maint-empty-title">No maintenance scheduled</h2>
+				<p>During a maintenance window checks keep running, outages are still recorded, and notifications can be held back.</p>
+				if v.Admin {
+					<a class="action" href="/maintenance/new">Schedule maintenance</a>
+				}
+			</section>
+		} else {
+			@maintenanceSection("maint-active", "In effect now", v.Active, v.Admin)
+			@maintenanceSection("maint-upcoming", "Upcoming", v.Upcoming, v.Admin)
+			@maintenanceSection("maint-past", "Past", v.Past, v.Admin)
+		}
+	</div>
+}
+
+templ maintenanceSection(id, title string, rows []MaintenanceRow, admin bool) {
+	if len(rows) > 0 {
+		<section class="maint-section" aria-labelledby={ id }>
+			<h2 id={ id }>{ title } <span class="maint-count">{ strconv.Itoa(len(rows)) }</span></h2>
+			<ul class="maint-list" role="list">
+				for _, m := range rows {
+					<li class="maint-row">
+						<div class="maint-main">
+							<span class="maint-name">{ m.Name }</span>
+							<span class="maint-schedule">{ m.Schedule }</span>
+						</div>
+						<p class="maint-when"><time datetime={ m.WhenAt }>{ m.When }</time></p>
+						<ul class="maint-facts" role="list">
+							<li>{ m.Scope }</li>
+							if m.Suppress {
+								<li>Notifications held</li>
+							} else {
+								<li>Notifications sent</li>
+							}
+							if m.ExcludeUptime {
+								<li>Excluded from adjusted uptime</li>
+							}
+						</ul>
+						if admin {
+							<div class="maint-actions">
+								<a href={ templ.SafeURL("/maintenance/" + m.ID + "/edit") }>Edit<span class="visually-hidden">{ m.Name }</span></a>
+							</div>
+						}
+					</li>
+				}
+			</ul>
+		</section>
+	}
+}
+
+// MaintenanceFormPage creates or edits a window. It works without
+// JavaScript: weekdays and the monitor choice are always shown and only
+// count when weekly or "selected" is chosen.
+templ MaintenanceFormPage(page Page, f MaintenanceForm) {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/monitor_form.css", "css/monitor_detail.css", "css/maintenance.css"}, nil), "maintenance") {
+		<div class="monitor-form-page">
+			<p class="crumb"><a href="/maintenance">Maintenance</a></p>
+			if f.Editing() {
+				<h1>Edit { f.Name }</h1>
+			} else {
+				<h1>Schedule maintenance</h1>
+			}
+			if msg, ok := f.Errors["form"]; ok {
+				<p class="auth-alert" role="alert">{ msg }</p>
+			}
+			if items := f.summary(); len(items) > 0 {
+				<div class="form-summary" role="alert" aria-labelledby="summary-title">
+					<h2 id="summary-title">Fix { strconv.Itoa(len(items)) } { plural(len(items), "problem", "problems") } to save</h2>
+					<ul>
+						for _, it := range items {
+							<li><a href={ templ.SafeURL("#" + it.Field) }>{ it.Label }</a>: { it.Message }</li>
+						}
+					</ul>
+				</div>
+			}
+			<form class="monitor-form" method="post" action={ templ.SafeURL(f.Action()) } novalidate>
+				@CSRFField(page)
+				<fieldset class="form-section">
+					<legend>When</legend>
+					@field("name", "Name", f.Errors) {
+						<input id="name" name="name" type="text" value={ f.Name } required maxlength="100" autocomplete="off" { fieldAttrs("name", f.Errors)... }/>
+					}
+					@field("starts_at", "Starts", f.Errors) {
+						<input id="starts_at" name="starts_at" type="datetime-local" value={ f.StartsAt } required { fieldAttrs("starts_at", f.Errors, "starts_at-hint")... }/>
+						<p id="starts_at-hint" class="auth-hint">In { f.Zone }. A repeating window keeps this time of day, also across daylight-saving changes.</p>
+					}
+					<div class="auth-field">
+						<span class="form-group-title" id="duration">Duration</span>
+						<div class="form-pair">
+							<div class="auth-field">
+								<label for="duration_hours">Hours</label>
+								<input id="duration_hours" name="duration_hours" type="number" min="0" max="744" inputmode="numeric" value={ f.DurationHours } { fieldAttrs("duration", f.Errors)... }/>
+							</div>
+							<div class="auth-field">
+								<label for="duration_minutes">Minutes</label>
+								<input id="duration_minutes" name="duration_minutes" type="number" min="0" max="59" inputmode="numeric" value={ f.DurationMinutes } { fieldAttrs("duration", f.Errors)... }/>
+							</div>
+						</div>
+						if msg, ok := f.Errors["duration"]; ok {
+							<p id="duration-error" class="auth-error">{ msg }</p>
+						}
+					</div>
+					<fieldset class="maint-choice" id="recurrence" { fieldAttrs("recurrence", f.Errors)... }>
+						<legend>Repeats</legend>
+						@radio("recurrence", "none", "Once", f.Recurrence == "none")
+						@radio("recurrence", "daily", "Every day", f.Recurrence == "daily")
+						@radio("recurrence", "weekly", "Every week, on these days:", f.Recurrence == "weekly")
+						if msg, ok := f.Errors["recurrence"]; ok {
+							<p id="recurrence-error" class="auth-error">{ msg }</p>
+						}
+						<div class="maint-weekdays" id="weekdays" role="group" aria-label="Weekdays">
+							for _, d := range WeekdayOrder {
+								<label class="maint-weekday">
+									<input type="checkbox" name="weekday" value={ strconv.Itoa(d) } checked?={ f.Weekdays[d] }/>
+									{ WeekdayNames[d] }
+								</label>
+							}
+						</div>
+						if msg, ok := f.Errors["weekdays"]; ok {
+							<p id="weekdays-error" class="auth-error">{ msg }</p>
+						}
+					</fieldset>
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Effect</legend>
+					@checkbox("suppress", "Hold back notifications", f.Suppress, "Outages are recorded either way. A monitor still down when the window ends is announced then.")
+					@checkbox("exclude_uptime", "Exclude from adjusted uptime", f.ExcludeUptime, "Raw uptime always counts the time. Adjusted uptime is computed from the windows as they are now, so editing or deleting a past window changes it.")
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Monitors</legend>
+					<fieldset class="maint-choice" id="scope" { fieldAttrs("scope", f.Errors)... }>
+						<legend class="visually-hidden">Which monitors</legend>
+						@radio("scope", "all", "All monitors", f.ScopeAll)
+						@radio("scope", "selected", "Only these monitors and tags:", !f.ScopeAll)
+						if msg, ok := f.Errors["scope"]; ok {
+							<p id="scope-error" class="auth-error">{ msg }</p>
+						}
+						if len(f.Monitors) > 0 {
+							<div class="maint-options" role="group" aria-label="Monitors">
+								for _, o := range f.Monitors {
+									<label class="maint-option">
+										<input type="checkbox" name="monitor" value={ o.Value } checked?={ o.Checked }/>
+										{ o.Label }
+									</label>
+								}
+							</div>
+						}
+						if len(f.Tags) > 0 {
+							<div class="maint-options" role="group" aria-label="Tags">
+								for _, o := range f.Tags {
+									<label class="maint-option">
+										<input type="checkbox" name="tag" value={ o.Value } checked?={ o.Checked }/>
+										Tag: { o.Label }
+									</label>
+								}
+							</div>
+						}
+					</fieldset>
+				</fieldset>
+				<div class="form-actions">
+					<button class="auth-submit" type="submit">
+						if f.Editing() {
+							Save changes
+						} else {
+							Schedule
+						}
+					</button>
+					<a href="/maintenance">Cancel</a>
+				</div>
+			</form>
+			if f.Editing() {
+				<form class="maint-delete" method="post" action={ templ.SafeURL("/maintenance/" + f.ID + "/delete") }>
+					@CSRFField(page)
+					<button class="detail-button detail-button-danger" type="submit">Delete this window</button>
+				</form>
+			}
+		</div>
+	}
+}
+
+templ radio(name, value, label string, checked bool) {
+	<label class="maint-radio">
+		<input type="radio" name={ name } value={ value } checked?={ checked }/>
+		{ label }
+	</label>
+}
+
+// MaintenanceDeleteConfirm asks before a window is deleted.
+templ MaintenanceDeleteConfirm(page Page, v DeleteConfirmView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/monitor_detail.css"}, nil), "maintenance") {
+		<div class="monitor-detail">
+			<p class="crumb"><a href="/maintenance">Maintenance</a></p>
+			<h1>Delete { v.Name }?</h1>
+			<p>The window stops holding back notifications at once. Adjusted uptime is computed from the windows as they are, so any time it covered in the past counts again.</p>
+			<div class="detail-actions">
+				<form method="post" action={ templ.SafeURL("/maintenance/" + v.ID + "/delete") }>
+					@CSRFField(page)
+					<input type="hidden" name="confirm" value="1"/>
+					<button class="detail-button detail-button-danger" type="submit">Delete window</button>
+				</form>
+				<a class="detail-button" href="/maintenance">Cancel</a>
+			</div>
+		</div>
+	}
+}

@@ -110,7 +110,15 @@ func (w Window) on(day, first time.Time) time.Time {
 	if day.Year() == first.Year() && day.YearDay() == first.YearDay() {
 		return w.Start
 	}
-	t := time.Date(day.Year(), day.Month(), day.Day(), first.Hour(), first.Minute(), first.Second(), 0, day.Location())
+	return Local(day.Year(), day.Month(), day.Day(), first.Hour(), first.Minute(), first.Second(), day.Location())
+}
+
+// Local is the given wall-clock time in loc, like time.Date, but settled
+// the way maintenance windows need: a time skipped by a daylight-saving
+// change moves forward by the gap, and a time that occurs twice is the
+// first of the two.
+func Local(year int, month time.Month, day, hour, min, sec int, loc *time.Location) time.Time {
+	t := time.Date(year, month, day, hour, min, sec, 0, loc)
 	// time.Date does not promise which of two equal wall-clock times it
 	// returns; the earlier one shows the same clock under the larger
 	// offset of a few hours before.

@@ -96,6 +96,17 @@ A normal HTTP monitor should require only:
 
 Built (M2-17, `/monitors/new` and `/monitors/{id}/edit`, admins only): one page, no JavaScript. Basics (type, only HTTP until M4; name; tags; "start checking now" on create), Request (URL, method, POST body, redirects, plain headers as `Name: value` lines, authentication, secret headers), Assertions (status, contains / does not contain, JSON rows: path, check, expected value), Retry & timing (in seconds), Dependencies (parent), Notifications (a placeholder until M5), and Advanced in a collapsed `<details>` that opens when one of its fields has an error. Everything but name and URL has a default. A failed save lists every problem at the top, linked to its field, and marks each field. Secrets are write-only (`13_AUTH_SECURITY.md`). Pausing is not on the form: a new monitor can start paused, an existing one is paused from its page.
 
+## Maintenance
+
+List, grouped by when a window applies:
+- in effect now (until when), upcoming (next start, soonest first), past (ended, latest first)
+- each row: name, schedule ("Mon, Wed at 22:00 for 1 h"), scope, whether notifications are held, whether it is excluded from adjusted uptime
+- times in the instance time zone, named at the top
+- empty state that explains what maintenance does
+- updates live when a window changes (`maintenance.updated`)
+
+Create/edit (admin): one page, no dialog; start as a local date and time, duration in hours and minutes, once/daily/weekly with weekdays, the two effects, all monitors or chosen monitors and tags. Help text says that adjusted uptime is computed from the windows as they are now. Delete is on the edit page and asks first.
+
 ## Incidents
 
 Group events by incident.

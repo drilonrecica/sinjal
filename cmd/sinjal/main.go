@@ -145,6 +145,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		CSRFKey:  masterKey.Derive(web.CSRFKeyLabel),
 		Vault:    masterKey,
 		Passkeys: passkeys,
+		Timezone: cfg.Timezone,
 		Engine:   monitoring,
 	})
 

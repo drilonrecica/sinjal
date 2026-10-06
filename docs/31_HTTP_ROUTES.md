@@ -58,8 +58,10 @@ POST /notifications/profiles/{id}/delete
 GET  /maintenance
 GET  /maintenance/new
 POST /maintenance
+GET  /maintenance/{id}/edit
 POST /maintenance/{id}
 POST /maintenance/{id}/delete
+GET  /fragments/maintenance
 
 GET  /reauth                 # confirm password (+ TOTP code) before a sensitive action
 POST /reauth
@@ -149,3 +151,9 @@ Heartbeat token endpoints are machine endpoints and use token authentication rat
 - `POST /monitors/{id}/pause|resume` (M2-18): admin only; 303 back to the monitor; idempotent.
 - `POST /monitors/{id}/delete` (M2-18): admin only. Without `confirm=1` it answers 200 with the confirmation page and changes nothing; with it the monitor is deleted, `monitor.deleted` is sent and the answer is 303 to `/monitors`.
 - `GET|HEAD /fragments/monitors` (M2-18): the list rows alone, for the list to refresh itself; admins and viewers, `no-store`.
+
+## Implemented (M3)
+
+- `GET|HEAD /maintenance` (M3-07): admins and viewers; windows in effect, upcoming and past, times in the instance time zone. `GET|HEAD /fragments/maintenance`: the same sections alone, for the list to refresh itself on `maintenance.updated`; `no-store`.
+- `GET /maintenance/new`, `POST /maintenance`, `GET /maintenance/{id}/edit`, `POST /maintenance/{id}` (M3-07): admin only. A valid post stores the window, audits it (`maintenance.created|updated`), sends `maintenance.updated` and redirects (303) to `/maintenance`; an invalid one is answered 422 with every error at once and the typed values kept. Unknown id: 404.
+- `POST /maintenance/{id}/delete` (M3-07): admin only; offered on the edit page. Without `confirm=1` it answers 200 with the confirmation page and changes nothing; with it the window is deleted, audited (`maintenance.deleted`), `maintenance.updated` is sent and the answer is 303 to `/maintenance`.

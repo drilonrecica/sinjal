@@ -6,7 +6,7 @@
  *
  * [data-live][data-monitor-id]  one monitor (row, detail header)
  * [data-live-list]              a whole list, refetched when monitors are
- *                               created or deleted
+ *                               created or deleted, or maintenance changes
  * [data-gone-href]              where to go when its monitor is deleted */
 (function () {
   "use strict";
@@ -39,7 +39,13 @@
     showing(monitorID(e), refresh);
   });
 
+  // A list refetches itself whole: monitors created, maintenance changed.
+  // A page only receives the events its <div sse-connect> names.
   document.addEventListener("sse:monitor.created", function () {
+    each(document, "[data-live-list]", refresh);
+  });
+
+  document.addEventListener("sse:maintenance.updated", function () {
     each(document, "[data-live-list]", refresh);
   });
 

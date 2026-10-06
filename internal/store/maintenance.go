@@ -173,6 +173,16 @@ func validateMaintenance(ctx context.Context, q querier, w *maintenance.Window) 
 	return errs, nil
 }
 
+// CheckMaintenance validates a window without storing it, for a form that
+// already has problems of its own to show all of them at once.
+func CheckMaintenance(ctx context.Context, q querier, w maintenance.Window) error {
+	errs, err := validateMaintenance(ctx, q, &w)
+	if err != nil || len(errs) == 0 {
+		return err
+	}
+	return errs
+}
+
 // scopeJSON is the stored scope: NULL for every monitor.
 func scopeJSON(s maintenance.Scope) (any, error) {
 	if s.All() {

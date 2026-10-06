@@ -175,3 +175,23 @@ func TestScope(t *testing.T) {
 		}
 	}
 }
+
+func TestLocal(t *testing.T) {
+	bel := zone(t, "Europe/Belgrade")
+	for _, c := range []struct {
+		h, m int
+		day  int
+		want string
+	}{
+		{2, 30, 25, "2026-10-25T00:30:00Z"}, // repeated: the first, still CEST
+		{3, 30, 25, "2026-10-25T02:30:00Z"},
+		{2, 30, 24, "2026-10-24T00:30:00Z"},
+	} {
+		if got := Local(2026, time.October, c.day, c.h, c.m, 0, bel).UTC().Format(time.RFC3339); got != c.want {
+			t.Errorf("%d %02d:%02d = %s, want %s", c.day, c.h, c.m, got, c.want)
+		}
+	}
+	if got := Local(2026, time.March, 29, 2, 30, 0, bel).UTC().Format(time.RFC3339); got != "2026-03-29T01:30:00Z" {
+		t.Errorf("skipped 02:30 = %s, want 03:30 CEST", got)
+	}
+}

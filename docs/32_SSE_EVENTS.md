@@ -88,6 +88,7 @@ Events sent today:
 | `monitor.updated` | a monitor was edited | the monitor handlers (M2-17) |
 | `monitor.created` | a monitor was created | the monitor handlers (M2-17) |
 | `monitor.deleted` | a monitor was deleted | the monitor handlers (M2-18) |
+| `maintenance.updated` | a maintenance window was created, edited or deleted; payload `{"maintenance_id":"…"}` | the maintenance handlers (M3-07) |
 
 The other names in the list above arrive with their features.
 
@@ -98,6 +99,7 @@ Pages that show live monitors wrap them in the `Live` component (`web/templates/
 - `sse:monitor.updated`: read `monitor_id`, then ask every element marked `data-live` with that `data-monitor-id` to `refresh`. Such an element (`MonitorRow`, `MonitorHeader`) carries `hx-get` of its own fragment (`/fragments/monitors/{id}/row|header`), `hx-trigger="refresh"` and `hx-swap="outerHTML"`, so htmx fetches the fragment and replaces the element.
 - `sse:monitor.created`: refresh every `data-live-list` element. The monitor list (`MonitorRows`) is one, with `hx-get="/fragments/monitors"`, so a new monitor appears in name order, rendered by the server.
 - `sse:monitor.deleted`: an element showing that monitor with `data-gone-href` (the detail header) sends the browser there (`/monitors`); every `data-live-list` is refreshed, which drops the row.
+- `sse:maintenance.updated`: refresh every `data-live-list`. The Maintenance page's own `<div sse-connect>` names only this event, and its list (`MaintenanceSections`, `hx-get="/fragments/maintenance"`) is the `data-live-list` there; the monitor pages do not listen for it. A window starting or ending is not an event: the sections move on the next refresh or reload.
 - `htmx:sseOpen` (first load, reconnect, server restart): refresh every `data-live-list` and every `data-live` element that is not inside one (a list brings its rows along), since nothing is replayed after a gap.
 
 Why a script instead of an `hx-trigger` filter such as `sse:monitor.updated[...]`: htmx runs trigger filters through `eval`, which the page turns off (`allowEval: false`, no `unsafe-eval` in the CSP). The payload is never rendered; an id that matches nothing is ignored, and a malformed one is dropped.

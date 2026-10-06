@@ -64,7 +64,16 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"deleteConfirm":   MonitorDeleteConfirm(page, DeleteConfirmView{ID: "m1", Name: "API"}),
 		"monitorFormNew":  MonitorFormPage(page, MonitorForm{Enabled: true, Assertions: []AssertionField{{}}}),
 		"settingsOff":     SettingsAuth(page, SettingsAuthView{PasskeysUnavailable: "SINJAL_BASE_URL is not set."}),
-		"totpSetup":       TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
+		"maintenanceList": MaintenanceList(page, MaintenanceListView{Admin: true, Zone: "UTC",
+			Active:   []MaintenanceRow{{ID: "w1", Name: "Now", Schedule: "Daily at 02:00 for 1 h", Scope: "All monitors", When: "Until 03:00", Suppress: true, ExcludeUptime: true}},
+			Upcoming: []MaintenanceRow{{ID: "w2", Name: "Later", Scope: "API, tag prod"}}, Past: []MaintenanceRow{{ID: "w3", Name: "Over"}}}),
+		"maintenanceNone": MaintenanceList(page, MaintenanceListView{Zone: "UTC"}),
+		"maintenanceForm": MaintenanceFormPage(page, MaintenanceForm{ID: "w1", Name: "x", Recurrence: "weekly", Zone: "UTC",
+			Monitors: []ScopeOption{{Value: "m1", Label: "API", Checked: true}}, Tags: []ScopeOption{{Value: "prod", Label: "prod"}},
+			Errors: map[string]string{"name": "x", "starts_at": "x", "duration": "x", "weekdays": "x", "scope": "x", "form": "x"}}),
+		"maintenanceNew":    MaintenanceFormPage(page, MaintenanceForm{Recurrence: "none", ScopeAll: true, Suppress: true}),
+		"maintenanceDelete": MaintenanceDeleteConfirm(page, DeleteConfirmView{ID: "w1", Name: "Now"}),
+		"totpSetup":         TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}
 	for _, tab := range DetailTabs {
 		v := MonitorDetailView{Monitor: testMonitor, Admin: true, Tab: tab.Key,

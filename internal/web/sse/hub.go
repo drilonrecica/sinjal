@@ -14,11 +14,13 @@ import (
 	"time"
 )
 
-// Event names. The payload of each is {"monitor_id": "..."}.
+// Event names. The payload of the monitor events is {"monitor_id": "..."},
+// that of maintenance.updated {"maintenance_id": "..."}.
 const (
-	MonitorCreated = "monitor.created"
-	MonitorUpdated = "monitor.updated"
-	MonitorDeleted = "monitor.deleted"
+	MonitorCreated     = "monitor.created"
+	MonitorUpdated     = "monitor.updated"
+	MonitorDeleted     = "monitor.deleted"
+	MaintenanceUpdated = "maintenance.updated" // a window was created, edited or deleted
 )
 
 const (
@@ -71,6 +73,15 @@ func NewHub(logger *slog.Logger) *Hub {
 // blocks: a client whose buffer is full is disconnected instead, so no
 // browser can hold up the result processor.
 func (h *Hub) Publish(event, monitorID string) {
+	h.publish(event, "monitor_id", monitorID)
+}
+
+// PublishMaintenance announces that a maintenance window changed.
+func (h *Hub) PublishMaintenance(windowID string) {
+	h.publish(MaintenanceUpdated, "maintenance_id", windowID)
+}
+
+func (h *Hub) publish(event, key, id string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.closed {
@@ -82,7 +93,7 @@ func (h *Hub) Publish(event, monitorID string) {
 	if len(h.clients) == 0 {
 		return
 	}
-	f := frame(h.seq, event, monitorID) // built once, shared by all clients
+	f := frame(h.seq, event, key, id) // built once, shared by all clients
 	for c := range h.clients {
 		select {
 		case c.frames <- f:
@@ -96,11 +107,9 @@ func (h *Hub) Publish(event, monitorID string) {
 }
 
 // frame is one event on the wire. The payload is JSON on a single line, so
-// no monitor id can break out of its frame.
-func frame(id uint64, event, monitorID string) []byte {
-	payload, _ := json.Marshal(struct {
-		MonitorID string `json:"monitor_id"`
-	}{monitorID})
+// no id can break out of its frame.
+func frame(id uint64, event, key, value string) []byte {
+	payload, _ := json.Marshal(map[string]string{key: value})
 	b := make([]byte, 0, 32+len(event)+len(payload))
 	b = append(b, "id: "...)
 	b = strconv.AppendUint(b, id, 10)

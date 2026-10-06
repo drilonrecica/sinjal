@@ -38,6 +38,10 @@ const (
 	MonitorDeleted = "monitor.deleted"
 	MonitorPaused  = "monitor.paused"
 	MonitorResumed = "monitor.resumed"
+
+	MaintenanceCreated = "maintenance.created"
+	MaintenanceUpdated = "maintenance.updated"
+	MaintenanceDeleted = "maintenance.deleted"
 )
 
 // Event is one audit_events row to write. Empty strings are stored as NULL.

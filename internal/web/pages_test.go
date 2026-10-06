@@ -29,8 +29,8 @@ var navLinkRe = regexp.MustCompile(`<a class="nav-link" href="([^"]+)"( aria-cur
 func TestEverySectionRendersTheShell(t *testing.T) {
 	r, _ := pagesRouter()
 	for _, s := range templates.Sections {
-		if s.Key == "monitors" {
-			continue // a real page needing the database: see monitors_test.go
+		if s.Key == "monitors" || s.Key == "maintenance" {
+			continue // real pages needing the database: see monitors_test.go, maintenance_test.go
 		}
 		t.Run(s.Key, func(t *testing.T) {
 			rec := get(r, "GET", s.Path)

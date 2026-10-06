@@ -28,6 +28,7 @@ type App struct {
 	Vault    *vault.Key // encrypts secrets at rest (TOTP, monitor secrets)
 	Passkeys *auth.Passkeys
 	Engine   *engine.Engine // schedules monitors after they change; must be started
+	Timezone *time.Location // the instance time zone; nil is UTC
 }
 
 // Routes mounts the whole route table (docs/31_HTTP_ROUTES.md) on r, which
@@ -48,6 +49,7 @@ func Routes(r chi.Router, app App) {
 	system := NewSettingsSystem(app.DB, app.Logger)
 	monitors := NewMonitors(app.DB, app.Vault, app.Engine, app.Events, app.Logger)
 	account := NewAccount(app.DB, app.Sessions, app.Logger)
+	maint := NewMaintenance(app.DB, app.Events, app.Timezone, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
 	RegisterHealth(r, app.Health)
@@ -66,6 +68,7 @@ func Routes(r chi.Router, app App) {
 			RegisterPages(r, app.Logger)
 			RegisterEvents(r, app.Events, app.Sessions, app.Logger)
 			RegisterMonitors(r, monitors)
+			RegisterMaintenance(r, maint)
 			RegisterReauth(r, reauth)
 			RegisterPasskeyReauth(r, passkeys)
 			RegisterAccount(r, account, recentAuth) // the caller's own password; viewers too
@@ -79,6 +82,7 @@ func Routes(r chi.Router, app App) {
 				RegisterPasskeyRegistration(r, passkeys, recentAuth)
 				RegisterSettingsSystem(r, system) // read-only, but shows client addresses
 				RegisterMonitorChanges(r, monitors)
+				RegisterMaintenanceChanges(r, maint)
 			})
 		})
 	})

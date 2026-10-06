@@ -27,6 +27,11 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 - incident timeline
 - diagnostics summary
 
+## Maintenance components
+
+- maintenance list: sections In effect now / Upcoming / Past, one compact row per window (name, schedule, when, scope, effect)
+- maintenance form: when (name, start, duration, repeats with weekdays), effect (hold back notifications, exclude from adjusted uptime), monitors (all, or chosen monitors and tags); delete on the edit page
+
 ## Form primitives
 
 - text input
