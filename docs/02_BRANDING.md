@@ -59,6 +59,21 @@ Avoid:
 - server rack cliché
 - checkmark-in-circle cliché
 
+## Logo
+
+Chosen mark (decision P0-21): **open ring**. A continuity ring with one gap, holding a status pip in the accent color: availability, with one point of state.
+
+Files:
+- `docs/brand/sinjal-mark.svg`: the mark alone (64-unit box)
+- `docs/brand/sinjal-wordmark.svg`: mark + "sinjal" in Inter SemiBold, outlined to paths (no font dependency)
+
+Rules:
+- the ring uses the foreground/text color, the pip uses the theme accent
+- the standalone files carry light colors plus a `prefers-color-scheme: dark` variant; in the product, inline the paths with `currentColor` and `var(--accent)`
+- minimum size 16 px; stroke stays 7/64 of the box (no hairline variant)
+- wordmark is always lowercase "sinjal", tracking −0.03em
+- no gradients, glows or effects; the pip is never replaced by a status color (the mark does not imply live state)
+
 ## Status-page branding
 
 Default footer:

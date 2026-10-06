@@ -189,3 +189,4 @@ This summarizes the locked design rounds.
 - P0-17: releases are signed with `ssh-keygen -Y sign` using a dedicated Ed25519 release key over `checksums.txt`; SBOM via syft as SPDX JSON; public key in `docs/release-signing/allowed_signers`.
 - P0-18: a check-only GitHub Actions workflow (fmt, vet, lint, race tests, stale templ check) on push to master; read-only permissions, SHA-pinned actions, no secrets, never publishes.
 - P0-20: real notification delivery is verified manually with owner test accounts supplied only via a local git-ignored `.env` (`SINJAL_TEST_*`); never in CI.
+- P0-21: logo is the "open ring" mark (continuity ring with one gap and an accent pip) plus an outlined lowercase Inter SemiBold wordmark; files in `docs/brand/`.
