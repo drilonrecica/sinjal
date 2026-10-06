@@ -59,12 +59,9 @@ Triggers:
 - push to `master`
 - manual `workflow_dispatch`
 
-Steps:
-- `gofmt` check (no diff)
-- `go vet ./...`
-- `make lint` (staticcheck, `templ fmt` check)
-- `go test -race ./...`
-- stale generated templ output check (`go tool templ generate` produces no diff)
+Workflow: `.github/workflows/ci.yml`, one job, two steps:
+- `make lint`: `gofmt` check, `go vet ./...`, `staticcheck`, `templ fmt` check, stale generated templ output check (`go tool templ generate` must change nothing)
+- `make test-race`: `go test -race ./...`, which includes the milestone integration tests
 
 Constraints:
 - `permissions: contents: read`

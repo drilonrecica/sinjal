@@ -1,0 +1,36 @@
+# Check-only CI (docs/27_MANUAL_RELEASES.md, decision P0-18).
+# It never publishes: no tags, releases, artifacts or container images, and it
+# uses no secrets. Releases stay manual.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        # actions/setup-go v5.6.0
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+
+      # gofmt, go vet, staticcheck, templ formatting, stale templ output.
+      - name: Lint
+        run: make lint
+
+      - name: Test (race detector)
+        run: make test-race
