@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -123,13 +124,19 @@ func TestServeBootsAndStopsCleanly(t *testing.T) {
 		}
 	}
 
-	resp, err := http.Get("http://" + addr + "/")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound { // no routes until M0-11
-		t.Errorf("GET / = %d, want 404", resp.StatusCode)
+	for path, want := range map[string]string{"/healthz": "ok", "/readyz": "ready"} {
+		resp, err := http.Get("http://" + addr + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != want {
+			t.Errorf("GET %s = %d %q, want 200 %q", path, resp.StatusCode, body, want)
+		}
+		if resp.Header.Get("X-Request-Id") == "" {
+			t.Errorf("GET %s has no X-Request-Id", path)
+		}
 	}
 
 	cancel()
@@ -142,7 +149,7 @@ func TestServeBootsAndStopsCleanly(t *testing.T) {
 		t.Fatal("serve did not stop after cancellation")
 	}
 
-	for _, want := range []string{"migration applied", "subsystem=db", "stopped"} {
+	for _, want := range []string{"migration applied", "subsystem=db", "msg=request", "route=/healthz", "stopped"} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Errorf("log is missing %q:\n%s", want, stderr.String())
 		}

@@ -59,8 +59,12 @@ Expose:
 Add Docker `HEALTHCHECK`. The image has no curl, so it runs `sinjal healthcheck`, which requests `/healthz` on the local listener and exits 0 (healthy) or 1.
 
 Definitions:
-- healthz: process can serve and core DB access works
+- healthz: process can serve and core DB access works (`SELECT 1` on the read pool, 2 s limit)
 - readyz: instance ready for normal traffic and migrations complete
+
+Both are unauthenticated plain-text endpoints (`200 ok` / `200 ready`, `503 unhealthy` / `503 not ready`) with `Cache-Control: no-store`. They never include versions, paths or error details; failures are logged instead.
+
+Startup order is config, data directory, database, migrations, then the listener opens, so while a long migration runs nothing is listening yet rather than `/readyz` answering 503.
 
 ## ICMP
 

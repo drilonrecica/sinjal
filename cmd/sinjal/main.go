@@ -75,10 +75,13 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		return fatalf(stderr, "%v", err)
 	}
 	defer database.Close()
+	health := web.NewHealth(database.Reader, logger)
 
 	if err := db.Migrate(ctx, database, filepath.Join(cfg.DataDir, "backups"), version, logging.Sub(logger, "db")); err != nil {
 		return fatalf(stderr, "database migration: %v", err)
 	}
+
+	health.SetReady() // migrations are complete; the listener opens next
 
 	ln, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
@@ -86,7 +89,9 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	}
 	log.Info("listening", "addr", ln.Addr().String())
 
-	srv := web.NewServer(cfg.Listen, web.NewRouter(logger))
+	router := web.NewRouter(logger)
+	web.RegisterHealth(router, health)
+	srv := web.NewServer(cfg.Listen, router)
 	if err := web.Run(ctx, srv, ln, web.ShutdownGrace, logger); err != nil {
 		return fatalf(stderr, "http server: %v", err)
 	}
