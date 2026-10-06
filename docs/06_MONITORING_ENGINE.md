@@ -161,6 +161,7 @@ For HTTPS:
 - a warning is an indicator alongside UP, not a monitor state (there is no `DEGRADED` state)
 - the last observed certificate `not_after` is stored per monitor and drives the warning badge and the "TLS expiring" filter
 - crossing a threshold sends one `warning`-severity notification per threshold per certificate; a renewed certificate (new `not_after`) resets the thresholds
+- implementation (M5-10): the result processor decides it on every result that saw a certificate, whatever the check's outcome. A threshold of N days is reached once the whole days left (`floor((not_after − check time) / 24 h)`, the number the message shows) are N or fewer. Thresholds reached together (a certificate first seen with 5 days left) give one notification and are all recorded. Recorded thresholds are kept in `tls_warnings`, in the batch transaction, so a restart does not repeat one and a warning suppressed by maintenance is not sent later; the rows of earlier certificates go when the renewed one reaches its first threshold. A parent that is DOWN does not hold it back (`10_INCIDENTS.md`)
 - expired/invalid TLS that prevents the configured request from succeeding is a failure unless insecure TLS is explicitly enabled
 
 "Insecure skip verify" may exist only in Advanced with clear warning.

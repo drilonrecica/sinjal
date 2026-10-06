@@ -206,7 +206,7 @@ Kinds (`incident.IntentKind`):
 | `recovery` | a check closed an incident (not a pause) |
 | `flapping` | the monitor started flapping |
 | `stable` | flapping ended while the monitor is not DOWN |
-| `tls_warning` | a certificate crossed a warning threshold (emitted from M5, which brings its dedupe state) |
+| `tls_warning` | a check saw a certificate reach a warning threshold not yet recorded for it in `tls_warnings` (`06_MONITORING_ENGINE.md` "TLS"); belongs to no incident |
 | `reminder` | the monitor is still DOWN when its profile's reminder duration has passed since the incident started; decided once per incident (`11_NOTIFICATIONS.md` "Outage reminder") |
 
 Suppression (`incident.Suppression`, a pure function of the kind and three conditions). One reason is recorded; when several apply the order is maintenance, parent, flapping:

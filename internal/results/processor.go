@@ -243,6 +243,10 @@ type monitorWork struct {
 	// reminder is the active incident's outage reminder while it is still
 	// to be decided; its IncidentID is "" otherwise.
 	reminder store.Reminder
+	// tlsDays are the monitor's certificate warning thresholds, read the
+	// first time this batch has a certificate expiry.
+	tlsDays []int
+	tlsRead bool
 	// windows are the maintenance windows covering the monitor, read the
 	// first time this batch needs them.
 	windows     []maintenance.Window
@@ -377,6 +381,9 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	if !r.Success && w.state != incident.Down && w.counters.Failures == 0 {
 		w.first = failure{at: r.CheckedAt, kind: r.Kind, message: r.Message}
 	}
+	if err := w.certificate(ctx, tx, r); err != nil {
+		return err
+	}
 	switch {
 	case changed && out.State == incident.Down:
 		c, err := w.conditions(ctx, tx, r)
@@ -436,6 +443,35 @@ func (w *monitorWork) remind(ctx context.Context, tx *sql.Tx, r *Result) error {
 		return err
 	}
 	return w.intend(ctx, tx, incident.IntentReminder, r, id)
+}
+
+// certificate decides a TLS warning when the certificate this check saw
+// reached a warning threshold that was not recorded for it yet (docs/06
+// "TLS"). Thresholds reached together, a certificate first seen close to
+// expiry, give one warning. A recorded threshold is not warned about again,
+// also when maintenance suppressed it; a renewed certificate starts afresh.
+// The check's own outcome does not matter: the warning is about the
+// certificate.
+func (w *monitorWork) certificate(ctx context.Context, tx *sql.Tx, r *Result) error {
+	if r.TLSNotAfter == nil {
+		return nil
+	}
+	if !w.tlsRead {
+		days, err := store.TLSWarningDays(ctx, tx, r.MonitorID)
+		if err != nil {
+			return err
+		}
+		w.tlsDays, w.tlsRead = days, true
+	}
+	crossed := incident.CrossedThresholds(w.tlsDays, *r.TLSNotAfter, r.CheckedAt)
+	if len(crossed) == 0 {
+		return nil
+	}
+	fresh, err := store.CrossTLSThresholds(ctx, tx, r.MonitorID, *r.TLSNotAfter, crossed, r.CheckedAt)
+	if err != nil || !fresh {
+		return err
+	}
+	return w.intend(ctx, tx, incident.IntentTLSWarning, r, "")
 }
 
 // stored is t as the database keeps it: in whole seconds. Flapping is

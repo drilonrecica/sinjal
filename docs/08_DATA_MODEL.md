@@ -178,7 +178,7 @@ This is not a workflow engine.
 Per monitor + certificate `not_after` + threshold days:
 - notified_at
 
-Deduplicates TLS warning notifications. A renewed certificate (new `not_after`) starts fresh.
+Deduplicates TLS warning notifications. A renewed certificate (new `not_after`) starts fresh: the rows of a monitor's earlier certificates are deleted when the new one reaches its first threshold. A row means the threshold was decided (delivered, suppressed or unrouted), not that it was delivered.
 
 ## DNS config
 

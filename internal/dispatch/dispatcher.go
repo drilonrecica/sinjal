@@ -13,7 +13,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"math"
 	"sync/atomic"
 	"time"
 
@@ -305,7 +304,7 @@ func (d *Dispatcher) event(ctx context.Context, in incident.Intent, kind notify.
 	}
 	if in.Kind == incident.IntentTLSWarning && t.TLSNotAfter != nil {
 		e.CertExpiry = *t.TLSNotAfter
-		e.DaysLeft = int(math.Floor(t.TLSNotAfter.Sub(in.At).Hours() / 24))
+		e.DaysLeft = incident.DaysLeft(*t.TLSNotAfter, in.At)
 	}
 	if in.IncidentID == "" {
 		return e, nil
