@@ -1,0 +1,58 @@
+:root {
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --density-factor: 1;
+
+  --status-up: #2f9e66;
+  --status-warning: #d98b20;
+  --status-down: #d9534f;
+  --status-paused: #7b8494;
+  --status-pending: #b08a42;
+  --status-flapping: #c0752a;
+}
+
+/* These values are directional examples, not immutable brand colors. */
+[data-theme="carbon"] {
+  --bg: #15171a;
+  --surface-1: #1b1e22;
+  --surface-2: #22262b;
+  --border: #30353c;
+  --text: #f0f2f4;
+  --text-muted: #a6adb7;
+  --accent: #7da2ff;
+}
+
+[data-theme="paper"] {
+  --bg: #f5f2eb;
+  --surface-1: #fffdf8;
+  --surface-2: #f0ece3;
+  --border: #d8d2c6;
+  --text: #25231f;
+  --text-muted: #6e685f;
+  --accent: #3e67a8;
+}
+
+[data-theme="midnight"] {
+  --bg: #0b1020;
+  --surface-1: #11182b;
+  --surface-2: #172137;
+  --border: #25324d;
+  --text: #edf3ff;
+  --text-muted: #9caac2;
+  --accent: #78a4ff;
+}
+
+[data-theme="terminal"] {
+  --bg: #10120f;
+  --surface-1: #151815;
+  --surface-2: #1b1f1b;
+  --border: #303630;
+  --text: #e5eadf;
+  --text-muted: #98a391;
+  --accent: #91b66e;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+}

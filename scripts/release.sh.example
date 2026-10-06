@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="${1:-}"
+if [[ -z "$VERSION" ]]; then
+  echo "usage: $0 <version>"
+  exit 1
+fi
+
+rm -rf dist
+mkdir -p dist
+
+go test ./...
+
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  -trimpath -ldflags "-s -w -X main.version=$VERSION" \
+  -o "dist/sinjal-linux-amd64" ./cmd/sinjal
+
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+  -trimpath -ldflags "-s -w -X main.version=$VERSION" \
+  -o "dist/sinjal-linux-arm64" ./cmd/sinjal
+
+(
+  cd dist
+  sha256sum sinjal-linux-* > checksums.txt
+)
+
+echo "Artifacts created in dist/."
+echo "This script intentionally does NOT publish, tag, or upload anything."

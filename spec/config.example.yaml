@@ -1,0 +1,95 @@
+# Safe, human-readable configuration export example.
+# Secret values are intentionally omitted/redacted.
+
+version: 1
+
+instance:
+  timezone: Europe/Belgrade
+  default_interval: 30s
+  default_timeout: 5s
+  theme: carbon
+  density: comfortable
+
+notification_profiles:
+  - name: Critical
+    quiet_hours:
+      enabled: true
+      start: "23:00"
+      end: "07:00"
+      critical_bypass: true
+    reminder_after: 1h
+    routes:
+      info: [discord-main]
+      warning: [telegram-main, discord-main]
+      critical: [telegram-main, discord-main, smtp-main]
+
+notification_channels:
+  - id: telegram-main
+    type: telegram
+    name: Telegram
+    secrets: REDACTED
+  - id: discord-main
+    type: discord
+    name: Discord
+    secrets: REDACTED
+  - id: smtp-main
+    type: smtp
+    name: Email
+    secrets: REDACTED
+
+monitors:
+  - name: Example Website
+    type: http
+    enabled: true
+    interval: 30s
+    timeout: 5s
+    failure_threshold: 2
+    retry_delay: 5s
+    success_threshold: 1
+    notification_profile: Critical
+    tags: [production, web]
+    http:
+      url: https://example.com
+      method: GET
+      follow_redirects: true
+      expected_status: 200-399
+      max_body_bytes: 1048576
+      tls_expiry:
+        enabled: true
+        warning_days: [30, 14, 7]
+
+  - name: SSH
+    type: tcp
+    enabled: true
+    tcp:
+      host: 192.0.2.10
+      port: 22
+
+  - name: Public DNS
+    type: dns
+    enabled: true
+    dns:
+      hostname: example.com
+      query_type: A
+
+  - name: Nightly Backup
+    type: heartbeat
+    enabled: true
+    heartbeat:
+      expected_interval: 24h
+      grace: 2h
+      token: REDACTED
+
+status_pages:
+  - title: Example Status
+    slug: example
+    visibility: public
+    theme: paper
+    show_powered_by: true
+    incident_days: 30
+    groups:
+      - name: Web
+        monitors:
+          - monitor: Example Website
+            display_name: Website
+            show_latency: true

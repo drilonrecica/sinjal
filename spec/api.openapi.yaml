@@ -1,0 +1,82 @@
+openapi: 3.1.0
+info:
+  title: Sinjal API
+  version: 0.1.0
+  description: Small automation/status API for Sinjal.
+servers:
+  - url: /
+paths:
+  /api/v1/status:
+    get:
+      summary: Get authenticated instance summary
+      responses:
+        '200':
+          description: Instance summary
+  /api/v1/monitors:
+    get:
+      summary: List monitors
+      responses:
+        '200':
+          description: Monitor list
+  /api/v1/monitors/{id}:
+    get:
+      summary: Get monitor
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Monitor }
+        '404': { description: Not found }
+  /api/v1/monitors/{id}/pause:
+    post:
+      summary: Pause monitor
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Paused }
+  /api/v1/monitors/{id}/resume:
+    post:
+      summary: Resume monitor
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Resumed }
+  /api/v1/heartbeat/{token}:
+    post:
+      summary: Record heartbeat
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Recorded }
+        '404': { description: Invalid token }
+  /status/{slug}/api.json:
+    get:
+      summary: Public-safe status page JSON
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Public status representation }
+  /status/{slug}/feed.xml:
+    get:
+      summary: Incident feed
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: RSS or Atom feed }

@@ -1,0 +1,12 @@
+services:
+  sinjal:
+    image: sinjal:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SINJAL_DATA_DIR: /data
+      SINJAL_LISTEN: ":8080"
+      SINJAL_LOG_FORMAT: text
+    volumes:
+      - ./data:/data

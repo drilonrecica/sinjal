@@ -1,0 +1,9 @@
+{
+  "format": "sinjal-full-backup",
+  "format_version": 1,
+  "sinjal_version": "0.1.0",
+  "created_at": "2026-10-06T12:00:00Z",
+  "database_file": "sinjal.db",
+  "master_key_file": "master.key",
+  "uploads_directory": "uploads"
+}

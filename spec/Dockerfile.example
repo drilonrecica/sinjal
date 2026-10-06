@@ -1,0 +1,9 @@
+# Directional example only; implementation may refine.
+FROM scratch
+
+COPY sinjal /sinjal
+
+VOLUME ["/data"]
+EXPOSE 8080
+
+ENTRYPOINT ["/sinjal"]
