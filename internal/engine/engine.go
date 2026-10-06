@@ -70,7 +70,9 @@ func New(d *db.DB, key *vault.Key, workers int, userAgent string, updated func(m
 	}
 	e.pool = scheduler.NewPool(workers, 0, e.check, logging.Sub(logger, "scheduler"))
 	e.sch = scheduler.New(e.pool.Submit)
-	e.proc = results.New(d, logging.Sub(logger, "results"), e.sch.Retry, updated)
+	// No consumer for notification intents yet: the dispatcher arrives with
+	// M5. Until then they are decided, recorded and logged.
+	e.proc = results.New(d, logging.Sub(logger, "results"), e.sch.Retry, updated, nil)
 	return e
 }
 

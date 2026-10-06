@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/incident"
 	"github.com/drilonrecica/sinjal/internal/store"
 )
 
@@ -69,6 +70,7 @@ type harness struct {
 	mu       sync.Mutex
 	retries  []retryCall
 	notified []string
+	intents  []incident.Intent
 }
 
 func newHarness(t *testing.T, d *db.DB) *harness {
@@ -83,6 +85,11 @@ func newHarness(t *testing.T, d *db.DB) *harness {
 		func(id string) {
 			h.mu.Lock()
 			h.notified = append(h.notified, id)
+			h.mu.Unlock()
+		},
+		func(in incident.Intent) {
+			h.mu.Lock()
+			h.intents = append(h.intents, in)
 			h.mu.Unlock()
 		})
 	h.p.flushAfter = 2 * time.Millisecond
@@ -545,8 +552,8 @@ func TestWriteErrorHoldsTheBatchAndPushesBack(t *testing.T) {
 
 func TestShutdownStoresWhatIsQueued(t *testing.T) {
 	d, _ := testDB(t)
-	// No retry or notify hooks: both are optional.
-	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil)
+	// No retry, notify or intent hooks: all are optional.
+	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil)
 	p.flushAfter = time.Hour
 	id := newMonitor(t, d, "web", nil)
 	ctx, cancel := context.WithCancel(context.Background())

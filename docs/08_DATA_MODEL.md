@@ -162,6 +162,7 @@ Keep a small timeline:
 - declared_down
 - notification_sent
 - notification_failed
+- notification_suppressed (message: intent kind and reason)
 - manual_note
 - recovered
 - paused (pausing the monitor closed the incident)

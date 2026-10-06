@@ -161,6 +161,36 @@ Rules:
 - maintenance time M is expanded from the current maintenance window definitions; editing or deleting a window that already occurred changes historical adjusted uptime (accepted v1 behavior, documented in the UI help text)
 - latency statistics (avg/min/max/p95) come from raw results and aggregates; uptime does not
 
+## Notification intents
+
+The result processor decides what a state change calls for and whether it may be sent. Sending is the dispatcher's job (`11_NOTIFICATIONS.md`); the decision is made where the state changes, in the same transaction, so the two cannot disagree.
+
+Kinds (`incident.IntentKind`):
+
+| Kind | When |
+|---|---|
+| `down` | an incident opened; or flapping ended while the monitor is DOWN |
+| `recovery` | a check closed an incident (not a pause) |
+| `flapping` | the monitor started flapping |
+| `stable` | flapping ended while the monitor is not DOWN |
+| `tls_warning` | a certificate crossed a warning threshold (emitted from M5, which brings its dedupe state) |
+
+Suppression (`incident.Suppression`, a pure function of the kind and three conditions). One reason is recorded; when several apply the order is maintenance, parent, flapping:
+
+| Condition | Suppresses |
+|---|---|
+| inside a maintenance window that suppresses notifications | every kind |
+| parent monitor is DOWN | every kind except `tls_warning` |
+| monitor is flapping | `down` and `recovery` |
+
+What is kept:
+
+- a suppressed intent about an incident adds a `notification_suppressed` event to it, message `<kind>: <reason>` (for example `down: flapping`)
+- every intent is logged (`notification intent`, with kind, monitor, incident and reason) and, after the commit, handed to the dispatcher with its reason. Nothing leaves the processor for a batch that was not committed
+- a monitor that stays DOWN, a restart, a pause and a monitor edit produce no intent
+
+The flapping condition comes from `monitors.flapping_since`. The parent and maintenance conditions are part of the decision and are supplied with parent suppression and maintenance evaluation (M3-05, M3-06).
+
 ## Parent dependency
 
 If parent is DOWN:

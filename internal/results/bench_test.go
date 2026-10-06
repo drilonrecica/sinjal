@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/drilonrecica/sinjal/internal/incident"
 )
 
 // BenchmarkProcessorBatch is docs/18 scenario 3: results of 1,000 monitors
@@ -20,7 +22,7 @@ func BenchmarkProcessorBatch(b *testing.B) {
 	for i := range ids {
 		ids[i] = newMonitor(b, d, fmt.Sprintf("m%04d", i), nil)
 	}
-	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), func(string, time.Duration) {}, func(string) {})
+	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), func(string, time.Duration) {}, func(string) {}, func(incident.Intent) {})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { p.Run(ctx); close(done) }()

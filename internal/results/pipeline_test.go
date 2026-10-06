@@ -69,7 +69,7 @@ func TestPipelineScenarios(t *testing.T) {
 		if s := states[id]; len(s) == 0 || s[len(s)-1] != m.State {
 			states[id] = append(s, m.State)
 		}
-	})
+	}, nil)
 	proc.flushAfter = 5 * time.Millisecond
 
 	workCtx, stopWork := context.WithCancel(context.Background())

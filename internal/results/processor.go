@@ -1,7 +1,8 @@
 // Package results is the single write path for check results
 // (docs/09_DATABASE.md): workers hand results to one goroutine, which
 // stores them in batched transactions, applies the state machine, updates
-// the monitor rows and opens and closes incidents.
+// the monitor rows, opens and closes incidents and decides which
+// notifications they call for.
 package results
 
 import (
@@ -83,6 +84,7 @@ type Processor struct {
 	log    *slog.Logger
 	retry  func(monitorID string, delay time.Duration)
 	notify func(monitorID string)
+	intent func(incident.Intent)
 	in     chan Result
 
 	// Tunable in tests.
@@ -102,14 +104,17 @@ type Processor struct {
 
 // New returns a processor writing to d. retry is called when a monitor
 // needs a confirmation check after the given delay (the scheduler's Retry),
-// notify after a monitor's row changed (the SSE hub); either may be nil.
-// Both are called from the processor's goroutine and must not block.
-func New(d *db.DB, log *slog.Logger, retry func(monitorID string, delay time.Duration), notify func(monitorID string)) *Processor {
+// notify after a monitor's row changed (the SSE hub), intent for every
+// notification intent once it is committed, suppressed ones included (the
+// notification dispatcher); each may be nil. All are called from the
+// processor's goroutine and must not block.
+func New(d *db.DB, log *slog.Logger, retry func(monitorID string, delay time.Duration), notify func(monitorID string), intent func(incident.Intent)) *Processor {
 	return &Processor{
 		db:         d,
 		log:        log,
 		retry:      retry,
 		notify:     notify,
+		intent:     intent,
 		in:         make(chan Result, queueSize),
 		batchMax:   batchMax,
 		flushAfter: flushAfter,
@@ -220,6 +225,8 @@ type monitorWork struct {
 	retryDelay time.Duration
 	retry      bool // the last result asks for a confirmation retry
 	from       incident.State
+	flapping   bool              // the FLAPPING overlay is set
+	intents    []incident.Intent // decided in this batch, in order
 }
 
 // write stores a batch in one transaction and then applies its effects.
@@ -278,6 +285,13 @@ func (p *Processor) write(ctx context.Context, batch []Result) error {
 		if w.state != w.from {
 			p.log.Info("monitor state changed", "monitor_id", id, "from", string(w.from), "to", string(w.state))
 		}
+		for _, in := range w.intents {
+			p.log.Info("notification intent", "kind", string(in.Kind), "monitor_id", id,
+				"incident_id", in.IncidentID, "suppressed", string(in.Suppressed))
+			if p.intent != nil {
+				p.intent(in)
+			}
+		}
 		if w.retry && p.retry != nil {
 			p.retry(id, w.retryDelay)
 		}
@@ -293,8 +307,9 @@ func (p *Processor) write(ctx context.Context, batch []Result) error {
 
 // apply stores one result and what follows from it: the monitor's new
 // state and, when the state machine confirms an outage or its end, the
-// incident (docs/10_INCIDENTS.md). A monitor that stays down opens nothing,
-// which is why a restart during an outage cannot duplicate its incident.
+// incident and the intent to notify about it (docs/10_INCIDENTS.md). A
+// monitor that stays down opens nothing, which is why a restart during an
+// outage can neither duplicate its incident nor announce it again.
 func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	if err := store.InsertCheckResult(ctx, tx, store.CheckResult{
 		MonitorID: r.MonitorID, CheckedAt: r.CheckedAt, Duration: r.Duration, Success: r.Success,
@@ -315,14 +330,22 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	}
 	switch {
 	case changed && out.State == incident.Down:
-		if _, _, err := store.OpenIncident(ctx, tx, store.NewIncident{
+		id, opened, err := store.OpenIncident(ctx, tx, store.NewIncident{
 			MonitorID: r.MonitorID, StartedAt: w.first.at, DeclaredAt: r.CheckedAt,
 			FailureKind: w.first.kind, Detected: w.first.message, Summary: r.Message,
-		}); err != nil {
+		})
+		if err == nil && opened {
+			err = w.intend(ctx, tx, incident.IntentDown, r, id)
+		}
+		if err != nil {
 			return err
 		}
 	case changed && w.state == incident.Down:
-		if _, _, err := store.CloseIncident(ctx, tx, r.MonitorID, r.CheckedAt, incident.EventRecovered); err != nil {
+		id, closed, err := store.CloseIncident(ctx, tx, r.MonitorID, r.CheckedAt, incident.EventRecovered)
+		if err == nil && closed {
+			err = w.intend(ctx, tx, incident.IntentRecovery, r, id)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -330,6 +353,23 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 		w.since = store.FormatTime(r.CheckedAt)
 	}
 	w.state, w.counters, w.retry = out.State, out.Counters, out.Retry
+	return nil
+}
+
+// intend decides a notification intent for the monitor at the time of
+// result r. A suppressed intent about an incident is recorded on that
+// incident's timeline, so the decision can be read back later.
+func (w *monitorWork) intend(ctx context.Context, tx *sql.Tx, kind incident.IntentKind, r *Result, incidentID string) error {
+	in := incident.Intent{Kind: kind, MonitorID: r.MonitorID, IncidentID: incidentID, At: r.CheckedAt,
+		// Maintenance and the parent's state join with M3-06 and M3-05.
+		Suppressed: incident.Suppression(kind, incident.Conditions{Flapping: w.flapping})}
+	if in.Suppressed != "" && incidentID != "" {
+		if err := store.AddIncidentEvent(ctx, tx, incidentID, incident.EventNotificationSuppressed,
+			string(kind)+": "+string(in.Suppressed), r.CheckedAt); err != nil {
+			return err
+		}
+	}
+	w.intents = append(w.intents, in)
 	return nil
 }
 
@@ -352,6 +392,7 @@ func (p *Processor) load(ctx context.Context, tx *sql.Tx, id string) (*monitorWo
 		thresholds: incident.Thresholds{Failure: cs.FailureThreshold, Success: cs.SuccessThreshold},
 		retryDelay: cs.RetryDelay,
 		from:       incident.State(cs.State),
+		flapping:   cs.Flapping,
 	}
 	if prev, ok := p.counters[id]; ok && prev.state == w.state && prev.since == w.since {
 		w.tracked = prev
