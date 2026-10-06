@@ -13,6 +13,7 @@
     config/
     db/
       migrations/
+    engine/
     incident/
     maintenance/
     monitor/
@@ -26,6 +27,7 @@
       telegram/
       discord/
       webhook/
+    results/
     scheduler/
     statuspage/
     store/
@@ -65,6 +67,8 @@ Avoid cyclical mega-packages.
 `monitor` owns monitor execution semantics; scheduler does not need protocol-specific details.
 
 `incident` owns state-transition/incident decisions.
+
+`engine` wires scheduler, worker pool, check executors and result processor together and is the only package that knows all of them; `results` is the single write path for check results.
 
 `notify` owns delivery/channel behavior.
 

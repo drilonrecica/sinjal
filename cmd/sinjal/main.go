@@ -18,6 +18,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/config"
 	"github.com/drilonrecica/sinjal/internal/datadir"
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/engine"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/vault"
 	"github.com/drilonrecica/sinjal/internal/web"
@@ -137,6 +138,15 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		Passkeys: passkeys,
 	})
 
+	// Monitoring starts once the port is known to be free. Checks stop with
+	// ctx: active ones are cancelled and the results already finished are
+	// stored before the database closes (docs/07 "Shutdown").
+	monitoring := engine.New(database, masterKey, cfg.Workers, "Sinjal/"+version, logger)
+	if err := monitoring.Start(ctx); err != nil {
+		ln.Close()
+		return fatalf(stderr, "starting the monitors: %v", err)
+	}
+
 	cleanupDone := make(chan struct{})
 	go func() {
 		defer close(cleanupDone)
@@ -145,7 +155,9 @@ func serve(ctx context.Context, stderr io.Writer) int {
 
 	srv := web.NewServer(cfg.Listen, router)
 	err = web.Run(ctx, srv, ln, web.ShutdownGrace, logger)
-	<-cleanupDone // ctx is done once Run returns; let the job finish before the DB closes
+	// ctx is done once Run returns; let the jobs finish before the DB closes.
+	<-cleanupDone
+	monitoring.Wait()
 	if err != nil {
 		return fatalf(stderr, "http server: %v", err)
 	}

@@ -62,6 +62,8 @@ Milestone 1 (`m1_test.go`): startup refuses to run, and creates no key, when `ma
 
 Auth (`auth_test.go`, M1-19), each on its own server: login rate limit (10 failures, then 429 even with the right password, blocked attempt not audited); CSRF rejection on a signed-in POST (no token, wrong token, another session's token, cross-site `Sec-Fetch-Site`, foreign `Origin`) with the session surviving; viewer mutation 403 on every admin action with a valid CSRF token (scenario 18); an expired session no longer authenticates and its cookie is cleared; a password change ends other sessions and rotates the current one; re-authentication enforced after the window, then unlocks after a correct password; passkey registration and password-less sign-in through `internal/auth/passkeytest`, finish not replayable; TOTP codes single-use, including the enrolment code. Each test asserts that the passwords, tokens and secrets it handled never reach the server log.
 
+Milestone 2 (`m2_test.go`), monitors seeded into the data directory while the server is stopped, against a local target: a stored monitor is checked as soon as the server starts (failure, confirmation retry, DOWN); after a restart with the target still failing a fresh check runs promptly and the monitor is DOWN since the original moment; after a restart with the target healthy it is UP; every SIGTERM exits 0.
+
 ## UI/browser tests
 
 Small focused set only:

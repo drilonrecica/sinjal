@@ -132,6 +132,30 @@ On restart:
 
 Not persisted: how many consecutive failures (or, while DOWN, successes) a monitor has collected towards its threshold. These counts live in the result processor's memory. After a restart a monitor that was part-way through a confirmation needs its full threshold again, which can delay a DOWN or a recovery by the checks already counted, never bring one forward. The same reset happens when a monitor is paused and resumed.
 
+Implementation (`internal/engine`, started by `serve` once the listener is open):
+
+- `Engine.Start` reads the enabled monitors (id and interval only) and schedules each one. Nothing else is restored into memory: state, state-since and the last check, success and failure are in the monitor row, and the result processor reads the row for every batch, so a monitor that was DOWN stays DOWN since the original moment until a check says otherwise
+- the first checks after a start are 20 ms apart in id order, or closer together when there are more than 500 monitors, so that all of them have started within 10 s. The per-monitor jitter (above) then shifts each monitor's second check as usual
+- if the monitors cannot be read, startup fails
+
+## Running a check
+
+The engine gives the worker pool one function. For each job it:
+
+- reads the monitor, its HTTP configuration and its secrets from the reader pool: three indexed reads per check. Nothing is cached, so an edit or a new secret applies to the next check without any invalidation, and decrypted secrets do not stay in memory between checks
+- skips the check when the monitor has been deleted or paused while the job was waiting
+- skips the check, with an ERROR log, when the database cannot be read: that says nothing about the target
+- stores a failed check (kind `unknown`, message "the monitor's configuration cannot be used: …") when the stored configuration cannot be turned into a request or a stored secret cannot be decrypted. Validation prevents this on save; it means the row or the master key was changed outside Sinjal, and it must be visible rather than leave the monitor unchecked
+- runs the check and hands the result to the result processor
+
+## Pause and resume
+
+`Engine.Pause` and `Engine.Resume` are the only way a monitor is paused or resumed (`10_INCIDENTS.md` "Pausing"):
+
+- pause: the row is changed first (`store.PauseMonitor`), then the monitor is removed from the scheduler. A job that was already waiting for a worker is skipped; the result of a check that was already running is discarded by the result processor
+- resume: the row is changed (`store.ResumeMonitor`), then the monitor is scheduled with an immediate first check
+- both do nothing when the monitor is already in that state, and the two steps of each are serialised, so concurrent calls cannot leave a monitor pending but unscheduled
+
 ## Clock behavior
 
 Persist UTC wall-clock timestamps.
@@ -153,3 +177,7 @@ On SIGTERM/SIGINT:
 6. exit within a bounded grace period
 
 Do not hang indefinitely waiting for a bad network target.
+
+Implementation: the HTTP server and the engine stop on the same signal. In the engine the scheduler and the workers stop first, and only then the result processor, which writes what is still queued once more (`09_DATABASE.md`); `serve` waits for it (`Engine.Wait`) before the database closes.
+
+A check that is cut off by shutdown is not stored. Its "failure" is no verdict about the target, and with a failure threshold of 1 it would mark the monitor DOWN on every restart. Results of checks that had finished are stored.

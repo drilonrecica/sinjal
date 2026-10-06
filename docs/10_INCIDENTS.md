@@ -117,6 +117,14 @@ Pausing a monitor:
 
 Resuming closes the pause interval and sets the state to PENDING until the first check result; from there the normal state machine applies.
 
+Implementation (`store.PauseMonitor`, `store.ResumeMonitor`, called through the engine, `07_SCHEDULER.md` "Pause and resume"):
+
+- pause, in one transaction: `enabled = 0`, `current_state = 'paused'`, `current_state_since` = pause time, `flapping_since` cleared, one open row in `monitor_pauses`
+- resume, in one transaction: `enabled = 1`, `current_state = 'pending'`, `current_state_since` = resume time, the open pause row closed. A monitor that was created disabled has no pause row; resuming it only changes the monitor
+- pausing a paused monitor, or resuming one that is not paused, changes nothing: the pause interval keeps its start
+- `enabled` and the paused state always change together; startup schedules the enabled monitors
+- closing the active incident joins the pause transaction with incidents (M3)
+
 ## Uptime
 
 Time-weighted, computed from incidents and pause intervals (decision P0-12). It does not use check counts, so single failures that recover on the confirmation retry do not count as downtime, and the same formula works for any range regardless of raw-result retention.
