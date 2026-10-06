@@ -202,6 +202,8 @@ Implementation (decision P0-04):
 - in unprivileged mode the kernel rewrites the echo identifier, so replies are matched by sequence number plus a random per-probe payload nonce, not by identifier
 - RTT measured with monotonic time from send to matching reply
 - the socket mode that works is cached per address family; a later permission change is picked up on restart
+- package `internal/monitor/icmpcheck`: a `Pinger` opens one socket per check and closes it on every path; a hostname is resolved first and its first address is pinged
+- failure kinds: `timeout` (no matching reply), `dns`, `permission` (neither socket allowed; the message names `net.ipv4.ping_group_range` and `CAP_NET_RAW`), `connect` (other socket or send errors, e.g. no IPv6), `unknown` (cancelled by shutdown)
 
 Failure must be clear if the runtime lacks permission. Never require a privileged container.
 
