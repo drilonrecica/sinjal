@@ -220,6 +220,15 @@ HTMX does not remove CSRF requirements.
 - audit failed attempts
 - no user enumeration
 
+### Implementation (M1-10)
+
+- `auth.Authenticator.Login` (`internal/auth/login.go`) looks the account up by its trimmed login (case-sensitive, as stored). An unknown login, a disabled account and an account without a password are verified against a dummy hash (created once per process), so every failure costs one Argon2 verification and returns the same `ErrInvalidCredentials`. Passwords over 1024 bytes fail without hashing (none was ever accepted). A malformed stored hash is logged and treated as a failure.
+- A correct password whose hash uses outdated parameters is rehashed (`UPDATE … WHERE password_hash = <old>`, so a concurrent password change wins; a failure is only logged).
+- Audit events: `auth.login_succeeded` and `auth.login_failed`, with `user_id` when the login exists and `{"client_ip": …}` as metadata. The attempted login string is never stored, because people type passwords into it by mistake. The insert helper (`auth.insertAudit`) is shared with setup until M1-17.
+- `/login` (`internal/web/login.go`): GET redirects a signed-in user onward; POST (16 KiB body cap) answers 401 with "Incorrect username or password." for every failure. Success deletes any session the browser already had, creates a new one (a fresh login counts as re-authentication) and redirects with 303 to `next` when it is a same-origin path (`safeNext`: no scheme/host, no `//` or `/\` prefix, no control characters or backslashes), otherwise to `/`.
+- Rate limit: 10 failed checks per (client IP, lower-cased login) per 15 minutes; then 429 with `Retry-After` and no hash computed, even for the right password. The limiter (`internal/ratelimit`) holds at most 4096 keys and evicts the oldest. A success resets the key. Blocked attempts are logged, not audited.
+- CSRF: an anonymous login POST gets the origin check (M1-08), which also stops login CSRF.
+
 ## Proxy trust
 
 Never trust all `X-Forwarded-*` headers unconditionally.

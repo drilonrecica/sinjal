@@ -132,7 +132,6 @@ func TestInitialSetup(t *testing.T) {
 		t.Skip("integration test builds and runs the binary")
 	}
 	dataDir := filepath.Join(t.TempDir(), "data")
-	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
 	s := start(t, dataDir)
 	first := setupURL(s)
@@ -241,7 +240,6 @@ func TestSessionsCleanupAndLogout(t *testing.T) {
 		t.Fatal("live session deleted by cleanup")
 	}
 
-	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	logout := func(csrf string) *http.Response {
 		req, _ := http.NewRequest("POST", s.base+"/logout", strings.NewReader(url.Values{"_csrf": {csrf}}.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -290,4 +288,106 @@ func csrfFromPage(t *testing.T, pageURL, sessionToken string) string {
 		t.Fatalf("GET %s (%d) renders no CSRF field:\n%s", pageURL, resp.StatusCode, b)
 	}
 	return string(m[1])
+}
+
+const adminPassword = "correct horse battery"
+
+var noRedirect = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+
+// createAdmin completes initial setup with the logged setup link.
+func createAdmin(t *testing.T, s *server) {
+	t.Helper()
+	link := setupURL(s)
+	u, err := url.Parse(link)
+	if err != nil || link == "" {
+		t.Fatalf("no setup link in the log: %q\n%s", link, s.logs)
+	}
+	resp, err := noRedirect.PostForm(s.base+"/setup", url.Values{
+		"token": {u.Query().Get("token")}, "login": {"admin"},
+		"password": {adminPassword}, "confirm": {adminPassword},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 303 {
+		t.Fatalf("POST /setup = %d", resp.StatusCode)
+	}
+}
+
+// login signs in and returns the session token, or "" with the status.
+func login(t *testing.T, s *server, user, password string) (string, int) {
+	t.Helper()
+	resp, err := noRedirect.PostForm(s.base+"/login", url.Values{"login": {user}, "password": {password}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	for _, c := range resp.Cookies() {
+		if c.Name == "sinjal_session" && c.Value != "" {
+			return c.Value, resp.StatusCode
+		}
+	}
+	return "", resp.StatusCode
+}
+
+// TestLoginLogout: the admin created through setup can sign in and out;
+// failures are generic and audited; no credential reaches the log.
+func TestLoginLogout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test builds and runs the binary")
+	}
+	dataDir := filepath.Join(t.TempDir(), "data")
+	s := start(t, dataDir)
+	createAdmin(t, s)
+
+	if tok, code := login(t, s, "admin", "not the password"); tok != "" || code != 401 {
+		t.Fatalf("wrong password: status %d, token issued %v", code, tok != "")
+	}
+	token, code := login(t, s, "admin", adminPassword)
+	if token == "" || code != 303 {
+		t.Fatalf("login: status %d, token issued %v", code, token != "")
+	}
+
+	csrf := csrfFromPage(t, s.base+"/monitors", token)
+	req, _ := http.NewRequest("POST", s.base+"/logout", strings.NewReader(url.Values{"_csrf": {csrf}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "sinjal_session", Value: token})
+	resp, err := noRedirect.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 303 || resp.Header.Get("Location") != "/login" {
+		t.Fatalf("logout = %d %q", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	// The old cookie no longer signs anyone in: /login shows the form.
+	req, _ = http.NewRequest("GET", s.base+"/login", nil)
+	req.AddCookie(&http.Cookie{Name: "sinjal_session", Value: token})
+	if resp, err := noRedirect.Do(req); err != nil || resp.StatusCode != 200 {
+		t.Fatalf("GET /login with the logged-out cookie: %v %v", resp.StatusCode, err)
+	} else {
+		resp.Body.Close()
+	}
+
+	if err := s.stop(); err != nil {
+		t.Fatal(err)
+	}
+	logs := s.logs.String()
+	for _, secret := range []string{adminPassword, "not the password", token, csrf} {
+		if strings.Contains(logs, secret) {
+			t.Errorf("log contains a credential: %q", secret)
+		}
+	}
+	d, err := db.Open(filepath.Join(dataDir, "sinjal.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	var ok, failed int
+	d.Reader.QueryRow(`SELECT COUNT(*) FILTER (WHERE event_type = 'auth.login_succeeded'),
+		COUNT(*) FILTER (WHERE event_type = 'auth.login_failed') FROM audit_events`).Scan(&ok, &failed)
+	if ok != 1 || failed != 1 {
+		t.Errorf("audit: %d succeeded, %d failed; want 1, 1", ok, failed)
+	}
 }

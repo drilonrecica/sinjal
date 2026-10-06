@@ -152,8 +152,7 @@ func CreateAdmin(ctx context.Context, d *db.DB, login, password string, now time
 		} else if n == 0 {
 			return ErrAdminExists
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO audit_events (user_id, event_type, object_type, object_id, created_at)
-			VALUES (?, 'setup.admin_created', 'user', ?, ?)`, id, id, ts); err != nil {
+		if err := insertAudit(ctx, tx, audit{UserID: id, Event: "setup.admin_created", ObjectType: "user", ObjectID: id}, now); err != nil {
 			return err
 		}
 		return tx.Commit()

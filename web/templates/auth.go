@@ -15,6 +15,14 @@ type SetupForm struct {
 	Errors map[string]string
 }
 
+// LoginForm is the state of the sign-in form. Next is the same-origin path
+// to return to; Error is the single generic failure message.
+type LoginForm struct {
+	Login string
+	Next  string
+	Error string
+}
+
 // fieldAttrs returns the accessibility attributes of an input: hint ids
 // plus the error message id and aria-invalid when the field has an error.
 func fieldAttrs(name string, errs map[string]string, hints ...string) templ.Attributes {

@@ -8,6 +8,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/assets"
 	"github.com/drilonrecica/sinjal/internal/auth"
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/logging"
 )
 
 // App is what the route table needs from startup.
@@ -29,12 +30,16 @@ type App struct {
 //   - Every browser route sits in the session group: LoadSession, then CSRF
 //     on every state-changing request.
 func Routes(r chi.Router, app App) {
+	authn := auth.NewAuthenticator(app.DB, logging.Sub(app.Logger, "auth"))
+	login := NewLogin(authn, app.Sessions, app.Logger)
+
 	RegisterHealth(r, app.Health)
 	RegisterStatic(r, app.Assets)
 
 	r.Group(func(r chi.Router) {
 		r.Use(LoadSession(app.Sessions, app.Logger), NewCSRF(app.CSRFKey, app.Logger).Middleware)
 		RegisterSetup(r, app.Setup)
+		RegisterLogin(r, login)
 		RegisterLogout(r, app.Sessions, app.Logger)
 		RegisterPages(r, app.Logger)
 	})

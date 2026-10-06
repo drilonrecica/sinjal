@@ -45,6 +45,7 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"shell":       PlaceholderPage(page, Sections[0]),
 		"setup":       Setup(page, SetupForm{Token: "t", Errors: map[string]string{"login": "x", "form": "y"}}, 12),
 		"authMessage": AuthMessage(page, "Heading", "Message"),
+		"login":       Login(page, LoginForm{Login: "a", Next: "/x", Error: "e"}),
 	}
 	for name, c := range pages {
 		var buf bytes.Buffer

@@ -1,0 +1,26 @@
+package templates
+
+// Login is the sign-in form. The password is never echoed back.
+templ Login(page Page, f LoginForm) {
+	@authFrame(page) {
+		<h1>Sign in</h1>
+		if f.Error != "" {
+			<p class="auth-alert" role="alert">{ f.Error }</p>
+		}
+		<form class="auth-form" method="post" action="/login">
+			@CSRFField(page)
+			if f.Next != "" {
+				<input type="hidden" name="next" value={ f.Next }/>
+			}
+			<div class="auth-field">
+				<label for="login">Username</label>
+				<input id="login" name="login" type="text" value={ f.Login } autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="64" autofocus?={ f.Login == "" }/>
+			</div>
+			<div class="auth-field">
+				<label for="password">Password</label>
+				<input id="password" name="password" type="password" autocomplete="current-password" required autofocus?={ f.Login != "" }/>
+			</div>
+			<button class="auth-submit" type="submit">Sign in</button>
+		</form>
+	}
+}
