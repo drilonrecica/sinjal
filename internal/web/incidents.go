@@ -151,7 +151,9 @@ var eventLabels = map[string]string{
 	incident.EventRecovered:              "Recovered",
 	incident.EventPaused:                 "Monitor paused, incident ended",
 	incident.EventNotificationSuppressed: "Notification held back",
-	incident.EventNotificationResumed:    "Held notification sent",
+	incident.EventNotificationResumed:    "Held notification released",
+	incident.EventNotificationSent:       "Notification sent",
+	incident.EventNotificationFailed:     "Notification failed",
 	incident.EventManualNote:             "Note",
 }
 

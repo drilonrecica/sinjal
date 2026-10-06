@@ -150,7 +150,7 @@ Resolutions:
 - summary/cause
 - suppressed_by_parent flag
 - maintenance_overlap flag
-- notification state: down_notified_at, reminder_sent_at, recovery_notified_at (prevents duplicate notifications across restart)
+- notification state: down_notified_at, reminder_sent_at, recovery_notified_at (prevents duplicate notifications across restart; set by the dispatcher when it takes the notification on, before the first send, so NULL means it was never dispatched: suppressed, unrouted or not yet)
 - created_at
 
 Active incident has `ended_at = NULL`. At most one active incident per monitor (enforced by a partial unique index).
@@ -242,6 +242,8 @@ Routes:
 - attempted_at
 - error message
 - delivered_at
+
+One row per attempt (`notification_deliveries`): `event_type` is the intent's kind (`down`, `recovery`, `flapping`, `stable`, `tls_warning`; later `reminder`, `test`), `attempt` counts from 1, `status` is `sent`, `failed` (this attempt) or `dropped` (not attempted: the incident had ended before the retry), `delivered_at` is set on `sent` only, `incident_id` is NULL for a notice that belongs to no incident.
 
 ## Status page
 

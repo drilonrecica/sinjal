@@ -15,8 +15,9 @@ import (
 )
 
 // Event names. The payload of the monitor events is {"monitor_id": "..."},
-// that of maintenance.updated {"maintenance_id": "..."} and that of the
-// incident events {"incident_id": "...", "monitor_id": "..."}.
+// that of maintenance.updated {"maintenance_id": "..."}, that of the
+// incident events {"incident_id": "...", "monitor_id": "..."} and that of
+// notification.channel_updated {"channel_id": "..."}.
 const (
 	MonitorCreated     = "monitor.created"
 	MonitorUpdated     = "monitor.updated"
@@ -25,6 +26,7 @@ const (
 	IncidentOpened     = "incident.opened"
 	IncidentUpdated    = "incident.updated" // its timeline changed: a suppression, a note
 	IncidentClosed     = "incident.closed"
+	ChannelUpdated     = "notification.channel_updated" // a delivery attempt changed its health
 )
 
 const (
@@ -89,6 +91,12 @@ func (h *Hub) PublishIncident(event, incidentID, monitorID string) {
 // PublishMaintenance announces that a maintenance window changed.
 func (h *Hub) PublishMaintenance(windowID string) {
 	h.publish(MaintenanceUpdated, "maintenance_id", windowID)
+}
+
+// PublishChannel announces that a delivery attempt changed a notification
+// channel's health or last success and failure.
+func (h *Hub) PublishChannel(channelID string) {
+	h.publish(ChannelUpdated, "channel_id", channelID)
 }
 
 func (h *Hub) publish(event string, pairs ...string) {

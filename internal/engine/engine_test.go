@@ -132,7 +132,7 @@ func (e *env) start() *running {
 
 func (e *env) startWith(workers int) *running {
 	e.t.Helper()
-	eng := New(e.d, e.key, workers, "Sinjal/test", time.UTC, e.announce, e.incidents, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := New(e.d, e.key, workers, "Sinjal/test", time.UTC, e.announce, e.incidents, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := eng.Start(ctx); err != nil {
 		cancel()
@@ -533,7 +533,7 @@ func TestCheckSendsSecrets(t *testing.T) {
 func TestStartFailsWhenMonitorsCannotBeRead(t *testing.T) {
 	e := newEnv(t)
 	e.d.Close()
-	eng := New(e.d, e.key, 4, "Sinjal/test", time.UTC, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := New(e.d, e.key, 4, "Sinjal/test", time.UTC, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err := eng.Start(context.Background()); err == nil {
 		t.Fatal("Start succeeded on a closed database")
 	}

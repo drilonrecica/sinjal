@@ -23,10 +23,7 @@
       dnscheck/
       heartbeat/
     notify/
-      smtp/
-      telegram/
-      discord/
-      webhook/
+    dispatch/
     results/
     scheduler/
     statuspage/
@@ -70,7 +67,7 @@ Avoid cyclical mega-packages.
 
 `engine` wires scheduler, worker pool, check executors and result processor together and is the only package that knows all of them; `results` is the single write path for check results.
 
-`notify` owns delivery/channel behavior.
+`notify` owns channel configuration, message rendering and the senders (one file per channel type, no subpackages); `dispatch` owns routing, retries and delivery records. It is a sibling of `notify` rather than part of it because `store` needs `notify` (channel configurations) and the dispatcher needs `store`.
 
 `web` converts domain/store data into presentation-specific view models.
 

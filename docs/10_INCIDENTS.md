@@ -221,6 +221,7 @@ What is kept:
 - a suppressed intent about an incident adds a `notification_suppressed` event to it, message `<kind>: <reason>` (for example `down: flapping`)
 - every intent is logged (`notification intent`, with kind, monitor, incident and reason) and, after the commit, handed to the dispatcher with its reason. Nothing leaves the processor for a batch that was not committed
 - a monitor that stays DOWN, a restart, a pause and a monitor edit produce no intent
+- the dispatcher (`11_NOTIFICATIONS.md` "Dispatcher") adds what the processor cannot know: `notification_suppressed` with `<kind>: quiet_hours` when the profile's quiet hours hold the intent, and for every channel the outcome, `notification_sent` (`down via Ops chat`) or `notification_failed` (with the last error). `down_notified_at` and `recovery_notified_at` are set when the dispatcher takes a DOWN or RECOVERY on, before its first send; a second intent of that kind for the incident is never sent
 
 The flapping condition comes from `monitors.flapping_since`; the parent condition from the parent's stored state (see "Parent dependency"). The maintenance condition is supplied with maintenance evaluation (M3-06).
 
@@ -259,6 +260,8 @@ Do not:
 - send duplicate initial DOWN notification solely because the process restarted
 
 Incidents are opened and closed only by a change of the stored state, never by a check result as such. After a restart the monitor is still DOWN in its row, further failures change nothing, and the recovery closes the incident that was open before the restart.
+
+A DOWN notification is sent at most once: `down_notified_at` is claimed before the first send, so neither a restart nor a repeated intent can send it again. A delivery that was still waiting or on the network when the process stopped is not resumed after the restart; it is logged (`19_RELIABILITY.md`).
 
 Upgrade: migration 004 opens an incident for every monitor that is DOWN at that moment, starting at `current_state_since`, so a DOWN monitor always has its active incident.
 

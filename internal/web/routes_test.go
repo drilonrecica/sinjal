@@ -61,7 +61,7 @@ func newAppEnvAt(t testing.TB, baseURL string, trusted ...netip.Prefix) *appEnv 
 	// A running engine with nothing to check: the monitor pages schedule
 	// what they create. Monitors added straight to the store are not
 	// checked, so tests make no outside requests.
-	e.engine = engine.New(d, key, 2, "Sinjal/test", time.UTC, nil, nil, logger)
+	e.engine = engine.New(d, key, 2, "Sinjal/test", time.UTC, nil, nil, nil, logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := e.engine.Start(ctx); err != nil {
 		t.Fatal(err)

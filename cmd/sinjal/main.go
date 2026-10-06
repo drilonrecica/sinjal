@@ -18,6 +18,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/config"
 	"github.com/drilonrecica/sinjal/internal/datadir"
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/dispatch"
 	"github.com/drilonrecica/sinjal/internal/engine"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/vault"
@@ -129,11 +130,16 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	// Live updates: the engine announces changed monitors, browsers listen
 	// on GET /events.
 	events := sse.NewHub(logging.Sub(logger, "sse"))
+	// Notifications: the engine hands every intent it decides to the
+	// dispatcher, which routes and delivers it (docs/11 "Dispatcher").
+	notifications := dispatch.New(database, masterKey, cfg.Timezone,
+		func(incidentID, monitorID string) { events.PublishIncident(sse.IncidentUpdated, incidentID, monitorID) },
+		events.PublishChannel, logging.Sub(logger, "notify"))
 	// The monitor pages schedule what they change, so the engine exists
 	// before the routes; it starts once the listener is open.
 	monitoring := engine.New(database, masterKey, cfg.Workers, "Sinjal/"+version, cfg.Timezone,
 		func(monitorID string) { events.Publish(sse.MonitorUpdated, monitorID) },
-		events.PublishIncident, logger)
+		events.PublishIncident, notifications.Enqueue, logger)
 	router := web.NewRouter(logger, cfg.TrustedProxies)
 	web.Routes(router, web.App{
 		Logger:   logger,
@@ -157,6 +163,16 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		ln.Close()
 		return fatalf(stderr, "starting the monitors: %v", err)
 	}
+	// The dispatcher outlives the engine: the last results stored at
+	// shutdown can still decide an intent. Its sends end with ctx; what is
+	// still waiting then is not delivered later (docs/19).
+	dispatchCtx, stopDispatch := context.WithCancel(context.Background())
+	defer stopDispatch()
+	dispatched := make(chan struct{})
+	go func() {
+		defer close(dispatched)
+		notifications.Run(dispatchCtx)
+	}()
 
 	cleanupDone := make(chan struct{})
 	go func() {
@@ -172,6 +188,8 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	// ctx is done once Run returns; let the jobs finish before the DB closes.
 	<-cleanupDone
 	monitoring.Wait()
+	stopDispatch()
+	<-dispatched
 	if err != nil {
 		return fatalf(stderr, "http server: %v", err)
 	}

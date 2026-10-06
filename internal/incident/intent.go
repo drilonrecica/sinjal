@@ -21,6 +21,9 @@ const (
 	ByMaintenance Reason = "maintenance" // a maintenance window that suppresses notifications
 	ByParent      Reason = "parent"      // the parent monitor is down
 	ByFlapping    Reason = "flapping"    // the monitor is flapping
+	// ByQuietHours is decided by the dispatcher, not by Suppression: the
+	// profile's quiet hours hold at the time of the intent (docs/11).
+	ByQuietHours Reason = "quiet_hours"
 )
 
 // Conditions is what holds for a monitor at the moment of an intent.
