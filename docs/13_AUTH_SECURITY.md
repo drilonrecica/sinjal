@@ -274,6 +274,21 @@ Set appropriate headers:
 
 Avoid CDN dependencies that complicate CSP.
 
+### Implementation (M1-09)
+
+`middleware.SecurityHeaders` runs in `NewRouter` right after the request ID and sets the headers before the handler, so pages, static files, 404s, CSRF rejections and recovered panics all carry them:
+
+- `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
+- `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` (`/setup` overrides with `no-referrer`), `X-Frame-Options: DENY` (for old browsers; `frame-ancestors` is the real control), `Cross-Origin-Opener-Policy: same-origin`
+- `Permissions-Policy` disables camera, microphone, geolocation, payment, USB, serial, Bluetooth, MIDI, display capture and topics. WebAuthn keeps its default (self) for passkeys.
+
+Notes:
+- There is no inline script, so no hash is needed: the theme is rendered on the server as `data-theme`/`data-density`, which also avoids a flash of the wrong theme.
+- htmx is configured with `<meta name="htmx-config">`: `includeIndicatorStyles:false` (its injected `<style>` would be blocked; the indicator rules are in `base.css`), `allowEval:false`, `allowScriptTags:false`.
+- `templates.TestPagesNeedNoInlineCode` renders every page and fails on inline `<script>`, `<style>`, `style=`, `on*=` handlers or `javascript:` URLs. New pages must be added to it.
+- No HSTS: TLS terminates at the reverse proxy, which owns that decision for its domain.
+- Status pages (M7) may need their own policy (accent colour, embedding); that is decided there.
+
 ## Audit log
 
 Record:

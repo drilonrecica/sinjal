@@ -13,8 +13,8 @@ import (
 )
 
 // NewRouter returns the root router with the common middleware installed:
-// request ID, trusted-proxy resolution, access log, panic recovery (outermost
-// first). trusted is SINJAL_TRUSTED_PROXIES. Callers register routes on the
+// request ID, security headers, trusted-proxy resolution, access log, panic
+// recovery (outermost first). trusted is SINJAL_TRUSTED_PROXIES. Callers register routes on the
 // result.
 //
 // chi only builds its middleware chain once the first route is registered, so
@@ -24,6 +24,7 @@ func NewRouter(logger *slog.Logger, trusted []netip.Prefix) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(
 		middleware.RequestID,
+		middleware.SecurityHeaders,
 		proxy.Middleware(proxy.New(trusted)),
 		middleware.AccessLog(log),
 		middleware.Recover(log),

@@ -51,6 +51,11 @@ func (p Page) ColorScheme() string {
 	return "dark"
 }
 
+// htmxConfig keeps htmx inside the Content-Security-Policy: no injected
+// indicator <style>, no eval, no executing <script> in swapped content.
+// Loading indicators are styled in the bundled CSS instead.
+const htmxConfig = `{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false}`
+
 // HXHeaders is the hx-headers value that makes htmx send the CSRF token
 // on every request. Empty without a token.
 func (p Page) HXHeaders() string {

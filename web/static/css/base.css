@@ -98,6 +98,17 @@ button, input, select, textarea {
   border: 0;
 }
 
+/* htmx request indicators. htmx's own injected <style> is disabled by the
+ * CSP (htmx-config includeIndicatorStyles:false), so the rules live here. */
+.htmx-indicator {
+  opacity: 0;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+  transition: opacity 200ms ease-in;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

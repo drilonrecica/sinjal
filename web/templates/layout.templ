@@ -18,6 +18,7 @@ templ Layout(page Page) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content={ page.ColorScheme() }/>
+			<meta name="htmx-config" content={ htmxConfig }/>
 			<title>{ page.Title }</title>
 			<link rel="stylesheet" href={ assets.URL("css/tokens.css") }/>
 			<link rel="stylesheet" href={ assets.URL("css/base.css") }/>
