@@ -262,6 +262,11 @@ func TestStaticRoute(t *testing.T) {
 	if resp.StatusCode != 200 || !strings.Contains(resp.Header.Get("Cache-Control"), "immutable") {
 		t.Errorf("GET %s = %d, Cache-Control %q", url, resp.StatusCode, resp.Header.Get("Cache-Control"))
 	}
+	// The access log is written after the handler returns, so it can land a
+	// moment after the client has read the response.
+	for i := 0; i < 100 && !strings.Contains(buf.String(), "route=/static/*"); i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
 	if !strings.Contains(buf.String(), "route=/static/*") {
 		t.Errorf("access log should show the route pattern, got: %s", buf.String())
 	}
