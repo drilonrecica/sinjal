@@ -30,8 +30,7 @@ func PauseMonitor(ctx context.Context, d *db.DB, id string, now time.Time) (bool
 }
 
 // ResumeMonitor resumes a paused monitor at now: the open pause interval is
-// closed and the state is pending until the first check result. A monitor
-// that was created disabled has no interval to close. It reports false, and
+// closed and the state is pending until the first check result. It reports false, and
 // changes nothing, when the monitor is not paused.
 func ResumeMonitor(ctx context.Context, d *db.DB, id string, now time.Time) (bool, error) {
 	ts := formatTime(now)

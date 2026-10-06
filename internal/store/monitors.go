@@ -150,6 +150,13 @@ func CreateHTTPMonitor(ctx context.Context, d *db.DB, in HTTPMonitor, now time.T
 		if err := setTags(ctx, tx, id, in.Tags); err != nil {
 			return err
 		}
+		// A monitor created paused is paused from its first moment: the
+		// interval keeps that time out of uptime, as for any pause.
+		if !in.Enabled {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO monitor_pauses (monitor_id, paused_at) VALUES (?, ?)`, id, ts); err != nil {
+				return err
+			}
+		}
 		return tx.Commit()
 	})
 	if err != nil {

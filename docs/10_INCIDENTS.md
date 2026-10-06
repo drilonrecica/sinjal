@@ -156,7 +156,7 @@ Resuming closes the pause interval and sets the state to PENDING until the first
 Implementation (`store.PauseMonitor`, `store.ResumeMonitor`, called through the engine, `07_SCHEDULER.md` "Pause and resume"):
 
 - pause, in one transaction: `enabled = 0`, `current_state = 'paused'`, `current_state_since` = pause time, `flapping_since` cleared, one open row in `monitor_pauses`
-- resume, in one transaction: `enabled = 1`, `current_state = 'pending'`, `current_state_since` = resume time, the open pause row closed. A monitor that was created disabled has no pause row; resuming it only changes the monitor
+- resume, in one transaction: `enabled = 1`, `current_state = 'pending'`, `current_state_since` = resume time, the open pause row closed. A monitor created disabled has a pause row opened at its creation (since M3-08; monitors created disabled before then have none, and their time before the first resume counts as observed)
 - pausing a paused monitor, or resuming one that is not paused, changes nothing: the pause interval keeps its start
 - `enabled` and the paused state always change together; startup schedules the enabled monitors
 - the pause transaction also ends the active incident at the pause time, with a `paused` event carrying the duration. No `recovered` event is written. After a resume a new outage is a new incident
@@ -186,6 +186,13 @@ Rules:
 - display with two decimals, truncated rather than rounded, so a range with any downtime never shows 100.00%
 - maintenance time M is expanded from the current maintenance window definitions; editing or deleting a window that already occurred changes historical adjusted uptime (accepted v1 behavior, documented in the UI help text)
 - latency statistics (avg/min/max/p95) come from raw results and aggregates; uptime does not
+
+Implementation (`incident.Uptime`, pure; `store.Uptime` reads its inputs):
+
+- inputs are intervals only: `monitors.created_at`, the monitor's `monitor_pauses` and `incidents` overlapping the range (both read through their `(monitor_id, start)` indexes; an open pause or active incident ends at now), and the occurrences of the maintenance windows covering the monitor with `exclude_from_adjusted_uptime`, expanded in the instance time zone. Raw check results are never read, so retention changes nothing and no union with aggregates is needed
+- times count in whole seconds, as stored; overlapping intervals count once; the result is two integers (up seconds, observed seconds) per ratio
+- display (`Ratio.Percent`): integer hundredths of a percent, truncated (`99.99%`, never `100.00%` with any downtime); no data is `—`
+- a monitor created paused gets a pause interval from its creation, closed by its first resume, so the time before it was ever checked is not observed time
 
 ## Notification intents
 

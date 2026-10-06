@@ -123,8 +123,8 @@ func TestResumeMonitor(t *testing.T) {
 	}
 }
 
-// A monitor created disabled is paused without a pause interval; resuming
-// it still works.
+// A monitor created disabled is paused from its creation: its pause
+// interval starts then and the resume closes it.
 func TestResumeMonitorCreatedDisabled(t *testing.T) {
 	d := testDB(t)
 	ctx := context.Background()
@@ -139,7 +139,7 @@ func TestResumeMonitorCreatedDisabled(t *testing.T) {
 	if m, _ := GetMonitor(ctx, d.Reader, id); m.State != "pending" || !m.Enabled {
 		t.Fatalf("after resume: %+v", m)
 	}
-	if got := pauses(t, d, id); len(got) != 0 {
+	if got := pauses(t, d, id); len(got) != 1 || got[0][0] != formatTime(now) || got[0][1] != formatTime(now.Add(time.Hour)) {
 		t.Fatalf("pause intervals = %v", got)
 	}
 }
