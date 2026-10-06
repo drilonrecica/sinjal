@@ -147,6 +147,14 @@ SINJAL_TEST_SMTP_SECURITY=   # starttls (default) or tls
 
 Tests that use them are guarded by a build tag (`manual`) and are skipped when the variables are unset. SMTP: `go test -tags manual -run TestManualSMTP ./internal/notify` sends one `[TEST]` message; Telegram: `-run TestManualTelegram`; Discord: `-run TestManualDiscord`.
 
+### Runbook (M5-14)
+
+1. Fill `.env` (git-ignored) with the variables above and load it: `set -a; . ./.env; set +a`.
+2. Senders alone: `go test -tags manual -count=1 -v -run 'TestManual(SMTP|Telegram|Discord)' ./internal/notify`. Each sends one `[TEST]` message; a skipped test means its variables are unset. Check that each message arrived with the `[TEST]` title and the "simulated" first line.
+3. Through the application: `make dev`, create the three channels from the same accounts (Notifications, Channels), press "Send test notification" on each. Expected: the message arrives and the channel's health becomes Healthy with a last-success time. A deliberately wrong secret must show the sender's one-line error and Failed or Warning health, with no secret in it.
+4. Create a profile (info to Discord, warning and critical to Telegram and SMTP), press "Simulate incident". Expected: a `[TEST]` DOWN along the critical routes and a RECOVERY along the info routes arrive, and neither the incident list, history nor the delivery log gained a row.
+5. Record the date, the three results and any surprise in `docs/IMPLEMENTATION_CHECKLIST.md`.
+
 ## Fixtures
 
 Fixtures must never contain real credentials or production URLs.
