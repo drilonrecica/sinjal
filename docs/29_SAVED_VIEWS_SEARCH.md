@@ -22,7 +22,7 @@ Global monitor search by:
 
 ## Saved views
 
-Allow simple saved filter sets.
+Allow simple saved filter sets. Saved views are per user (viewers may save their own views).
 
 Example:
 

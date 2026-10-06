@@ -82,7 +82,7 @@ Default public history: 30 days.
 
 Configurable per page.
 
-Manual incident note may be shown when explicitly published.
+Manual incident note may be shown when explicitly published: each manual note has a `published` flag (default off); only published notes of incidents of monitors on the page are shown.
 
 ## Custom hostnames
 

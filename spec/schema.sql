@@ -1,5 +1,7 @@
--- Sinjal initial schema design draft.
--- Migrations remain the authoritative implementation mechanism.
+-- Sinjal consolidated schema reference.
+-- Migrations (internal/db/migrations/NNN_*.sql, one file per milestone; see
+-- docs/17_MIGRATIONS_RELEASES.md) are the authoritative implementation.
+-- This file shows the combined end state after all v1 migrations.
 -- Exact names/types may evolve before first release, but semantics must remain.
 
 PRAGMA foreign_keys = ON;
@@ -12,6 +14,9 @@ CREATE TABLE users (
   password_hash TEXT,
   totp_secret_enc BLOB,
   disabled INTEGER NOT NULL DEFAULT 0,
+  theme TEXT CHECK (theme IN ('carbon','paper','midnight','terminal')), -- NULL = instance default
+  density TEXT NOT NULL DEFAULT 'comfortable' CHECK (density IN ('comfortable','compact')),
+  sidebar_collapsed INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -84,6 +89,7 @@ CREATE TABLE monitors (
   current_state TEXT NOT NULL DEFAULT 'pending'
     CHECK (current_state IN ('up','pending','down','flapping','paused')),
   current_state_since TEXT NOT NULL,
+  flapping_since TEXT, -- set while FLAPPING; survives restart (policy: docs/10)
   interval_seconds INTEGER NOT NULL DEFAULT 30,
   timeout_ms INTEGER NOT NULL DEFAULT 5000,
   failure_threshold INTEGER NOT NULL DEFAULT 2,
@@ -94,6 +100,7 @@ CREATE TABLE monitors (
   last_check_at TEXT,
   last_success_at TEXT,
   last_failure_at TEXT,
+  tls_not_after TEXT, -- last observed HTTPS certificate expiry (warning indicator)
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -154,6 +161,7 @@ CREATE TABLE heartbeat_monitor_config (
   token_hash BLOB NOT NULL UNIQUE,
   expected_interval_seconds INTEGER NOT NULL,
   grace_seconds INTEGER NOT NULL DEFAULT 0,
+  source_label TEXT,
   last_beat_at TEXT
 );
 
@@ -206,20 +214,36 @@ CREATE TABLE incidents (
   initial_failure_kind TEXT,
   summary TEXT,
   suppressed_by_parent INTEGER NOT NULL DEFAULT 0,
+  maintenance_overlap INTEGER NOT NULL DEFAULT 0,
+  down_notified_at TEXT,
+  reminder_sent_at TEXT,
+  recovery_notified_at TEXT,
   created_at TEXT NOT NULL
 );
 
 CREATE INDEX idx_incidents_monitor_time
   ON incidents(monitor_id, started_at DESC);
-CREATE INDEX idx_incidents_active
-  ON incidents(monitor_id, ended_at);
+-- At most one active incident per monitor.
+CREATE UNIQUE INDEX idx_incidents_active
+  ON incidents(monitor_id) WHERE ended_at IS NULL;
 
 CREATE TABLE incident_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
   message TEXT,
+  published INTEGER NOT NULL DEFAULT 0, -- manual_note only: shown on status pages
   created_at TEXT NOT NULL
+);
+
+-- One row per TLS warning threshold crossed for a given certificate.
+-- Deduplicates warning notifications; a new not_after resets thresholds.
+CREATE TABLE tls_warnings (
+  monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+  cert_not_after TEXT NOT NULL,
+  threshold_days INTEGER NOT NULL,
+  notified_at TEXT NOT NULL,
+  PRIMARY KEY (monitor_id, cert_not_after, threshold_days)
 );
 
 CREATE TABLE maintenance_windows (
@@ -300,6 +324,17 @@ CREATE TABLE audit_events (
 );
 
 CREATE INDEX idx_audit_events_time ON audit_events(created_at DESC);
+
+CREATE TABLE saved_views (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  filters_json TEXT NOT NULL,
+  sort TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (user_id, name)
+);
 
 CREATE TABLE system_settings (
   key TEXT PRIMARY KEY,

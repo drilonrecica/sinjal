@@ -13,11 +13,21 @@ Before 1.0:
 Embedded numbered SQL migrations:
 
 ```text
-migrations/
-  001_init.sql
-  002_status_pages.sql
-  003_notification_profiles.sql
+internal/db/migrations/
+  001_foundation.sql      # M0: system_settings
+  002_auth.sql            # M1: users (+ UI prefs), sessions, passkeys, audit_events
+  003_monitors.sql        # M2: monitors, http config, secrets, tags, check_results,
+                          #     minimal notification_profiles (FK target)
+  004_incidents.sql       # M3: incidents (+ notification state), incident_events,
+                          #     maintenance_windows
+  005_monitor_types.sql   # M4: tcp/icmp/dns/heartbeat config
+  006_notifications.sql   # M5: channels, full profiles, routes, deliveries, tls_warnings
+  007_aggregates.sql      # M6: check_aggregates
+  008_status_pages.sql    # M7: pages, groups, page monitors, hosts
+  009_saved_views.sql     # M8: saved_views
 ```
+
+One migration per milestone, created with the milestone that first needs the tables. `spec/schema.sql` is the consolidated end-state reference; the migrations are authoritative.
 
 Rules:
 - append-only

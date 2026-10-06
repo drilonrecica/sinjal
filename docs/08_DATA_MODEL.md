@@ -13,6 +13,7 @@ Fields:
 - TOTP encrypted secret optional
 - created/updated timestamps
 - disabled flag
+- UI preferences: theme (NULL = instance default), density (comfortable | compact), sidebar collapsed
 
 Only admin can mutate configuration.
 
@@ -58,6 +59,8 @@ Shared fields:
 - last_check_at
 - last_success_at
 - last_failure_at
+- flapping_since nullable (persists FLAPPING across restart)
+- tls_not_after nullable (last observed HTTPS certificate expiry)
 
 ## Type-specific monitor config
 
@@ -133,10 +136,11 @@ Resolutions:
 - initial_failure_kind
 - summary/cause
 - suppressed_by_parent flag
-- maintenance overlap metadata
+- maintenance_overlap flag
+- notification state: down_notified_at, reminder_sent_at, recovery_notified_at (prevents duplicate notifications across restart)
 - created_at
 
-Active incident has `ended_at = NULL`.
+Active incident has `ended_at = NULL`. At most one active incident per monitor (enforced by a partial unique index).
 
 ## Incident event/note
 
@@ -148,7 +152,20 @@ Keep a small timeline:
 - manual_note
 - recovered
 
+`manual_note` events carry a `published` flag; only published notes appear on status pages.
+
 This is not a workflow engine.
+
+## TLS warning
+
+Per monitor + certificate `not_after` + threshold days:
+- notified_at
+
+Deduplicates TLS warning notifications. A renewed certificate (new `not_after`) starts fresh.
+
+## Heartbeat config
+
+Includes optional human-readable `source_label`.
 
 ## Maintenance window
 
@@ -246,6 +263,14 @@ Small security/activity log:
 - minimal metadata
 
 Do not create full field-level audit diff storage.
+
+## Saved view
+
+Per user:
+- name (unique per user)
+- filters (validated JSON: states, types, tags, text)
+- sort
+- created/updated
 
 ## System setting
 
