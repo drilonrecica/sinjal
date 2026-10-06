@@ -225,6 +225,28 @@ Success:
 
 Use explicit timeout.
 
+Resolution uses the stdlib `net.Resolver`; a configured resolver is used via a custom `Dial`.
+
+Always a failure, even without expected values:
+- NXDOMAIN (`dns_nxdomain`)
+- empty answer for the query type (`dns_no_answer`)
+- timeout / resolver unreachable (`timeout` / `dns_error`)
+
+### Expected values (decision P0-13)
+
+Per-monitor match mode:
+- `all` (default): every expected value must appear in the answer; extra answers are allowed. Detects a changed or removed record.
+- `any`: at least one expected value must appear. Suits CDNs and round-robin records.
+
+Normalization before comparing (applied to both expected and returned values):
+- names (CNAME, NS, MX host): lowercase, trailing dot stripped
+- A/AAAA: parsed as `netip.Addr` and compared canonically (`2001:DB8::1` equals `2001:db8:0::1`); A accepts IPv4 only, AAAA IPv6 only
+- MX: expected value is `host` (matches any preference) or `pref host` (both must match)
+- TXT: the character-strings of one record are joined with no separator (as for SPF), then compared exactly and case-sensitively
+- CNAME: compared against the canonical name returned by the resolver (the chain is followed)
+
+Failure kind `dns_mismatch`; the snippet lists missing expected values and the returned answers (capped).
+
 ## Heartbeat
 
 Purpose:

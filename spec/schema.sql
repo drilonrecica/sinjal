@@ -153,7 +153,8 @@ CREATE TABLE dns_monitor_config (
   hostname TEXT NOT NULL,
   query_type TEXT NOT NULL,
   resolver TEXT,
-  expected_values_json TEXT
+  expected_values_json TEXT,
+  match_mode TEXT NOT NULL DEFAULT 'all' CHECK (match_mode IN ('any','all'))
 );
 
 CREATE TABLE heartbeat_monitor_config (

@@ -71,6 +71,8 @@ monitors:
     dns:
       hostname: example.com
       query_type: A
+      expected: [192.0.2.20]
+      match: all
 
   - name: Nightly Backup
     type: heartbeat

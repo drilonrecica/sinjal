@@ -182,3 +182,4 @@ This summarizes the locked design rounds.
 - P0-10: `/setup` requires a one-time in-memory setup token logged at startup while no admin exists; rotated on restart; 404 after setup.
 - P0-11: account recovery is `sinjal reset-admin` (new printed password, TOTP cleared, sessions revoked, passkeys optionally removed, audited); host access is the trust boundary; no web recovery.
 - P0-12: uptime is time-weighted from incidents and pause intervals (new `monitor_pauses`); adjusted uptime also removes excluded maintenance time; no data on zero denominator; truncated display; pausing closes the active incident silently.
+- P0-13: DNS expected values use a per-monitor match mode (`all` default, `any`) with normalization of names, IPs, MX and TXT; NXDOMAIN/empty answers always fail.

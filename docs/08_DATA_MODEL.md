@@ -174,6 +174,10 @@ Per monitor + certificate `not_after` + threshold days:
 
 Deduplicates TLS warning notifications. A renewed certificate (new `not_after`) starts fresh.
 
+## DNS config
+
+Includes `match_mode` (`all` | `any`, default `all`) for expected values; semantics in `06_MONITORING_ENGINE.md`.
+
 ## Heartbeat config
 
 Includes optional human-readable `source_label`.

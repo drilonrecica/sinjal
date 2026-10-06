@@ -41,7 +41,10 @@ Do not allow sub-second or high-frequency monitoring in v1.
 ## DNS
 - valid hostname
 - supported record type
-- resolver valid when provided
+- resolver valid when provided (`host` or `host:port`, default port 53)
+- match mode `any` or `all`
+- at most 20 expected values, deduplicated after normalization
+- expected values valid for the query type: IPv4 literal (A), IPv6 literal (AAAA), hostname (CNAME, NS), `host` or `pref host` (MX), any non-empty string ≤ 1024 bytes (TXT)
 
 ## Heartbeat
 - positive expected interval
