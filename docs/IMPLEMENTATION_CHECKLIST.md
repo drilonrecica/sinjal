@@ -111,3 +111,4 @@ Claude Code should update this file as milestones are completed.
 - M0-04: `internal/config` environment loader (strict, reports all errors, rejects unknown `SINJAL_*`); `serve` fails fast on bad config; tzdata embedded; env table in `docs/15_CONFIG_BACKUP.md`.
 - M0-05: `internal/secret.String` (redacts via fmt/slog/JSON) and `internal/logging` (slog text/json, `Sub` adds `subsystem`); `serve` logs a startup line; conventions in `docs/30_LOGGING_ERROR_HANDLING.md`.
 - M0-06: `internal/datadir.Init` creates data dir, `backups/`, `uploads/` (0700, only for dirs it creates) and proves writability with a probe file; errors name the path and hint at ownership.
+- M0-07: `internal/db` (`Open`: single-connection writer + `query_only` reader pool, DSN pragmas; `Retry`: busy backoff 25/100/250/1000 ms with typed `BusyExhaustedError`).

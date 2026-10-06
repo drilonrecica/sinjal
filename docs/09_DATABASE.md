@@ -22,6 +22,11 @@ PRAGMA busy_timeout = 5000;
 
 Do not blindly add exotic pragmas.
 
+Connections (`internal/db`):
+- one writer handle with a single connection (`MaxOpenConns=1`): the only write path
+- a reader pool (`max(4, NumCPU)`) opened with `query_only=1`, so it cannot write
+- pragmas are applied to every connection through the DSN
+
 ## Write architecture
 
 Workers do not independently hammer SQLite.
@@ -48,6 +53,8 @@ Transient `SQLITE_BUSY`:
 - after limit, surface a system warning/error
 
 Do not silently drop results.
+
+`db.Retry` implements this: it retries only `SQLITE_BUSY`, waits 25 ms, 100 ms, 250 ms, then 1 s, and after the last retry returns a `*db.BusyExhaustedError` that callers must surface. The function passed to `Retry` is re-run in full, so it must contain a complete transaction.
 
 ## Retention jobs
 
