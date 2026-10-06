@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"runtime"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
@@ -31,6 +32,15 @@ type DB struct {
 
 // Open opens (creating if needed) the database file at path.
 func Open(path string) (*DB, error) {
+	// SQLite would create the file with the umask default (usually 0644), and
+	// its -wal/-shm files copy the main file's mode. The database holds
+	// password hashes and encrypted secrets, so create it owner-only.
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open database %q: %w", path, err)
+	}
+	f.Close()
+
 	w, err := sql.Open("sqlite", dsn(path, false))
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite writer: %w", err)

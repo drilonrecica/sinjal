@@ -115,3 +115,4 @@ Claude Code should update this file as milestones are completed.
 - M0-08: `internal/db.Migrate` (embedded `migrations/NNN_*.sql`, one tx each, `schema_migrations`, refuses newer DB, mandatory `VACUUM INTO` pre-migration backup except for a brand-new DB, failure-injection tests).
 - M0-09: `001_foundation.sql` creates `system_settings` only; guard test keeps the embedded migration set contiguous. The `.gitkeep` placeholder is gone.
 - M0-10: `internal/web` (chi router; request-ID, access-log and panic-recovery middleware; server timeouts; bounded graceful shutdown) and `serve` wired end to end: config → data dir → DB → migrations → listen → serve. The access log records the route pattern, never the raw path/query. `cmd/sinjal/deps.go` removed. Note: chi skips middleware on a router with no routes; resolved when M0-11 adds `/healthz`.
+- Fix (M0-07): `db.Open` pre-creates `sinjal.db` with mode 0600 so the -wal/-shm files are owner-only too.

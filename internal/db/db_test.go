@@ -54,6 +54,27 @@ func TestPragmas(t *testing.T) {
 	}
 }
 
+func TestDatabaseFilesAreOwnerOnly(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sinjal.db")
+	d, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if _, err := d.Writer.Exec("CREATE TABLE t (id INTEGER)"); err != nil { // creates the -wal/-shm files
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		info, err := os.Stat(path + suffix)
+		if err != nil {
+			t.Fatalf("stat %s: %v", path+suffix, err)
+		}
+		if got := info.Mode().Perm(); got != 0o600 {
+			t.Errorf("%s mode = %o, want 600", filepath.Base(path+suffix), got)
+		}
+	}
+}
+
 func TestWriterIsSingleConnection(t *testing.T) {
 	d := openTemp(t)
 	if got := d.Writer.Stats().MaxOpenConnections; got != 1 {
