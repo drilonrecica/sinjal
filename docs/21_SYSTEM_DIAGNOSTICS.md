@@ -20,7 +20,7 @@ Show:
 - result queue depth
 - notification queue depth
 - last backup
-- last retention run
+- last retention run (`system_settings.last_retention_run`, written by the daily job since M6-04)
 - last migration
 - channel health summary
 

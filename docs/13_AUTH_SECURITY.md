@@ -109,7 +109,7 @@ Sensitive actions require recent re-authentication:
 - Cookie (`internal/web/session.go`): `SetSessionCookie` / `ClearSessionCookie` choose `__Host-sinjal_session` + `Secure` when `proxy.IsHTTPS` (direct TLS or trusted proxy), else `sinjal_session`; always `HttpOnly`, `Path=/`, no `Domain`, `SameSite=Lax`, `Expires` = `expires_at`. Only the cookie name for the current scheme is read.
 - `LoadSession` middleware puts the session and user into the request context; it enforces nothing (M1-11). An invalid cookie is cleared; a database error answers 500.
 - `POST /logout` deletes the current session, clears the cookie and redirects (303) to `/login`. CSRF protection follows in M1-08.
-- Cleanup: `serve` deletes expired sessions at startup and every 24 hours until shutdown; this moves into the daily job runner (M6-04).
+- Cleanup: the daily job (`internal/jobs`, `09_DATABASE.md` "Retention jobs") deletes expired sessions at 04:00 local and at startup when that run is overdue.
 - Event stream: `GET /events` stays open long after the request that passed `RequireAuth`, so it repeats `Lookup` every 20 s and ends when the session is gone (logout, expiry, rotation, disabled viewer); see `32_SSE_EVENTS.md`.
 
 ## Authorization

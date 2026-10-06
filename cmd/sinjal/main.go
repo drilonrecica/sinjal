@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
 	_ "time/tzdata" // SINJAL_TIMEZONE must work without system zoneinfo (scratch image)
 
 	"github.com/drilonrecica/sinjal/internal/assets"
@@ -20,6 +19,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/dispatch"
 	"github.com/drilonrecica/sinjal/internal/engine"
+	"github.com/drilonrecica/sinjal/internal/jobs"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/vault"
 	"github.com/drilonrecica/sinjal/internal/web"
@@ -174,10 +174,12 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		notifications.Run(dispatchCtx)
 	}()
 
-	cleanupDone := make(chan struct{})
+	// The daily job: history rollup and expired-session cleanup, at startup
+	// when overdue and then every day at 04:00 local (docs/09).
+	dailyDone := make(chan struct{})
 	go func() {
-		defer close(cleanupDone)
-		cleanupSessions(ctx, sessions, logging.Sub(logger, "auth"))
+		defer close(dailyDone)
+		jobs.NewDaily(database, sessions, cfg.Timezone, logger).Run(ctx)
 	}()
 
 	srv := web.NewServer(cfg.Listen, router)
@@ -186,7 +188,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	srv.RegisterOnShutdown(events.Close)
 	err = web.Run(ctx, srv, ln, web.ShutdownGrace, logger)
 	// ctx is done once Run returns; let the jobs finish before the DB closes.
-	<-cleanupDone
+	<-dailyDone
 	monitoring.Wait()
 	stopDispatch()
 	<-dispatched
@@ -204,29 +206,4 @@ func setupBase(baseURL string, addr net.Addr) string {
 	}
 	_, port, _ := net.SplitHostPort(addr.String())
 	return "http://localhost:" + port
-}
-
-// sessionCleanupInterval: expired sessions are already rejected on lookup;
-// deleting them only keeps the table small.
-const sessionCleanupInterval = 24 * time.Hour
-
-// cleanupSessions deletes expired sessions at startup and then daily until
-// ctx is cancelled. It moves into the daily job runner in M6-04.
-func cleanupSessions(ctx context.Context, sessions *auth.Sessions, log *slog.Logger) {
-	t := time.NewTicker(sessionCleanupInterval)
-	defer t.Stop()
-	for {
-		if n, err := sessions.DeleteExpired(ctx, time.Now()); err != nil {
-			if ctx.Err() == nil {
-				log.Error("expired session cleanup failed", "error", err)
-			}
-		} else if n > 0 {
-			log.Info("deleted expired sessions", "count", n)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-		}
-	}
 }

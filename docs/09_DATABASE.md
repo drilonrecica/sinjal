@@ -87,6 +87,15 @@ Daily internal job:
 
 Do not VACUUM every day by default.
 
+Daily runner (`internal/jobs`, started by `serve`):
+
+- runs once a day at **04:00 in the instance time zone** (`SINJAL_TIMEZONE`): quiet for a personal instance, and outside the hours DST skips or repeats in Europe and North America, so it happens exactly once per local day
+- at startup it runs at once when overdue: no recorded run, or the last one before the latest 04:00. A restart therefore never skips a day and never runs twice in one
+- waits are at most an hour and the clock is read again after each, so a suspended machine or a clock change delays a run by at most that
+- a run: the rollup (below), then expired-session cleanup; on success the time is stored in `system_settings` as `last_retention_run` (RFC 3339 UTC; Settings → System shows it with the diagnostics, M9). A failed rollup is logged as an ERROR and not recorded, so the next start (or the next day) runs again; a failed session cleanup is only logged
+- shutdown cancels a run between rollup steps; `serve` waits for it before closing the database
+- backups and the integrity check join this runner in M9
+
 Rollup (`internal/retention`, SQL in `internal/store/rollup.go`):
 
 - tiers in order: raw → 5m before `now − 7d`, 5m → 1h before `now − 30d`, 1h → 1d before `now − 365d`; each cutoff is floored to the target resolution, so only whole buckets are rolled and a bucket is always built from all of its sources at once. Daily buckets are kept

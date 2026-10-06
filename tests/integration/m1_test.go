@@ -187,8 +187,9 @@ func TestInitialSetup(t *testing.T) {
 	}
 }
 
-// TestSessionsCleanupAndLogout: expired sessions are deleted at startup, and
-// POST /logout deletes the live session and clears its cookie.
+// TestSessionsCleanupAndLogout: expired sessions are deleted by the daily
+// job, which runs at startup when overdue, and POST /logout deletes the live
+// session and clears its cookie.
 func TestSessionsCleanupAndLogout(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test builds and runs the binary")
@@ -205,6 +206,11 @@ func TestSessionsCleanupAndLogout(t *testing.T) {
 	}
 	if _, err := d.Writer.Exec(`INSERT INTO users (id, login, role, created_at, updated_at)
 		VALUES ('u1', 'admin', 'admin', 'now', 'now')`); err != nil {
+		t.Fatal(err)
+	}
+	// The first start ran the daily job; forgetting that run makes it
+	// overdue again, so the next start runs it.
+	if _, err := d.Writer.Exec(`DELETE FROM system_settings WHERE key = 'last_retention_run'`); err != nil {
 		t.Fatal(err)
 	}
 	store := auth.NewSessions(d, slog.New(slog.NewTextHandler(io.Discard, nil)))
