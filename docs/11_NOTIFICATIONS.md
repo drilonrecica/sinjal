@@ -31,6 +31,14 @@ Secrets are write-only in the UI: an input is never filled in, a stored one is a
 - The message is one `text/plain; charset=utf-8` part, quoted-printable; a non-ASCII subject is RFC 2047 encoded. No HTML part (docs/36). The EHLO name is `localhost`, so the instance's host name is not disclosed.
 - An error names the failed step and the server's answer on one line (`smtp: authentication failed: 535 5.7.8 …`, `smtp: recipient x@example.com refused: 550 …`, `smtp: connect: timed out`); it never holds the password.
 
+### Telegram delivery
+
+`notify.SendTelegram` calls the Bot API `sendMessage` with `chat_id` and the plain text of the message:
+- No `parse_mode` is set, so a name or reason is never read as Markdown or HTML; link previews are off. Text is cut at Telegram's 4096 characters.
+- Success is HTTP 200 with `"ok": true`. Anything else is an error that names the status and Telegram's own `description` on one line (`telegram: 400 Bad Request: Bad Request: chat not found`).
+- The bot token is part of the request URL, so errors never include the URL: a connection failure reads `telegram: timed out` or `telegram: connection refused`.
+- One delivery is bounded at 15 seconds (or the caller's shorter context). Redirects are never followed (shared by all HTTP senders, `http.go`), and at most 4 KiB of an answer is read.
+
 ## Profiles
 
 Reusable profile example:
