@@ -25,6 +25,7 @@
     notify/
     dispatch/
     results/
+    retention/
     scheduler/
     statuspage/
     store/
@@ -66,6 +67,8 @@ Avoid cyclical mega-packages.
 `incident` owns state-transition/incident decisions.
 
 `engine` wires scheduler, worker pool, check executors and result processor together and is the only package that knows all of them; `results` is the single write path for check results.
+
+`retention` owns the rollup policy (tiers, cutoffs, the run loop); the SQL of one rollup step is `store/rollup.go`, the bucket math `history/bucket.go`.
 
 `notify` owns channel configuration, message rendering and the senders (one file per channel type, no subpackages); `dispatch` owns routing, retries and delivery records. It is a sibling of `notify` rather than part of it because `store` needs `notify` (channel configurations) and the dispatcher needs `store`.
 

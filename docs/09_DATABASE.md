@@ -87,6 +87,14 @@ Daily internal job:
 
 Do not VACUUM every day by default.
 
+Rollup (`internal/retention`, SQL in `internal/store/rollup.go`):
+
+- tiers in order: raw → 5m before `now − 7d`, 5m → 1h before `now − 30d`, 1h → 1d before `now − 365d`; each cutoff is floored to the target resolution, so only whole buckets are rolled and a bucket is always built from all of its sources at once. Daily buckets are kept
+- per monitor (paused ones too), one **step** at a time: a write transaction that finds the monitor's oldest source row (one index probe), takes the slice from the bucket holding it to one day later or the cutoff, builds its buckets (`history.FromRaw` / `history.Merge`), upserts them (`ON CONFLICT … DO UPDATE`, so a step that runs again for a bucket replaces it), deletes the slice's sources and commits. Buckets and the deletion of their sources commit together: a failure leaves the source rows intact and writes no bucket
+- a day of raw results is 2,880 rows at 30 s; steps stay this small because the writer connection is shared with the result processor, which waits while a step holds it. Starting each step at the oldest remaining row skips empty days, so a paused month costs nothing
+- every step is wrapped in `db.Retry`; the context is checked between steps, so shutdown stops a run cleanly. There is no cursor: a run that stopped (error, shutdown) is resumed by the next one from the oldest source row left. A step that would delete nothing is an error, so the loop cannot spin
+- the run stops at its first error and returns it with what it did so far (steps, buckets, rows deleted)
+
 ## History queries
 
 Ranges (`internal/history.Parse`): presets 1 hour, 24 hours (default), 7, 30 and 90 days and 1 year, ending now; day presets are calendar days in the instance time zone. A custom range is `from`/`to` as local date and time; an end in the future becomes now; it must end after it starts, start in the past and span at most 400 days, otherwise the default preset is shown with the reason.
