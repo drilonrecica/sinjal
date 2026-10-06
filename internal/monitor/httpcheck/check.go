@@ -5,9 +5,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -70,6 +72,27 @@ type Result struct {
 	Kind       string // "" on success
 	Message    string
 	Snippet    string
+	TLS        *TLSInfo // leaf certificate of an HTTPS response, else nil
+}
+
+// TLSInfo is the leaf certificate's expiry data (docs/06). It is recorded
+// for every HTTPS response, including failed checks and insecure-TLS ones.
+type TLSInfo struct {
+	NotAfter      time.Time `json:"not_after"`
+	Issuer        string    `json:"issuer"`
+	DaysRemaining int       `json:"days_remaining"` // whole days; negative once expired
+}
+
+// MetadataJSON is the check's metadata_json: "" when there is nothing to
+// record, so callers can store NULL.
+func (r Result) MetadataJSON() string {
+	if r.TLS == nil {
+		return ""
+	}
+	b, _ := json.Marshal(struct {
+		TLS *TLSInfo `json:"tls"`
+	}{r.TLS})
+	return string(b)
 }
 
 // Check runs one HTTP check within cfg.Timeout. It never returns an error:
@@ -83,6 +106,9 @@ func (p *Pool) Check(ctx context.Context, cfg Config) Result {
 		res.Duration = time.Since(start)
 		res.Finished = start.Add(res.Duration)
 		res.Message = scrub.clean(res.Message)
+		if res.TLS != nil {
+			res.TLS.Issuer = scrub.clean(res.TLS.Issuer)
+		}
 		return res
 	}
 
@@ -115,6 +141,7 @@ func (p *Pool) Check(ctx context.Context, cfg Config) Result {
 	}
 	defer resp.Body.Close()
 	res.StatusCode = resp.StatusCode
+	res.TLS = p.tlsInfo(resp.TLS)
 
 	if !cfg.Expected.Match(resp.StatusCode) {
 		res.Kind = KindHTTPStatus
@@ -189,6 +216,19 @@ func jsonSnippet(a monitor.JSONAssertion, actual string) string {
 		s += " " + string(a.Value)
 	}
 	return s + "; actual: " + actual
+}
+
+// tlsInfo reads the leaf certificate out of a completed handshake.
+func (p *Pool) tlsInfo(st *tls.ConnectionState) *TLSInfo {
+	if st == nil || len(st.PeerCertificates) == 0 {
+		return nil
+	}
+	leaf := st.PeerCertificates[0]
+	return &TLSInfo{
+		NotAfter:      leaf.NotAfter.UTC(),
+		Issuer:        leaf.Issuer.String(),
+		DaysRemaining: int(math.Floor(leaf.NotAfter.Sub(p.now()).Hours() / 24)),
+	}
 }
 
 // setHeaders applies, in order, the User-Agent, the plain headers, the

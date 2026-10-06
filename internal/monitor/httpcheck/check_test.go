@@ -3,8 +3,16 @@ package httpcheck
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/json"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -410,5 +418,98 @@ func TestCheckAssertionsRespectReadCap(t *testing.T) {
 	cfg.BodyContains = "needle"
 	if res := p.Check(context.Background(), cfg); res.Kind != KindBodyAssertion {
 		t.Errorf("needle past the cap must not match: %+v", res)
+	}
+}
+
+// certServer serves HTTPS with a self-signed certificate valid until
+// notAfter, issued by cn.
+func certServer(t *testing.T, cn string, notAfter time.Time, h http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: cn},
+		NotBefore:    notAfter.Add(-2 * 365 * 24 * time.Hour),
+		NotAfter:     notAfter,
+		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1)},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewUnstartedServer(h)
+	srv.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}}
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestCheckTLSMetadata(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	p.now = func() time.Time { return now }
+	ok := func(http.ResponseWriter, *http.Request) {}
+
+	// 45.5 days left: floors to 45. Insecure, because the cert is self-signed.
+	srv := certServer(t, "Sinjal Test CA", now.Add(45*24*time.Hour+12*time.Hour), ok)
+	cfg := cfgFor(t, srv.URL)
+	cfg.Insecure = true
+	res := p.Check(context.Background(), cfg)
+	if !res.Success || res.TLS == nil {
+		t.Fatalf("%+v", res)
+	}
+	if res.TLS.DaysRemaining != 45 || !res.TLS.NotAfter.Equal(now.Add(45*24*time.Hour+12*time.Hour)) || res.TLS.Issuer != "CN=Sinjal Test CA" {
+		t.Errorf("tls = %+v", *res.TLS)
+	}
+	var meta struct {
+		TLS struct {
+			NotAfter      string `json:"not_after"`
+			Issuer        string `json:"issuer"`
+			DaysRemaining int    `json:"days_remaining"`
+		} `json:"tls"`
+	}
+	if err := json.Unmarshal([]byte(res.MetadataJSON()), &meta); err != nil || meta.TLS.DaysRemaining != 45 || meta.TLS.Issuer != "CN=Sinjal Test CA" || meta.TLS.NotAfter != "2026-11-21T00:00:00Z" {
+		t.Errorf("metadata = %s (%v)", res.MetadataJSON(), err)
+	}
+
+	// Metadata survives a failed status check.
+	cfg.Expected = expect(t, "500")
+	if res = p.Check(context.Background(), cfg); res.Kind != KindHTTPStatus || res.TLS == nil {
+		t.Errorf("status failure lost TLS info: %+v", res)
+	}
+}
+
+func TestCheckTLSExpiredAndInvalid(t *testing.T) {
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	srv := certServer(t, "Old CA", time.Now().Add(-36*time.Hour), func(http.ResponseWriter, *http.Request) {})
+
+	// Verification on: the handshake fails, so the check fails as tls.
+	res := p.Check(context.Background(), cfgFor(t, srv.URL))
+	if res.Success || res.Kind != KindTLS || res.TLS != nil || res.MetadataJSON() != "" {
+		t.Errorf("verified: %+v", res)
+	}
+	// Insecure: the check passes and reports the expiry as negative days.
+	cfg := cfgFor(t, srv.URL)
+	cfg.Insecure = true
+	res = p.Check(context.Background(), cfg)
+	if !res.Success || res.TLS == nil || res.TLS.DaysRemaining != -2 {
+		t.Errorf("insecure: %+v tls=%+v", res, res.TLS)
+	}
+}
+
+func TestCheckPlainHTTPHasNoTLSMetadata(t *testing.T) {
+	srv := serve(t, "x")
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	res := p.Check(context.Background(), cfgFor(t, srv.URL))
+	if !res.Success || res.TLS != nil || res.MetadataJSON() != "" {
+		t.Errorf("%+v", res)
 	}
 }
