@@ -46,6 +46,9 @@ type Config struct {
 	Body            string // sent with POST
 	UserAgent       string // "" sends the pool's default
 	Expected        monitor.StatusExpr
+	BodyContains    string // case-sensitive; "" disables
+	BodyNotContains string // case-sensitive; "" disables
+	JSONAssertions  []monitor.JSONAssertion
 	MaxBodyBytes    int64 // read cap for assertions on the body
 	FollowRedirects bool
 	Insecure        bool
@@ -119,12 +122,73 @@ func (p *Pool) Check(ctx context.Context, cfg Config) Result {
 		res.Snippet = scrub.snippet(resp.Body)
 		return done()
 	}
-	// Nothing needs the body yet: stop reading (docs/06 "stop reading once
-	// enough data exists"). A short drain lets small responses keep their
-	// connection; larger ones are closed instead.
-	io.CopyN(io.Discard, resp.Body, SnippetMax)
-	res.Success = true
+	if cfg.BodyContains == "" && cfg.BodyNotContains == "" && len(cfg.JSONAssertions) == 0 {
+		// Nothing needs the body: stop reading (docs/06 "stop reading once
+		// enough data exists"). A short drain lets small responses keep their
+		// connection; larger ones are closed instead.
+		io.CopyN(io.Discard, resp.Body, SnippetMax)
+		res.Success = true
+		return done()
+	}
+	data, truncated, err := readCapped(resp.Body, cfg.MaxBodyBytes)
+	if err != nil {
+		res.Kind, res.Message = classify(ctx, err, cfg.Timeout)
+		return done()
+	}
+	res.Kind, res.Message, res.Snippet = assertBody(cfg, data, truncated, scrub)
+	res.Success = res.Kind == ""
 	return done()
+}
+
+// jsonActualMax caps the actual value quoted in a JSON assertion snippet.
+const jsonActualMax = 200
+
+// assertBody applies the text assertions, then the JSON ones. All must hold;
+// the first failure is reported. kind is "" when everything passed.
+func assertBody(cfg Config, body []byte, truncated bool, scrub scrubber) (kind, msg, snippet string) {
+	text := string(body)
+	if cfg.BodyContains != "" && !strings.Contains(text, cfg.BodyContains) {
+		return KindBodyAssertion, fmt.Sprintf("body does not contain %q", cfg.BodyContains), scrub.snippetBytes(body)
+	}
+	if cfg.BodyNotContains != "" && strings.Contains(text, cfg.BodyNotContains) {
+		return KindBodyAssertion, fmt.Sprintf("body contains %q", cfg.BodyNotContains), scrub.snippetBytes(body)
+	}
+	if len(cfg.JSONAssertions) == 0 {
+		return "", "", ""
+	}
+	if truncated {
+		return KindJSONParse, fmt.Sprintf("body is larger than the %d byte read limit", cfg.MaxBodyBytes), scrub.snippetBytes(body)
+	}
+	doc, err := monitor.DecodeJSON(body)
+	if err != nil {
+		return KindJSONParse, "body is not valid JSON: " + err.Error(), scrub.snippetBytes(body)
+	}
+	for _, a := range cfg.JSONAssertions {
+		ok, actual, err := monitor.EvalJSONAssertion(a, doc)
+		if err != nil {
+			return KindJSONAssertion, fmt.Sprintf("%s %s: %v", a.Path, a.Op, err), ""
+		}
+		if ok {
+			continue
+		}
+		return KindJSONAssertion, fmt.Sprintf("%s %s failed", a.Path, a.Op), scrub.clip(jsonSnippet(a, actual), SnippetMax)
+	}
+	return "", "", ""
+}
+
+// jsonSnippet describes a failed JSON assertion: path, operator, expected
+// value and what was found, the latter cut to jsonActualMax bytes.
+func jsonSnippet(a monitor.JSONAssertion, actual string) string {
+	if actual == "" {
+		actual = "(missing)"
+	} else if len(actual) > jsonActualMax {
+		actual = actual[:jsonActualMax] + "..."
+	}
+	s := a.Path + " " + a.Op
+	if len(a.Value) > 0 {
+		s += " " + string(a.Value)
+	}
+	return s + "; actual: " + actual
 }
 
 // setHeaders applies, in order, the User-Agent, the plain headers, the
@@ -249,13 +313,26 @@ func (s scrubber) clean(text string) string {
 // before cutting, so a secret straddling the cut cannot leave a prefix.
 func (s scrubber) snippet(body io.Reader) string {
 	b, _, _ := readCapped(body, int64(SnippetMax+s.maxLen))
-	text := s.clean(string(b))
-	if len(text) > SnippetMax {
-		text = text[:SnippetMax]
+	return s.clip(string(b), SnippetMax)
+}
+
+// snippetBytes is snippet for a body that is already in memory.
+func (s scrubber) snippetBytes(b []byte) string {
+	if n := SnippetMax + s.maxLen; len(b) > n {
+		b = b[:n]
+	}
+	return s.clip(string(b), SnippetMax)
+}
+
+// clip scrubs text, cuts it to max bytes and makes it valid UTF-8.
+func (s scrubber) clip(text string, max int) string {
+	text = s.clean(text)
+	if len(text) > max {
+		text = text[:max]
 	}
 	text = strings.ToValidUTF8(text, "\uFFFD")
 	// The replacement character can be longer than the bytes it replaced.
-	for len(text) > SnippetMax {
+	for len(text) > max {
 		_, size := utf8.DecodeLastRuneInString(text)
 		text = text[:len(text)-size]
 	}

@@ -270,3 +270,145 @@ func BenchmarkCheck(b *testing.B) {
 		}
 	}
 }
+
+func serve(t *testing.T, body string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, body) }))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func jsonA(path, op, val string) monitor.JSONAssertion {
+	a := monitor.JSONAssertion{Path: path, Op: op}
+	if val != "" {
+		a.Value = []byte(val)
+	}
+	return a
+}
+
+func TestCheckTextAssertions(t *testing.T) {
+	srv := serve(t, "Hello World, all systems go")
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	cases := []struct {
+		name, contains, notContains, kind string
+	}{
+		{"contains hit", "all systems", "", ""},
+		{"case sensitive", "hello world", "", KindBodyAssertion},
+		{"contains miss", "outage", "", KindBodyAssertion},
+		{"not contains ok", "", "outage", ""},
+		{"not contains hit", "", "World", KindBodyAssertion},
+		{"not contains case sensitive", "", "WORLD", ""},
+		{"both", "Hello", "outage", ""},
+	}
+	for _, c := range cases {
+		cfg := cfgFor(t, srv.URL)
+		cfg.BodyContains, cfg.BodyNotContains = c.contains, c.notContains
+		res := p.Check(context.Background(), cfg)
+		if res.Kind != c.kind || res.Success != (c.kind == "") {
+			t.Errorf("%s: %+v", c.name, res)
+		}
+		if c.kind == "" && (res.Snippet != "" || res.Message != "") {
+			t.Errorf("%s: success kept data: %+v", c.name, res)
+		}
+		if c.kind != "" && res.Snippet != "Hello World, all systems go" {
+			t.Errorf("%s: snippet = %q", c.name, res.Snippet)
+		}
+	}
+}
+
+func TestCheckJSONAssertions(t *testing.T) {
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	srv := serve(t, `{"status":"ok","n":3,"items":[{"up":true}]}`)
+	cases := []struct {
+		name string
+		as   []monitor.JSONAssertion
+		kind string
+		snip string
+	}{
+		{"all pass", []monitor.JSONAssertion{jsonA("$.status", "equals", `"ok"`), jsonA("$.items[0].up", "equals", `true`), jsonA("$.n", "equals", `3.0`), jsonA("$.x", "not_exists", ""), jsonA("$.n", "exists", "")}, "", ""},
+		{"type mismatch", []monitor.JSONAssertion{jsonA("$.n", "equals", `"3"`)}, KindJSONAssertion, `$.n equals "3"; actual: 3`},
+		{"second fails", []monitor.JSONAssertion{jsonA("$.n", "exists", ""), jsonA("$.status", "not_equals", `"ok"`)}, KindJSONAssertion, `$.status not_equals "ok"; actual: "ok"`},
+		{"missing", []monitor.JSONAssertion{jsonA("$.gone", "exists", "")}, KindJSONAssertion, `$.gone exists; actual: (missing)`},
+	}
+	for _, c := range cases {
+		cfg := cfgFor(t, srv.URL)
+		cfg.JSONAssertions = c.as
+		res := p.Check(context.Background(), cfg)
+		if res.Kind != c.kind || res.Success != (c.kind == "") || res.Snippet != c.snip {
+			t.Errorf("%s: %+v", c.name, res)
+		}
+	}
+}
+
+func TestCheckJSONParseFailures(t *testing.T) {
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	for name, tc := range map[string]struct {
+		body string
+		max  int64
+	}{
+		"not json":                {"<html>nope</html>", 1 << 20},
+		"trailing":                {`{"a":1} junk`, 1 << 20},
+		"valid prefix cut at cap": {`{"a":1}` + strings.Repeat(" ", 100), 20},
+		"truncated":               {`{"a":"` + strings.Repeat("x", 100) + `"}`, 50},
+	} {
+		srv := serve(t, tc.body)
+		cfg := cfgFor(t, srv.URL)
+		cfg.MaxBodyBytes = tc.max
+		cfg.JSONAssertions = []monitor.JSONAssertion{jsonA("$.a", "exists", "")}
+		res := p.Check(context.Background(), cfg)
+		if res.Success || res.Kind != KindJSONParse || res.Snippet == "" {
+			t.Errorf("%s: %+v", name, res)
+		}
+	}
+}
+
+func TestCheckJSONActualTruncatedAndScrubbed(t *testing.T) {
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	srv := serve(t, `{"v":"`+strings.Repeat("a", 500)+`","k":"hunter2"}`)
+	cfg := cfgFor(t, srv.URL)
+	cfg.JSONAssertions = []monitor.JSONAssertion{jsonA("$.v", "equals", `"b"`)}
+	res := p.Check(context.Background(), cfg)
+	if res.Kind != KindJSONAssertion || len(res.Snippet) > 300 {
+		t.Fatalf("%d bytes: %+v", len(res.Snippet), res)
+	}
+	cfg.JSONAssertions = []monitor.JSONAssertion{jsonA("$.k", "equals", `"x"`)}
+	cfg.Secrets = map[string]secret.String{monitor.SecretBearerToken: secret.String("hunter2")}
+	res = p.Check(context.Background(), cfg)
+	if strings.Contains(res.Snippet+res.Message, "hunter2") || !strings.Contains(res.Snippet, "[REDACTED]") {
+		t.Errorf("not scrubbed: %+v", res)
+	}
+}
+
+func TestCheckBodyAssertionScrubsSecretsAndStatusFirst(t *testing.T) {
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	srv := serve(t, "token=hunter2 oops")
+	cfg := cfgFor(t, srv.URL)
+	cfg.BodyContains = "hunter2-missing"
+	cfg.Secrets = map[string]secret.String{monitor.SecretBearerToken: secret.String("hunter2")}
+	res := p.Check(context.Background(), cfg)
+	if res.Kind != KindBodyAssertion || strings.Contains(res.Snippet, "hunter2") {
+		t.Errorf("%+v", res)
+	}
+	cfg.Expected = expect(t, "500")
+	cfg.BodyContains = "token"
+	if res = p.Check(context.Background(), cfg); res.Kind != KindHTTPStatus {
+		t.Errorf("status should fail first: %+v", res)
+	}
+}
+
+func TestCheckAssertionsRespectReadCap(t *testing.T) {
+	p := NewPool("Sinjal/test")
+	defer p.Close()
+	srv := serve(t, strings.Repeat("a", 100)+"needle")
+	cfg := cfgFor(t, srv.URL)
+	cfg.MaxBodyBytes = 50
+	cfg.BodyContains = "needle"
+	if res := p.Check(context.Background(), cfg); res.Kind != KindBodyAssertion {
+		t.Errorf("needle past the cap must not match: %+v", res)
+	}
+}
