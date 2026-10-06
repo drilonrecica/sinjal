@@ -38,12 +38,6 @@ func TestMonitorTablesAndIndexesExist(t *testing.T) {
 			t.Errorf("index %s is missing", idx)
 		}
 	}
-	// M4 tables must not exist yet.
-	for _, tb := range []string{"tcp_monitor_config", "icmp_monitor_config", "dns_monitor_config", "heartbeat_monitor_config"} {
-		if e.tableExists(t, tb) {
-			t.Errorf("table %s belongs to a later milestone", tb)
-		}
-	}
 }
 
 func TestMonitorDefaults(t *testing.T) {

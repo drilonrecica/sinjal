@@ -1,6 +1,5 @@
 -- 003_monitors (M2): monitors, HTTP config, secrets, pauses, tags and raw
--- check results. Definitions match spec/schema.sql. The other protocol config
--- tables (tcp, icmp, dns, heartbeat) arrive with M4. notification_profiles is
+-- check results. Definitions match spec/schema.sql. notification_profiles is
 -- created here in full because monitors reference it; channels and routes
 -- arrive with M5.
 
