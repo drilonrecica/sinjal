@@ -34,3 +34,8 @@ go.work.sum
 
 # Private implementation notes (not published)
 imp-docs/
+
+# Build and dev output
+/sinjal
+/dist/
+.dev-data/
