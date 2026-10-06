@@ -96,6 +96,45 @@ V1 operators:
 
 Do not add arbitrary scripting.
 
+#### Path syntax (decision P0-07)
+
+A small, strict subset:
+
+```text
+path    = "$" segment*
+segment = "." name            ; name = [A-Za-z_][A-Za-z0-9_]*
+        | "[" json-string "]" ; any key, JSON string escaping: ["content-type"]
+        | "[" index "]"       ; index = 0 | [1-9][0-9]*
+```
+
+Examples: `$.status`, `$.data.items[0].state`, `$["x-version"]`, `$[2]`.
+
+Not supported: wildcards, filters, slices, negative indices, recursive descent, functions. Limits: path ≤ 256 characters, ≤ 32 segments.
+
+#### Expected value
+
+Stored as a typed JSON scalar: string, number, boolean or null.
+
+Form input that parses as a JSON number, `true`/`false`, `null` or a quoted JSON string takes that type; any other input is a string. The form shows how the value will be compared ("compared as: number") so the type is never ambiguous.
+
+#### Evaluation
+
+- body parsed with `encoding/json` using `UseNumber`; duplicate keys: last wins
+- `equals` is type-aware:
+  - numbers compare numerically (`1` equals `1.0`)
+  - strings compare byte-for-byte (case-sensitive)
+  - booleans and null compare by value
+  - different types are never equal (`42` ≠ `"42"`)
+  - an object or array never equals a scalar
+- `not equals` is the negation of `equals` and requires the path to exist; a missing path fails the assertion
+- `exists`: the path resolves (a `null` value exists)
+- `does not exist`: the path does not resolve
+- all assertions must pass
+
+Failures:
+- `json_parse`: body is not valid JSON, or the body was truncated at the read cap
+- `json_assertion`: snippet names path, operator, expected and actual value (actual truncated to 200 bytes)
+
 ### Body limit
 Hard read cap: default **1 MiB**.
 

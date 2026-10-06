@@ -25,7 +25,9 @@ Do not allow sub-second or high-frequency monitoring in v1.
 - method one of GET/HEAD/POST
 - status expression parsable
 - body cap within safe bounds
-- JSON path syntax validated
+- JSON path syntax validated against the subset in `06_MONITORING_ENGINE.md`
+- at most 20 JSON assertions per monitor
+- `exists` / `does not exist` take no expected value; `equals` / `not equals` require one
 - TLS warning days positive and deduplicated
 - secret headers separated from normal display where configured
 
