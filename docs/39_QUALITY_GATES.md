@@ -2,6 +2,8 @@
 
 A milestone or release candidate is not done until its relevant gates pass.
 
+The backend gate is also run by the check-only CI workflow on push (`27_MANUAL_RELEASES.md`), but local runs remain authoritative.
+
 ## Backend gate
 - gofmt clean
 - go vet clean

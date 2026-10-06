@@ -187,3 +187,4 @@ This summarizes the locked design rounds.
 - P0-15: status pages show a 90-day adjusted uptime strip; unlisted URLs are `/s/{token}` (hashed, shown once, noindex); logos PNG/JPEG only; mapped hostnames serve only that page's public routes.
 - P0-16: config import matches by name/key/slug, modes `skip` (default) and `replace`, never deletes, mandatory dry-run preview, all-or-nothing transaction; secrets never imported.
 - P0-17: releases are signed with `ssh-keygen -Y sign` using a dedicated Ed25519 release key over `checksums.txt`; SBOM via syft as SPDX JSON; public key in `docs/release-signing/allowed_signers`.
+- P0-18: a check-only GitHub Actions workflow (fmt, vet, lint, race tests, stale templ check) on push to master; read-only permissions, SHA-pinned actions, no secrets, never publishes.
