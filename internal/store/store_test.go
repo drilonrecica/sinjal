@@ -18,7 +18,7 @@ import (
 
 var now = time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 
-func testDB(t *testing.T) *db.DB {
+func testDB(t testing.TB) *db.DB {
 	t.Helper()
 	dir := t.TempDir()
 	d, err := db.Open(filepath.Join(dir, "sinjal.db"))

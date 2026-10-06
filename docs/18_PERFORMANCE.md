@@ -57,3 +57,21 @@ Do investigate if:
 - goroutine count grows with monitor count at idle
 - container image bloats
 - startup performs unnecessary network calls
+
+## Measured
+
+Development machine: Intel Core i5-7500 (4 cores), Linux, Go 1.27, `go test -bench`. Numbers are for comparison between changes on the same machine, not promises. Run with `make bench`.
+
+### M2 (M2-20)
+
+| Scenario | Benchmark | Result |
+|---|---|---|
+| 1 scheduler insert | `scheduler.BenchmarkQueueInsert` (add + remove on a full heap) | 482 ns at 1,000 monitors, 608 ns at 10,000; 1 allocation |
+| 1 scheduler update | `scheduler.BenchmarkQueueUpdate` (edit: new interval, immediate run) | 57 ns at 1,000, 66 ns at 10,000; no allocation |
+| 1 scheduler pop | `scheduler.BenchmarkQueuePop` (steady state, one due monitor per pop) | 304 ns at 1,000, 427 ns at 10,000; no allocation |
+| 2 1,000 due monitors | `scheduler.BenchmarkDueMonitors` (all due at once, default workers, 10 ms per check) | 650 ms per burst with 16 workers (the ideal is 625 ms); nothing rejected, no late start, 17 goroutines in total for the pool (workers, not monitors) |
+| 3 result batching | `results.BenchmarkProcessorBatch` (1,000 monitors, real SQLite file, production batch size and flush time) | 86 µs per result, about 9,000–11,000 results/s including state machine and monitor row update. 1,000 monitors at the default 30 s produce about 33 results/s |
+| 4 raw insert | `store.BenchmarkInsertCheckResult` (128 rows per transaction) | 16.6 µs per row (about 60,000 rows/s), 14 allocations |
+| 8 SSE fan-out | `sse.BenchmarkPublish` (one event, 8 clients) | 0.9 µs, 4 allocations (M2-14) |
+
+Every result is written by the one processor goroutine in batched transactions; no worker writes to SQLite and no goroutine exists per monitor. Scenarios 5–7 (rollups, dashboard query, incident transaction) are measured with their features (M3, M6).

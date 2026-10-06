@@ -21,7 +21,7 @@ var base = time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 // at is base plus n seconds: every result in a test gets its own second.
 func at(n int) time.Time { return base.Add(time.Duration(n) * time.Second) }
 
-func testDB(t *testing.T) (*db.DB, string) {
+func testDB(t testing.TB) (*db.DB, string) {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sinjal.db")
@@ -39,7 +39,7 @@ func testDB(t *testing.T) (*db.DB, string) {
 
 // newMonitor creates an enabled HTTP monitor (pending, thresholds 2 and 1,
 // retry delay 20 ms) after applying edit.
-func newMonitor(t *testing.T, d *db.DB, name string, edit func(*store.HTTPMonitor)) string {
+func newMonitor(t testing.TB, d *db.DB, name string, edit func(*store.HTTPMonitor)) string {
 	t.Helper()
 	in := store.HTTPMonitor{Name: name, Enabled: true, RetryDelayMS: 20,
 		Config: store.HTTPConfig{URL: "https://example.com/" + name, FollowRedirects: true, TLSExpiryEnabled: true}}
