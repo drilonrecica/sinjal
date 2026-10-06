@@ -16,7 +16,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/db"
 )
 
-func migratedDB(t *testing.T) *db.DB {
+func migratedDB(t testing.TB) *db.DB {
 	t.Helper()
 	dir := t.TempDir()
 	d, err := db.Open(filepath.Join(dir, "sinjal.db"))

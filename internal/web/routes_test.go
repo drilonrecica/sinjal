@@ -36,13 +36,13 @@ var testCSRFKey = []byte("0123456789abcdef0123456789abcdef")
 // example.com; passkey tests set the Host to this one.
 const testBaseURL = "http://localhost"
 
-func newAppEnv(t *testing.T, trusted ...netip.Prefix) *appEnv {
+func newAppEnv(t testing.TB, trusted ...netip.Prefix) *appEnv {
 	t.Helper()
 	return newAppEnvAt(t, testBaseURL, trusted...)
 }
 
 // newAppEnvAt is newAppEnv with SINJAL_BASE_URL set to baseURL.
-func newAppEnvAt(t *testing.T, baseURL string, trusted ...netip.Prefix) *appEnv {
+func newAppEnvAt(t testing.TB, baseURL string, trusted ...netip.Prefix) *appEnv {
 	t.Helper()
 	logger, logs := quietLogger()
 	d := migratedDB(t)
@@ -86,7 +86,7 @@ func newAppEnvAt(t *testing.T, baseURL string, trusted ...netip.Prefix) *appEnv 
 }
 
 // addUser inserts a user; an empty password leaves password_hash NULL.
-func (e *appEnv) addUser(t *testing.T, id, login, role, password string) {
+func (e *appEnv) addUser(t testing.TB, id, login, role, password string) {
 	t.Helper()
 	var hash any
 	if password != "" {
@@ -103,7 +103,7 @@ func (e *appEnv) addUser(t *testing.T, id, login, role, password string) {
 }
 
 // signIn creates a session for userID and returns its cookie token.
-func (e *appEnv) signIn(t *testing.T, userID string) (string, auth.Session) {
+func (e *appEnv) signIn(t testing.TB, userID string) (string, auth.Session) {
 	t.Helper()
 	token, sess, err := e.sessions.Create(context.Background(), userID, "", "", time.Now())
 	if err != nil {
