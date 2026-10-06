@@ -42,7 +42,11 @@ func TestCSRFGuardsStateChanges(t *testing.T) {
 			return req("POST", "/logout", url.Values{})
 		}, false},
 		{"wrong token", func(tok, _ string) *http.Request {
-			return req("POST", "/logout", url.Values{CSRFFormField: {"x" + tok[1:]}})
+			first := "x" // a token that itself starts with "x" must still change
+			if tok[0] == 'x' {
+				first = "y"
+			}
+			return req("POST", "/logout", url.Values{CSRFFormField: {first + tok[1:]}})
 		}, false},
 		{"other session's token", func(_, other string) *http.Request {
 			return req("POST", "/logout", url.Values{CSRFFormField: {other}})
