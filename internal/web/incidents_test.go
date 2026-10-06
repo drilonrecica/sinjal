@@ -45,10 +45,13 @@ func TestIncidentsPages(t *testing.T) {
 	over := now.Add(-time.Hour)
 	e.addIncident(t, "old", api, now.Add(-3*time.Hour), &over, false)
 	e.addIncident(t, "live", db, now.Add(-10*time.Minute), nil, true)
+	if _, err := e.db.Writer.Exec(`INSERT INTO incident_events (incident_id, event_type, message, created_at) VALUES ('old', 'notification_suppressed', 'down: flapping', ?)`, store.FormatTime(now)); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, who := range []string{"a1", "v1"} {
 		body := e.getAs(t, who, "GET", "/incidents").Body.String()
-		for _, want := range []string{"Active", "Ended", "Database", "API", "10m so far", "2h", "Parent down: notification held",
+		for _, want := range []string{"Active", "Ended", "Database", "API", "10m so far", "2h", "Parent down: notification held", "Flapping: notifications held",
 			`href="/incidents/live"`, `data-live-incidents`, `sse-connect="/events"`, "sse:incident.opened"} {
 			if !strings.Contains(body, want) {
 				t.Errorf("%s: list lacks %q", who, want)

@@ -59,13 +59,16 @@ templ IncidentList(v IncidentListView) {
 								}
 							</span>
 						</p>
-						if in.Parent || in.Maintenance {
+						if in.Parent || in.Maintenance || in.Flapping {
 							<ul class="incident-facts" role="list">
 								if in.Parent {
 									<li>Parent down: notification held</li>
 								}
 								if in.Maintenance {
 									<li>During maintenance</li>
+								}
+								if in.Flapping {
+									<li>Flapping: notifications held</li>
 								}
 							</ul>
 						}

@@ -21,6 +21,9 @@ type IncidentRow struct {
 	Summary            string
 	SuppressedByParent bool
 	MaintenanceOverlap bool
+	// Flapping: a notification of this incident was held back because the
+	// monitor was flapping.
+	Flapping bool
 }
 
 // IncidentEvent is one entry of an incident's timeline.
@@ -30,15 +33,18 @@ type IncidentEvent struct {
 	At      time.Time
 }
 
+// The suppression event's message is "<kind>: <reason>".
 const incidentColumns = `i.id, i.monitor_id, m.name, i.started_at, i.ended_at,
-	COALESCE(i.initial_failure_kind, ''), COALESCE(i.summary, ''), i.suppressed_by_parent, i.maintenance_overlap`
+	COALESCE(i.initial_failure_kind, ''), COALESCE(i.summary, ''), i.suppressed_by_parent, i.maintenance_overlap,
+	EXISTS (SELECT 1 FROM incident_events e WHERE e.incident_id = i.id
+		AND e.event_type = '` + incident.EventNotificationSuppressed + `' AND e.message LIKE '%: ` + string(incident.ByFlapping) + `')`
 
 func scanIncident(sc interface{ Scan(...any) error }) (IncidentRow, error) {
 	var r IncidentRow
 	var started string
 	var ended sql.NullString
 	if err := sc.Scan(&r.ID, &r.MonitorID, &r.MonitorName, &started, &ended, &r.FailureKind, &r.Summary,
-		&r.SuppressedByParent, &r.MaintenanceOverlap); err != nil {
+		&r.SuppressedByParent, &r.MaintenanceOverlap, &r.Flapping); err != nil {
 		return r, err
 	}
 	r.StartedAt = parseTime(started)

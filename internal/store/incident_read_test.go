@@ -139,3 +139,30 @@ func TestIncidentListPlans(t *testing.T) {
 		t.Errorf("timeline plan: %s", events)
 	}
 }
+
+// Only a notification held back because of flapping marks an incident.
+func TestIncidentFlappingMarker(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	m := create(t, d, sample("api"))
+	held := seedIncident(t, d.Writer, m, now, now.Add(time.Hour), false)
+	other := seedIncident(t, d.Writer, m, now.Add(2*time.Hour), now.Add(3*time.Hour), false)
+	for id, msg := range map[string]string{held: "recovery: flapping", other: "down: parent"} {
+		inTx(t, d, func(tx *sql.Tx) {
+			if err := AddIncidentEvent(ctx, tx, id, incident.EventNotificationSuppressed, msg, now); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	rows, err := ListIncidents(ctx, d.Reader, m, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, r := range rows {
+		got[r.ID] = r.Flapping
+	}
+	if !got[held] || got[other] {
+		t.Fatalf("flapping = %v", got)
+	}
+}

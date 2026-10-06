@@ -13,6 +13,7 @@ type IncidentRowView struct {
 	Summary     string
 	Parent      bool // its DOWN was held back by a parent that was down
 	Maintenance bool // a maintenance window was in effect
+	Flapping    bool // a notification was held back while the monitor flapped
 }
 
 // IncidentListView is a list of incidents: all of them, or those of one

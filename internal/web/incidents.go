@@ -128,7 +128,7 @@ func incidentRow(r store.IncidentRow, loc *time.Location, now time.Time) templat
 		ID: r.ID, MonitorID: r.MonitorID, Monitor: r.MonitorName, Active: r.EndedAt == nil,
 		Started: clockText(r.StartedAt, now, loc), StartedAt: rfc3339(r.StartedAt),
 		Duration: formatSince(end.Sub(r.StartedAt)), Kind: r.FailureKind, Summary: r.Summary,
-		Parent: r.SuppressedByParent, Maintenance: r.MaintenanceOverlap,
+		Parent: r.SuppressedByParent, Maintenance: r.MaintenanceOverlap, Flapping: r.Flapping,
 	}
 }
 
