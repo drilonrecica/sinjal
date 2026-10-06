@@ -200,7 +200,12 @@ func TestEventsStream(t *testing.T) {
 	if err := s.stop(); err != nil {
 		t.Fatalf("exit after SIGTERM: %v\n%s", err, s.logs)
 	}
-	if took := time.Since(begin); took > 5*time.Second {
+	// Well inside the 10 s grace, which an unclosed stream would use up
+	// (and log as timed out, checked below). Not tighter: net/http's
+	// Shutdown counts a connection that never sent a request as idle only
+	// once it is 5 s old, and Go's client sometimes dials such a spare
+	// connection while racing for an idle one.
+	if took := time.Since(begin); took > 9*time.Second {
 		t.Errorf("shutdown with an open stream took %v", took)
 	}
 	select {
