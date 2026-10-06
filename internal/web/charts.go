@@ -103,12 +103,21 @@ func latencyFacts(s store.LatencyStats) []templates.Fact {
 	return []templates.Fact{
 		{Label: "Current", Value: formatLatency(s.Current)},
 		{Label: "Average", Value: formatLatency(s.Avg)},
-		{Label: "p95", Value: formatLatency(s.P95)},
+		{Label: p95Label(s), Value: formatLatency(s.P95)},
 		{Label: "Min", Value: formatLatency(s.Min)},
 		{Label: "Max", Value: formatLatency(s.Max)},
 		{Label: "Checks", Value: strconv.Itoa(s.Checks)},
 		{Label: "Failed", Value: strconv.Itoa(s.Failures)},
 	}
+}
+
+// p95Label names the percentile, saying so when it is estimated from
+// rolled-up buckets (docs/09 "p95": no SLA-grade precision implied).
+func p95Label(s store.LatencyStats) string {
+	if s.Approximate {
+		return "p95 (approximate)"
+	}
+	return "p95"
 }
 
 // clip ends open spans at now and keeps the parts within [from, to).
@@ -269,8 +278,8 @@ func historySummary(over string, s store.LatencyStats, iv store.Intervals, from,
 	case s.Samples == 0:
 		fmt.Fprintf(&b, "Over %s, %s, all failed.", over, plural(s.Checks, "check"))
 	default:
-		fmt.Fprintf(&b, "Latency over %s: current %s, average %s, p95 %s, max %s, from %s, %d failed.",
-			over, formatLatency(s.Current), formatLatency(s.Avg), formatLatency(s.P95), formatLatency(s.Max),
+		fmt.Fprintf(&b, "Latency over %s: current %s, average %s, %s %s, max %s, from %s, %d failed.",
+			over, formatLatency(s.Current), formatLatency(s.Avg), p95Label(s), formatLatency(s.P95), formatLatency(s.Max),
 			plural(s.Checks, "check"), s.Failures)
 	}
 	down := clip(iv.Down, from, to, now)

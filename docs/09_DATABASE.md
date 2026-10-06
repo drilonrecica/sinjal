@@ -108,12 +108,15 @@ Rollup (`internal/retention`, SQL in `internal/store/rollup.go`):
 
 Ranges (`internal/history.Parse`): presets 1 hour, 24 hours (default), 7, 30 and 90 days and 1 year, ending now; day presets are calendar days in the instance time zone. A custom range is `from`/`to` as local date and time; an end in the future becomes now; it must end after it starts, start in the past and span at most 400 days, otherwise the default preset is shown with the reason.
 
-`store.LatencyHistory(monitor, from, to, buckets)` reads the range once along `idx_check_results_monitor_time` (in index order, no sort) and returns:
+`store.LatencyHistory(monitor, from, to, buckets)` reads the range's raw results once along `idx_check_results_monitor_time` (in index order, no sort) and its rolled-up buckets of every tier once along the `check_aggregates` key, both inside one read transaction, and returns:
 
-- the summary: checks, failures, samples, current (newest sample in the range), min, average, max and exact p95 (nearest rank, the sample at rank ⌈0.95 n⌉), over successful checks with a duration; a failure's duration is how long it took to fail and is not latency
-- the series: the range in at most `buckets` equal buckets of whole seconds, only those holding results, each with checks, failures, average and max latency; the chart asks for 720
+- the summary: checks, failures, samples, current (newest sample in the range; with no raw sample, the newest bucket's average), min, average, max and p95, over successful checks with a duration; a failure's duration is how long it took to fail and is not latency
+- p95 is exact (nearest rank, the sample at rank ⌈0.95 n⌉) when the range holds raw results only. When it holds buckets with samples it is `history.ApproxP95` over the raw samples (weight 1 each) and the buckets' p95 (weighted by their samples), and `Approximate` is set: the History tab then reads "p95 (approximate)" in its figures and its text summary
+- the series: the range in at most `buckets` equal buckets of whole seconds, only those holding results, each with checks, failures, average and max latency; the chart asks for 720. A rolled bucket counts in the chart bucket where it starts, and in the range only when it starts inside it
 
-One pass in Go is faster than SQL aggregates plus an `ORDER BY` for the percentile plus a `GROUP BY` for the buckets (21 ms instead of 85 ms for a week of 30 s results, `18_PERFORMANCE.md`). Its cost grows with the raw rows in range, so ranges beyond raw retention are served from the rollups once M6 adds them (M6-05), with approximate p95.
+Resolution follows from retention: rolling deletes the sources of every bucket it writes, so each moment of a monitor's history is in exactly one tier (raw for the last 7 days, 5-minute buckets to 30 days, hourly to 365, daily beyond) and reading every tier over the range picks whichever resolution holds it, with nothing counted twice. The shared read transaction (one WAL snapshot) keeps a rollup step that commits between the two reads from counting its rows in both. Uptime needs none of this: it reads intervals only (`10_INCIDENTS.md` "Uptime").
+
+One pass in Go is faster than SQL aggregates plus an `ORDER BY` for the percentile plus a `GROUP BY` for the buckets (21 ms instead of 85 ms for a week of 30 s results, `18_PERFORMANCE.md`). The cost is about 1 µs per raw row and 2 µs per rolled bucket, nearly all of it the driver handing rows over; a year is about 55 ms (`BenchmarkLatencyHistory1y`). Rolled buckets are scanned as plain numbers (`unixepoch()`, `coalesce()`): NULL-aware scanning cost twice the allocations.
 
 ## p95
 

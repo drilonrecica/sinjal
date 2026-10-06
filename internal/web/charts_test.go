@@ -104,8 +104,32 @@ func TestHistorySummary(t *testing.T) {
 	if got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}
+	s.Approximate = true
+	if got := historySummary("the last year", s, store.Intervals{}, cm(0), cm(1440), cm(1440), incident.Ratio{}, incident.Ratio{}); !strings.Contains(got, ", p95 (approximate) 310 ms,") {
+		t.Fatalf("approximate: %s", got)
+	}
 	if got := historySummary("the last hour", store.LatencyStats{}, store.Intervals{}, cm(0), cm(60), cm(60), incident.Ratio{}, incident.Ratio{}); got != "No checks over the last hour. No outages." {
 		t.Fatalf("empty: %s", got)
+	}
+}
+
+// A range holding rolled-up buckets says its p95 is approximate; one of
+// raw results only does not.
+func TestHistoryTabApproximateP95(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	id := e.addMonitor(t, "API", "https://api.example.com")
+	if _, err := e.db.Writer.Exec(`INSERT INTO check_aggregates VALUES (?, 3600, ?, 120, 118, 2, 40, 240, 120, 230)`,
+		id, store.FormatTime(time.Now().AddDate(0, 0, -100).Truncate(time.Hour))); err != nil {
+		t.Fatal(err)
+	}
+	year := e.getAs(t, "v1", "GET", "/monitors/"+id+"?tab=history&range=1y").Body.String()
+	if !strings.Contains(year, "p95 (approximate)") || !strings.Contains(year, "230 ms") {
+		t.Error("1 year: p95 not labelled approximate")
+	}
+	day := e.getAs(t, "v1", "GET", "/monitors/"+id+"?tab=history&range=24h").Body.String()
+	if strings.Contains(day, "approximate") {
+		t.Error("24 hours without rolled data: labelled approximate")
 	}
 }
 
