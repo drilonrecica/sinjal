@@ -130,6 +130,8 @@ On restart:
 - schedule a fresh check promptly
 - continue incident duration from persisted start time
 
+Not persisted: how many consecutive failures (or, while DOWN, successes) a monitor has collected towards its threshold. These counts live in the result processor's memory. After a restart a monitor that was part-way through a confirmation needs its full threshold again, which can delay a DOWN or a recovery by the checks already counted, never bring one forward. The same reset happens when a monitor is paused and resumed.
+
 ## Clock behavior
 
 Persist UTC wall-clock timestamps.

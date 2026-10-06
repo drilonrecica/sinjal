@@ -45,6 +45,17 @@ The result processor is responsible for:
 
 Keep transaction boundaries clear.
 
+Implementation (`internal/results`, SQL in `internal/store/results.go`):
+
+- workers call `Processor.Add`; a buffered channel of 256 results feeds one goroutine
+- a batch is written when it holds 128 results or 200 ms after its first result, whichever comes first; nothing wakes up while no result is waiting
+- one transaction per batch. For each result, in arrival order: read the monitor's state and thresholds, insert the `check_results` row, apply the state machine (`10_INCIDENTS.md`), update the monitor row (`current_state`, `current_state_since` when the state changed, `last_check_at`, `last_success_at` or `last_failure_at`, `tls_not_after`)
+- `tls_not_after` is replaced when the check saw a certificate, cleared when a check succeeded without one, and kept on a failed check that saw none
+- only after the commit: the confirmation retry is requested from the scheduler and the monitor is announced for SSE
+- a result for a monitor that has been deleted or paused in the meantime (a check that was already running) is discarded and counted, not stored
+
+Opening and closing incidents and notification intents join this transaction in later milestones.
+
 ## Busy handling
 
 Transient `SQLITE_BUSY`:
@@ -53,6 +64,13 @@ Transient `SQLITE_BUSY`:
 - after limit, surface a system warning/error
 
 Do not silently drop results.
+
+When a batch cannot be written (busy through every retry, or any other error):
+
+- the batch is kept in memory and tried again after 1 s, until it is stored
+- an ERROR is logged (at most once a minute while it lasts) and `Processor.Stats().Warning` is set; it is cleared by the next successful write
+- once the held batch is full, the processor stops taking results: the channel fills, workers wait, the worker queue fills and the scheduler skips checks (`07_SCHEDULER.md`). Memory stays bounded and no stored history is invented or lost silently
+- at shutdown the queued results are written once more within 5 s; if that fails, the number of lost results is logged
 
 `db.Retry` implements this: it retries only `SQLITE_BUSY`, waits 25 ms, 100 ms, 250 ms, then 1 s, and after the last retry returns a `*db.BusyExhaustedError` that callers must surface. The function passed to `Retry` is re-run in full, so it must contain a complete transaction.
 
