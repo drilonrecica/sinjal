@@ -199,6 +199,20 @@ All state-changing browser actions must be protected.
 
 HTMX does not remove CSRF requirements.
 
+### Implementation (M1-08)
+
+`internal/web/csrf.go`, mounted by `web.Routes` on the session group (after `LoadSession`). Every request in that group except GET/HEAD/OPTIONS passes two checks:
+
+1. **Origin.** `Sec-Fetch-Site` must be `same-origin` or `none` when present (`same-site` is refused: a sibling subdomain is not trusted). Without it, `Origin` must equal `<scheme>://<host>` as resolved by the trusted-proxy rules (`proxy.IsHTTPS`, `proxy.Host`); `Origin: null` is refused. A request with neither header is not from a browser and passes this step. This is the model of Go's `http.CrossOriginProtection`, which cannot be used directly because it compares with `r.Host`.
+2. **Synchronizer token**, when the request has a session: `X-CSRF-Token` header, or else the `_csrf` field of a url-encoded body (capped at 64 KiB), must equal `base64url(HMAC-SHA256(k, session id))`, compared with `hmac.Equal`. The token is never in the query string.
+
+- `k` is `vault.Key.Derive("sinjal csrf v1")` (HKDF-SHA256 over the master key), so tokens survive restarts and need no storage. A token changes when its session is rotated (login, re-authentication); open tabs from before then need a reload.
+- Anonymous requests (`/login`, `/setup`) only get the origin check; the setup form additionally carries its setup token.
+- Rejection: 403 with a generic "This form has expired" page, and a WARN log with the reason and client IP (never the token).
+- Delivery: `templates.Page.CSRFToken` (set by `pageFor`) renders `hx-headers='{"X-CSRF-Token":…}'` on `<body>` for htmx, and `templates.CSRFField` the hidden input for plain forms.
+- Multipart bodies are not parsed for the token; the first upload form (M7 logo, M9 restore) must send it in the header or extend the middleware.
+- Exemption is by placement: health checks, static assets and machine endpoints (heartbeat push) are mounted outside the session group.
+
 ## Login protection
 
 - bounded rate limiting

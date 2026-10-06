@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/drilonrecica/sinjal/internal/auth"
 )
 
@@ -91,13 +93,16 @@ func newSessionWebEnv(t *testing.T) *sessionWebEnv {
 		t.Fatal(err)
 	}
 	r := NewRouter(logger, nil)
-	r.With(LoadSession(e.sessions, logger)).Get("/who", func(w http.ResponseWriter, req *http.Request) {
-		e.seen = nil
-		if cs, ok := SessionFromContext(req.Context()); ok {
-			e.seen = &cs
-		}
+	r.Group(func(r chi.Router) {
+		r.Use(LoadSession(e.sessions, logger))
+		r.Get("/who", func(w http.ResponseWriter, req *http.Request) {
+			e.seen = nil
+			if cs, ok := SessionFromContext(req.Context()); ok {
+				e.seen = &cs
+			}
+		})
+		RegisterLogout(r, e.sessions, logger)
 	})
-	RegisterLogout(r, e.sessions, logger)
 	e.h = r
 	return e
 }

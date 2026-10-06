@@ -25,6 +25,10 @@ templ Shell(page Page, active string) {
 						}
 					</ul>
 				</nav>
+				<form class="signout" method="post" action="/logout">
+					@CSRFField(page)
+					<button class="signout-button" type="submit">Sign out</button>
+				</form>
 			</div>
 			<main id="main" class="content" tabindex="-1">
 				{ children... }

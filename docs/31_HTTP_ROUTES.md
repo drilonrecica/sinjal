@@ -112,3 +112,5 @@ See `docs/14_API.md` and `spec/api.openapi.yaml`.
 Browser state-changing routes require CSRF validation.
 
 Heartbeat token endpoints are machine endpoints and use token authentication rather than browser CSRF semantics.
+
+`web.Routes` (`internal/web/routes.go`) is the single route table. Browser routes are mounted inside its session group (`LoadSession` + CSRF); machine endpoints, health checks and static assets are mounted outside it. Details in `13_AUTH_SECURITY.md` "CSRF".

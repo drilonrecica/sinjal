@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -240,14 +241,25 @@ func TestSessionsCleanupAndLogout(t *testing.T) {
 		t.Fatal("live session deleted by cleanup")
 	}
 
-	req, _ := http.NewRequest("POST", s.base+"/logout", nil)
-	req.AddCookie(&http.Cookie{Name: "sinjal_session", Value: token})
 	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	resp, err := noRedirect.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	logout := func(csrf string) *http.Response {
+		req, _ := http.NewRequest("POST", s.base+"/logout", strings.NewReader(url.Values{"_csrf": {csrf}}.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.AddCookie(&http.Cookie{Name: "sinjal_session", Value: token})
+		resp, err := noRedirect.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp
 	}
-	resp.Body.Close()
+
+	// Without the CSRF token the logout is refused and the session survives.
+	if resp := logout(""); resp.StatusCode != 403 || rows(live.ID) != 1 {
+		t.Fatalf("POST /logout without CSRF token = %d, session rows %d; want 403, 1", resp.StatusCode, rows(live.ID))
+	}
+	csrf := csrfFromPage(t, s.base+"/monitors", token)
+	resp := logout(csrf)
 	if resp.StatusCode != 303 || !strings.Contains(resp.Header.Get("Set-Cookie"), "sinjal_session=;") {
 		t.Errorf("POST /logout = %d, Set-Cookie %q", resp.StatusCode, resp.Header.Get("Set-Cookie"))
 	}
@@ -257,4 +269,25 @@ func TestSessionsCleanupAndLogout(t *testing.T) {
 	if strings.Contains(s.logs.String(), token) {
 		t.Error("session token reached the logs")
 	}
+}
+
+var csrfFieldRe = regexp.MustCompile(`<input type="hidden" name="_csrf" value="([^"]+)">`)
+
+// csrfFromPage loads a page with the session cookie and returns the CSRF
+// token rendered into its forms.
+func csrfFromPage(t *testing.T, pageURL, sessionToken string) string {
+	t.Helper()
+	req, _ := http.NewRequest("GET", pageURL, nil)
+	req.AddCookie(&http.Cookie{Name: "sinjal_session", Value: sessionToken})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	m := csrfFieldRe.FindSubmatch(b)
+	if m == nil {
+		t.Fatalf("GET %s (%d) renders no CSRF field:\n%s", pageURL, resp.StatusCode, b)
+	}
+	return string(m[1])
 }

@@ -2,6 +2,14 @@ package templates
 
 import "github.com/drilonrecica/sinjal/internal/assets"
 
+// CSRFField is the hidden CSRF token input every POST form includes.
+// It renders nothing on anonymous pages.
+templ CSRFField(page Page) {
+	if page.CSRFToken != "" {
+		<input type="hidden" name="_csrf" value={ page.CSRFToken }/>
+	}
+}
+
 // Layout is the document skeleton shared by every page.
 templ Layout(page Page) {
 	<!DOCTYPE html>
@@ -20,7 +28,11 @@ templ Layout(page Page) {
 				<script src={ assets.URL(name) } defer></script>
 			}
 		</head>
-		<body>
+		<body
+			if page.CSRFToken != "" {
+				hx-headers={ page.HXHeaders() }
+			}
+		>
 			{ children... }
 		</body>
 	</html>

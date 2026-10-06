@@ -78,6 +78,28 @@
   background: var(--accent);
 }
 
+/* Minimal until the account menu lands (M1-18/M8). */
+.signout {
+  margin-top: auto;
+}
+.signout-button {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.signout-button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 .content {
   padding: var(--space-5) var(--space-6);
 }
@@ -111,6 +133,13 @@
   }
   .nav ul {
     flex-direction: row;
+  }
+  .signout {
+    margin-top: 0;
+    margin-left: auto;
+  }
+  .signout-button {
+    white-space: nowrap;
   }
   .nav-link {
     min-height: 2.75rem;

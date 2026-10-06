@@ -85,9 +85,11 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		return fatalf(stderr, "database migration: %v", err)
 	}
 
-	// The key is unused until secrets are stored (M1-13, M2); loading it at
-	// startup still enforces its permissions and catches a missing key early.
-	if _, err := vault.LoadOrCreate(ctx, cfg.DataDir, database.Reader, logging.Sub(logger, "vault")); err != nil {
+	// Loading the key at startup enforces its permissions and catches a
+	// missing key early. Secrets are stored with it from M1-13; for now it
+	// only derives the CSRF key.
+	masterKey, err := vault.LoadOrCreate(ctx, cfg.DataDir, database.Reader, logging.Sub(logger, "vault"))
+	if err != nil {
 		return fatalf(stderr, "%v", err)
 	}
 
@@ -111,13 +113,17 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		log.Warn("Initial setup: " + setupBase(cfg.BaseURL, ln.Addr()) + "/setup?token=" + setupToken.Value())
 	}
 
-	router := web.NewRouter(logger, cfg.TrustedProxies)
-	web.RegisterHealth(router, health)
-	web.RegisterStatic(router, assets.Default)
-	web.RegisterPages(router, logger)
-	web.RegisterSetup(router, web.NewSetup(database, setupToken, logger))
 	sessions := auth.NewSessions(database, logging.Sub(logger, "auth"))
-	web.RegisterLogout(router, sessions, logger)
+	router := web.NewRouter(logger, cfg.TrustedProxies)
+	web.Routes(router, web.App{
+		Logger:   logger,
+		DB:       database,
+		Health:   health,
+		Assets:   assets.Default,
+		Sessions: sessions,
+		Setup:    web.NewSetup(database, setupToken, logger),
+		CSRFKey:  masterKey.Derive(web.CSRFKeyLabel),
+	})
 
 	cleanupDone := make(chan struct{})
 	go func() {

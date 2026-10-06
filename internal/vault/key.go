@@ -6,7 +6,9 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hkdf"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -25,9 +27,11 @@ const keySize = 32 // AES-256
 const redacted = "[REDACTED]"
 
 // Key is the loaded master key. The raw bytes are not kept; only the AEAD
-// built from them, and every formatting path prints "[REDACTED]".
+// and the HKDF pseudorandom key built from them, and every formatting path
+// prints "[REDACTED]".
 type Key struct {
 	aead cipher.AEAD
+	prk  []byte // HKDF-Extract(SHA-256, master key), input of Derive
 }
 
 func (*Key) String() string   { return redacted }
@@ -45,7 +49,11 @@ func newKey(raw []byte) (*Key, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Key{aead: aead}, nil
+	prk, err := hkdf.Extract(sha256.New, raw, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Key{aead: aead, prk: prk}, nil
 }
 
 // LoadOrCreate loads <dataDir>/master.key, creating it only when it does

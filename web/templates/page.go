@@ -1,6 +1,9 @@
 package templates
 
-import "slices"
+import (
+	"encoding/json"
+	"slices"
+)
 
 // Built-in themes and densities (docs/05_THEMES.md, 04_DESIGN_SYSTEM.md).
 const (
@@ -15,13 +18,15 @@ var (
 
 // Page is the per-request data the layout needs. Styles and Scripts are
 // logical asset names (for example "css/shell.css") added after the base
-// stylesheets; scripts load with defer.
+// stylesheets; scripts load with defer. CSRFToken is set for signed-in
+// requests; forms and htmx requests send it back.
 type Page struct {
-	Title   string
-	Theme   string
-	Density string
-	Styles  []string
-	Scripts []string
+	Title     string
+	Theme     string
+	Density   string
+	Styles    []string
+	Scripts   []string
+	CSRFToken string
 }
 
 // NewPage builds a Page. Unknown theme or density values fall back to the
@@ -44,6 +49,16 @@ func (p Page) ColorScheme() string {
 		return "light"
 	}
 	return "dark"
+}
+
+// HXHeaders is the hx-headers value that makes htmx send the CSRF token
+// on every request. Empty without a token.
+func (p Page) HXHeaders() string {
+	if p.CSRFToken == "" {
+		return ""
+	}
+	b, _ := json.Marshal(map[string]string{"X-CSRF-Token": p.CSRFToken})
+	return string(b)
 }
 
 // withAssets returns a copy of p with extra stylesheets and scripts.

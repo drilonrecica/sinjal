@@ -102,10 +102,11 @@ func LoadSession(sessions *auth.Sessions, logger *slog.Logger) func(http.Handler
 }
 
 // RegisterLogout mounts POST /logout: it deletes the current session, clears
-// the cookie and redirects to /login. CSRF protection is added in M1-08.
+// the cookie and redirects to /login. It must be mounted in the session
+// group (LoadSession + CSRF).
 func RegisterLogout(r chi.Router, sessions *auth.Sessions, logger *slog.Logger) {
 	log := logging.Sub(logger, "auth")
-	r.With(LoadSession(sessions, logger)).Post("/logout", func(w http.ResponseWriter, req *http.Request) {
+	r.Post("/logout", func(w http.ResponseWriter, req *http.Request) {
 		if cs, ok := SessionFromContext(req.Context()); ok {
 			if err := sessions.Delete(req.Context(), cs.Session.ID); err != nil {
 				log.Error("logout: deleting the session failed", "session_id", cs.Session.ID, "error", err)
