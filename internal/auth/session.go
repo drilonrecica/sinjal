@@ -243,19 +243,26 @@ func SetPassword(ctx context.Context, d *db.DB, userID, password, keepID string,
 			return err
 		}
 		defer tx.Rollback()
-		res, err := tx.ExecContext(ctx, `UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
-			hash, formatTime(now), userID)
-		if err != nil {
-			return err
-		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			return fmt.Errorf("set password: user %s not found", userID)
-		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ? AND id <> ?`, userID, keepID); err != nil {
+		if err := setPasswordTx(ctx, tx, userID, hash, keepID, now); err != nil {
 			return err
 		}
 		return tx.Commit()
 	})
+}
+
+// setPasswordTx stores hash for userID and deletes the user's sessions
+// other than keepID, inside tx.
+func setPasswordTx(ctx context.Context, tx *sql.Tx, userID, hash, keepID string, now time.Time) error {
+	res, err := tx.ExecContext(ctx, `UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
+		hash, formatTime(now), userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("set password: user %s not found", userID)
+	}
+	_, err = tx.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ? AND id <> ?`, userID, keepID)
+	return err
 }
 
 func nullIfEmpty(s string) any {

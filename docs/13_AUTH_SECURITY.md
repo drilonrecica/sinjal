@@ -121,7 +121,7 @@ Two roles: `admin` changes everything, `viewer` only reads. Enforcement is by pl
   - `RequireAuth` group: every page; anonymous page requests get 303 to `/login?next=<path>` (no `next` for `/`), other methods 401, htmx requests 401 with `HX-Redirect`;
     - `RequireAdmin` group: every state-changing app route. A viewer gets 403 ("Your account can view Sinjal but not change it."), logged at WARN.
 - Pages render with the signed-in user's theme and density.
-- `TestRouteTableGuards` walks the production table with `chi.Walk` and probes every route: non-public pages must redirect anonymous users, non-public state changes must answer 401 anonymously and 403 to a viewer with a valid CSRF token. The only exceptions are the explicit `publicRoutes` and `viewerMutations` lists in the test (own session/account actions such as re-authentication and, later, changing one's own password). `TestRouteTableGuardsCatchOmissions` mounts unguarded routes and shows the check reports them.
+- `TestRouteTableGuards` walks the production table with `chi.Walk` and probes every route: non-public pages must redirect anonymous users, non-public state changes must answer 401 anonymously and 403 to a viewer with a valid CSRF token. The only exceptions are the explicit `publicRoutes` and `viewerMutations` lists in the test (own session/account actions: re-authentication and changing one's own password). `TestRouteTableGuardsCatchOmissions` mounts unguarded routes and shows the check reports them.
 
 ## Re-authentication actions
 
@@ -206,6 +206,16 @@ Admins only. Hand-written on the standard library (`internal/auth/totp.go`, `40_
 - Login: a correct password for an account with TOTP does not sign in. `/login` answers with the code form, which carries a challenge: the user id and a 5-minute expiry, encrypted with the master key. `POST /login/totp` checks the challenge and the code, then creates the session. `auth.login_succeeded` is written only then; a wrong code is `auth.login_failed`, both with `"factor":"totp"`.
 - Rate limit: wrong login codes share the login limiter, counted per account from any address (10 per 15 minutes, then 429). Guessing a code needs the password first, so this cannot be used to lock out an account whose password is unknown, and spreading guesses over many addresses does not help. Re-authentication failures (password or code) stay keyed by client IP and user.
 - Sessions: turning TOTP on or off deletes the user's other sessions and rotates the current one.
+
+### Implementation (M1-16)
+
+Viewer accounts (`internal/auth/users.go`, `internal/web/settings_users.go`, `internal/web/account.go`).
+
+- Admin only, in Settings → Authentication, behind recent re-authentication: `POST …/viewers` (login, password, confirm; same `NormalizeLogin` and `ValidatePassword` as setup; a login already taken, compared case-insensitively, is an inline error), `POST …/viewers/{id}/disable` and `…/enable`. No invitations: the admin chooses the password and hands it over.
+- Disabling deletes all of the viewer's sessions in the same transaction; a disabled account cannot sign in (generic credential error) and `Authenticator.lookup` also rejects its sessions. Only `role = 'viewer'` rows can be disabled, so an admin cannot be locked out from the web; unknown ids and admins are 404.
+- `GET/POST /account/password` is open to every signed-in user and listed in `viewerMutations`. Recent re-authentication is the proof of the current password (it is asked before the form is shown, so a typed password is not lost to a redirect). `auth.ChangePassword` stores the hash, deletes the user's other sessions and audits `auth.password_changed` in one transaction; the handler then rotates the current session.
+- Audit events: `user.viewer_created`, `user.viewer_disabled`, `user.viewer_enabled` (actor = admin, object = viewer), `auth.password_changed`. No password is ever in the metadata.
+- Viewers cannot reach Settings → Authentication, so they never see passkey, TOTP or viewer controls; `auth.ListViewers` reads no credential column.
 
 ## Account recovery
 

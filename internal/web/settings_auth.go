@@ -12,6 +12,7 @@ import (
 	"rsc.io/qr"
 
 	"github.com/drilonrecica/sinjal/internal/auth"
+	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/web/proxy"
 	"github.com/drilonrecica/sinjal/web/templates"
@@ -24,6 +25,7 @@ const settingsAuthPath = "/settings/authentication"
 // rotates the current one (docs/13 "Sessions").
 type SettingsAuth struct {
 	auth     *auth.Authenticator
+	db       *db.DB
 	passkeys *auth.Passkeys
 	sessions *auth.Sessions
 	log      *slog.Logger
@@ -31,8 +33,8 @@ type SettingsAuth struct {
 }
 
 // NewSettingsAuth returns the Settings → Authentication handler.
-func NewSettingsAuth(a *auth.Authenticator, passkeys *auth.Passkeys, sessions *auth.Sessions, logger *slog.Logger) *SettingsAuth {
-	return &SettingsAuth{auth: a, passkeys: passkeys, sessions: sessions, log: logging.Sub(logger, "auth"), now: time.Now}
+func NewSettingsAuth(a *auth.Authenticator, d *db.DB, passkeys *auth.Passkeys, sessions *auth.Sessions, logger *slog.Logger) *SettingsAuth {
+	return &SettingsAuth{auth: a, db: d, passkeys: passkeys, sessions: sessions, log: logging.Sub(logger, "auth"), now: time.Now}
 }
 
 // RegisterSettingsAuth mounts the pages inside RequireAdmin. Everything that
@@ -47,10 +49,19 @@ func RegisterSettingsAuth(r chi.Router, h *SettingsAuth, recent func(http.Handle
 		r.Post(settingsAuthPath+"/totp", h.totpEnable)
 		r.Post(settingsAuthPath+"/totp/disable", h.totpDisable)
 		r.Post(settingsAuthPath+"/passkeys/{id}/delete", h.passkeyDelete)
+		r.Post(settingsAuthPath+"/viewers", h.viewerCreate)
+		r.Post(settingsAuthPath+"/viewers/{id}/disable", h.viewerSetDisabled(true))
+		r.Post(settingsAuthPath+"/viewers/{id}/enable", h.viewerSetDisabled(false))
 	})
 }
 
 func (h *SettingsAuth) page(w http.ResponseWriter, r *http.Request) {
+	h.renderPage(w, r, http.StatusOK, templates.ViewerForm{})
+}
+
+// renderPage shows the page with form, the state of the create-viewer form
+// (its errors and the login to keep).
+func (h *SettingsAuth) renderPage(w http.ResponseWriter, r *http.Request, status int, form templates.ViewerForm) {
 	cs, _ := SessionFromContext(r.Context())
 	enabled, err := h.auth.TOTPEnabled(r.Context(), cs.User.ID)
 	if err != nil {
@@ -62,7 +73,15 @@ func (h *SettingsAuth) page(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "listing passkeys", err)
 		return
 	}
-	view := templates.SettingsAuthView{TOTPEnabled: enabled, PasskeysUnavailable: h.passkeys.Unavailable()}
+	viewers, err := auth.ListViewers(r.Context(), h.db.Reader)
+	if err != nil {
+		h.fail(w, "listing viewers", err)
+		return
+	}
+	view := templates.SettingsAuthView{TOTPEnabled: enabled, PasskeysUnavailable: h.passkeys.Unavailable(), ViewerForm: form, MinPassword: auth.MinPasswordLen}
+	for _, v := range viewers {
+		view.Viewers = append(view.Viewers, templates.ViewerView{ID: v.ID, Login: v.Login, Disabled: v.Disabled, Added: v.CreatedAt.Format(time.DateOnly)})
+	}
 	for _, k := range keys {
 		used := "Never used"
 		if !k.LastUsedAt.IsZero() {
@@ -70,7 +89,7 @@ func (h *SettingsAuth) page(w http.ResponseWriter, r *http.Request) {
 		}
 		view.Passkeys = append(view.Passkeys, templates.PasskeyView{ID: k.ID, Label: k.Label, Added: k.CreatedAt.Format(time.DateOnly), LastUsed: used})
 	}
-	render(w, r, h.log, http.StatusOK, templates.SettingsAuth(pageFor(r, "Authentication — Sinjal"), view))
+	render(w, r, h.log, status, templates.SettingsAuth(pageFor(r, "Authentication — Sinjal"), view))
 }
 
 // passkeyDelete revokes one of the signed-in admin's passkeys.

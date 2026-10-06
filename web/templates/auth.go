@@ -48,6 +48,31 @@ type SettingsAuthView struct {
 	TOTPEnabled         bool
 	Passkeys            []PasskeyView
 	PasskeysUnavailable string // why passkeys cannot be added; "" when they can
+	Viewers             []ViewerView
+	ViewerForm          ViewerForm
+	MinPassword         int
+}
+
+// ViewerView is one row of the viewer list. Added is preformatted.
+type ViewerView struct {
+	ID       string
+	Login    string
+	Disabled bool
+	Added    string
+}
+
+// ViewerForm is the state of the create-viewer form; passwords are never
+// echoed back. Errors maps "login", "password" or "confirm" to a message.
+type ViewerForm struct {
+	Login  string
+	Errors map[string]string
+}
+
+// PasswordForm is the change-password form; Changed shows the success
+// message after the redirect.
+type PasswordForm struct {
+	Errors  map[string]string
+	Changed bool
 }
 
 // PasskeyView is one row of the passkey list. Dates are preformatted.

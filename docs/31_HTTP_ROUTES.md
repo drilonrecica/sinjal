@@ -75,6 +75,11 @@ POST /settings/authentication/totp/disable
 POST /settings/authentication/passkeys/begin         # add a passkey (JSON); admin, recent re-authentication
 POST /settings/authentication/passkeys/finish
 POST /settings/authentication/passkeys/{id}/delete
+POST /settings/authentication/viewers                # create a viewer; admin, recent re-authentication
+POST /settings/authentication/viewers/{id}/disable   # also deletes the viewer's sessions
+POST /settings/authentication/viewers/{id}/enable
+GET  /account/password       # own password change; admin or viewer, recent re-authentication
+POST /account/password
 GET  /settings/data
 GET  /settings/backup
 GET  /settings/system

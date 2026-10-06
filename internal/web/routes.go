@@ -40,7 +40,8 @@ func Routes(r chi.Router, app App) {
 	login := NewLogin(authn, app.Passkeys, app.Sessions, app.Logger)
 	reauth := NewReauth(authn, app.Passkeys, app.Sessions, login.limiter, app.Logger)
 	passkeys := NewPasskeys(app.Passkeys, app.Sessions, login, app.Logger)
-	settingsAuth := NewSettingsAuth(authn, app.Passkeys, app.Sessions, app.Logger)
+	settingsAuth := NewSettingsAuth(authn, app.DB, app.Passkeys, app.Sessions, app.Logger)
+	account := NewAccount(app.DB, app.Sessions, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
 	RegisterHealth(r, app.Health)
@@ -59,6 +60,7 @@ func Routes(r chi.Router, app App) {
 			RegisterPages(r, app.Logger)
 			RegisterReauth(r, reauth)
 			RegisterPasskeyReauth(r, passkeys)
+			RegisterAccount(r, account, recentAuth) // the caller's own password; viewers too
 
 			// Admins only. Every state-changing app route is mounted here;
 			// TestRouteTableGuards fails for one mounted anywhere else.

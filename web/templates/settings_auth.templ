@@ -1,5 +1,7 @@
 package templates
 
+import "strconv"
+
 // settingsFrame is the app shell around a settings page. Minimal until the
 // settings layout lands (M1-18).
 templ settingsFrame(page Page) {
@@ -15,6 +17,10 @@ templ settingsFrame(page Page) {
 templ SettingsAuth(page Page, v SettingsAuthView) {
 	@settingsFrame(page) {
 		<h1>Authentication</h1>
+		<section class="settings-section" aria-labelledby="password-heading">
+			<h2 id="password-heading">Password</h2>
+			<p><a href="/account/password">Change your password</a></p>
+		</section>
 		<section class="settings-section" aria-labelledby="totp-heading">
 			<h2 id="totp-heading">Authenticator app</h2>
 			if v.TOTPEnabled {
@@ -59,6 +65,55 @@ templ SettingsAuth(page Page, v SettingsAuthView) {
 					</div>
 				}
 			}
+		</section>
+		<section class="settings-section" aria-labelledby="viewers-heading">
+			<h2 id="viewers-heading">Viewers</h2>
+			<p>Viewers can look at everything but change nothing, and they never see secrets. Give them the username and password yourself; they can change the password after signing in.</p>
+			if len(v.Viewers) == 0 {
+				<p><strong>No viewers yet.</strong></p>
+			} else {
+				<ul class="passkey-list" role="list">
+					for _, u := range v.Viewers {
+						<li>
+							<span class="passkey-label">{ u.Login }</span>
+							<span class="passkey-meta">
+								if u.Disabled {
+									Disabled
+								} else {
+									Active
+								}
+								· Added { u.Added }
+							</span>
+							if u.Disabled {
+								<form method="post" action={ templ.SafeURL("/settings/authentication/viewers/" + u.ID + "/enable") }>
+									@CSRFField(page)
+									<button class="settings-button" type="submit" aria-label={ "Enable " + u.Login }>Enable</button>
+								</form>
+							} else {
+								<form method="post" action={ templ.SafeURL("/settings/authentication/viewers/" + u.ID + "/disable") }>
+									@CSRFField(page)
+									<button class="settings-button" type="submit" aria-label={ "Disable " + u.Login }>Disable</button>
+								</form>
+							}
+						</li>
+					}
+				</ul>
+			}
+			<h3>Add a viewer</h3>
+			<form class="auth-form" method="post" action="/settings/authentication/viewers">
+				@CSRFField(page)
+				@field("login", "Username", v.ViewerForm.Errors) {
+					<input id="login" name="login" type="text" value={ v.ViewerForm.Login } autocomplete="off" autocapitalize="none" spellcheck="false" required maxlength="64" { fieldAttrs("login", v.ViewerForm.Errors)... }/>
+				}
+				@field("password", "Password", v.ViewerForm.Errors) {
+					<input id="password" name="password" type="password" autocomplete="new-password" required minlength={ strconv.Itoa(v.MinPassword) } { fieldAttrs("password", v.ViewerForm.Errors, "password-hint")... }/>
+					<p id="password-hint" class="auth-hint">At least { strconv.Itoa(v.MinPassword) } characters.</p>
+				}
+				@field("confirm", "Confirm password", v.ViewerForm.Errors) {
+					<input id="confirm" name="confirm" type="password" autocomplete="new-password" required { fieldAttrs("confirm", v.ViewerForm.Errors)... }/>
+				}
+				<button class="auth-submit" type="submit">Add viewer</button>
+			</form>
 		</section>
 	}
 }

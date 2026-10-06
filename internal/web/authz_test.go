@@ -30,6 +30,7 @@ var viewerMutations = map[string]bool{
 	"/reauth":                true, // confirms the caller's own password
 	"/reauth/passkey/begin":  true, // or the caller's own passkey
 	"/reauth/passkey/finish": true,
+	"/account/password":      true, // changes the caller's own password
 }
 
 var routeParamRe = regexp.MustCompile(`\{[^}]+\}|\*`)

@@ -49,8 +49,11 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"loginTOTP":   LoginTOTP(page, LoginTOTPForm{Challenge: "c", Next: "/x", Error: "e"}),
 		"reauth":      Reauth(page, ReauthForm{Login: "a", Next: "/x", Error: "e", TOTP: true, Passkey: true}),
 		"settings":    SettingsAuth(page, SettingsAuthView{TOTPEnabled: true, Passkeys: []PasskeyView{{ID: "p1", Label: "Laptop", Added: "2026-10-06", LastUsed: "Never used"}}}),
-		"settingsOff": SettingsAuth(page, SettingsAuthView{PasskeysUnavailable: "SINJAL_BASE_URL is not set."}),
-		"totpSetup":   TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
+		"settingsViewers": SettingsAuth(page, SettingsAuthView{MinPassword: 12, Viewers: []ViewerView{{ID: "v1", Login: "vera", Added: "2026-10-06"}, {ID: "v2", Login: "vic", Disabled: true, Added: "2026-10-06"}},
+			ViewerForm: ViewerForm{Login: "x", Errors: map[string]string{"login": "bad", "password": "bad", "confirm": "bad"}}}),
+		"accountPassword": AccountPassword(page, PasswordForm{Changed: true, Errors: map[string]string{"password": "bad", "confirm": "bad"}}, 12),
+		"settingsOff":     SettingsAuth(page, SettingsAuthView{PasskeysUnavailable: "SINJAL_BASE_URL is not set."}),
+		"totpSetup":       TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}
 	for name, c := range pages {
 		var buf bytes.Buffer
