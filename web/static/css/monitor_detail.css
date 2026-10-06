@@ -1,0 +1,188 @@
+/* Monitor detail: the live header, a row of actions, link tabs and one
+ * panel. The header itself is styled in monitors.css. */
+
+.monitor-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* long content never widens the page */
+  gap: var(--space-4);
+  max-width: 60rem;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.detail-actions form {
+  margin: 0;
+}
+
+.detail-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem; /* touch target */
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.detail-button:hover {
+  background: var(--surface-2);
+}
+
+/* Destructive, so apart in colour and always labelled in text. */
+.detail-button-danger {
+  border-color: var(--status-down);
+  color: var(--status-down);
+}
+
+.tabs ul {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  flex-wrap: wrap; /* five short tabs wrap on a phone instead of scrolling */
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-link {
+  position: relative;
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tab-link:hover {
+  color: var(--text);
+}
+
+/* The current tab is marked by weight and a bar, not by colour alone. */
+.tab-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.tab-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.tab-panel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.tab-panel h2 {
+  font-size: 1rem;
+}
+
+.tab-panel h3 {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tab-empty,
+.tab-note {
+  color: var(--text-muted);
+}
+
+.tab-empty {
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.detail-facts {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.detail-facts div {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-facts dt {
+  color: var(--text-muted);
+}
+
+.detail-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.failure-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.failure {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.failure-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.failure-head time,
+.failure-status,
+.failure-duration {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.failure-kind {
+  color: var(--status-down);
+  font-weight: 600;
+}
+
+.failure-message {
+  overflow-wrap: anywhere;
+}
+
+.failure-snippet {
+  max-height: 12rem;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 48rem) {
+  .detail-facts div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}

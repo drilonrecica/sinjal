@@ -99,7 +99,7 @@ func TestLiveWrapsChildrenInOneEventSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := buf.String()
-	for _, want := range []string{`hx-ext="sse"`, `sse-connect="/events"`, `hx-trigger="sse:monitor.updated"`, "<p>x</p>"} {
+	for _, want := range []string{`hx-ext="sse"`, `sse-connect="/events"`, `hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted"`, "<p>x</p>"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("live region lacks %q: %s", want, html)
 		}

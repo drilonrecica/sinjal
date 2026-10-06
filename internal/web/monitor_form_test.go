@@ -124,10 +124,10 @@ func TestCreateMonitor(t *testing.T) {
 		"json_path_1": {"$.n"}, "json_op_1": {"equals"}, "json_value_1": {"42"},
 		"tls_warning_days": {"7, 30"}, "max_body_kib": {"64"},
 	})
-	if rec.Code != 303 || rec.Header().Get("Location") != "/monitors" {
+	id := e.monitorID(t, "API")
+	if rec.Code != 303 || rec.Header().Get("Location") != "/monitors/"+id {
 		t.Fatalf("create = %d %q:\n%s", rec.Code, rec.Header().Get("Location"), rec.Body)
 	}
-	id := e.monitorID(t, "API")
 
 	ctx := context.Background()
 	m, err := store.GetMonitor(ctx, e.db.Reader, id)

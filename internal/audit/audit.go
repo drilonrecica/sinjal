@@ -35,6 +35,9 @@ const (
 	ViewerEnabled  = "user.viewer_enabled"
 
 	MonitorCreated = "monitor.created"
+	MonitorDeleted = "monitor.deleted"
+	MonitorPaused  = "monitor.paused"
+	MonitorResumed = "monitor.resumed"
 )
 
 // Event is one audit_events row to write. Empty strings are stored as NULL.

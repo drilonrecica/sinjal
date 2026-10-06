@@ -60,9 +60,19 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"monitorList":     MonitorList(page, MonitorListView{Admin: true, Monitors: []MonitorView{testMonitor}}),
 		"monitorListNone": MonitorList(page, MonitorListView{Admin: true}),
 		"monitorForm":     MonitorFormPage(page, testMonitorForm),
+		"monitorRowsNone": MonitorRows(nil),
+		"deleteConfirm":   MonitorDeleteConfirm(page, DeleteConfirmView{ID: "m1", Name: "API"}),
 		"monitorFormNew":  MonitorFormPage(page, MonitorForm{Enabled: true, Assertions: []AssertionField{{}}}),
 		"settingsOff":     SettingsAuth(page, SettingsAuthView{PasskeysUnavailable: "SINJAL_BASE_URL is not set."}),
 		"totpSetup":       TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
+	}
+	for _, tab := range DetailTabs {
+		v := MonitorDetailView{Monitor: testMonitor, Admin: true, Tab: tab.Key,
+			Overview: []Fact{{"Created", "2026-10-06"}}, Config: []ConfigGroup{{"Checking", []Fact{{"Interval", "30 s"}}}},
+			Failures: []FailureView{{When: "w", Kind: "Timeout", Message: "m", Snippet: "<b>x</b>"}}}
+		pages["detail-"+tab.Key] = MonitorDetail(page, v)
+		v.Admin, v.Paused = false, true
+		pages["detailViewer-"+tab.Key] = MonitorDetail(page, v)
 	}
 	for name, c := range pages {
 		var buf bytes.Buffer

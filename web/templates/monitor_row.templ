@@ -68,12 +68,12 @@ templ StatusBadge(state string) {
 }
 
 // Live wraps everything that refreshes from the event stream. It opens one
-// EventSource (htmx SSE extension) and re-dispatches monitor.updated as DOM
-// events; live.js routes them to the elements marked data-live
+// EventSource (htmx SSE extension) and re-dispatches the monitor events as
+// DOM events; live.js routes them to the elements marked data-live
 // (docs/32_SSE_EVENTS.md). The attributes are static: no payload is ever
 // rendered from an event.
 templ Live() {
-	<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated">
+	<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted">
 		{ children... }
 	</div>
 }
@@ -131,13 +131,15 @@ templ MonitorRow(m MonitorView) {
 }
 
 // MonitorHeader is the top block of the monitor detail page. Like the row it
-// replaces itself from /fragments/monitors/{id}/header.
+// replaces itself from /fragments/monitors/{id}/header; when its monitor is
+// deleted, live.js leaves the page for data-gone-href.
 templ MonitorHeader(m MonitorView) {
 	<header
 		class="monitor-header"
 		id={ "monitor-header-" + m.ID }
 		data-live
 		data-monitor-id={ m.ID }
+		data-gone-href="/monitors"
 		data-state={ m.State }
 		hx-get={ "/fragments/monitors/" + m.ID + "/header" }
 		hx-trigger="refresh"

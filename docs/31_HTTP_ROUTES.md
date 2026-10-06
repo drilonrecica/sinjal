@@ -144,4 +144,8 @@ Heartbeat token endpoints are machine endpoints and use token authentication rat
 
 ## Implemented (M2)
 
-- `GET /monitors/new`, `POST /monitors`, `GET /monitors/{id}/edit`, `POST /monitors/{id}` (M2-17): admin only. A valid post saves, schedules (`Engine.Schedule`) and announces the monitor, then redirects (303) to the list; an invalid one is answered 422 with the form, every error at once and the typed values kept (secrets excepted). Unknown id: 404.
+- `GET /monitors/new`, `POST /monitors`, `GET /monitors/{id}/edit`, `POST /monitors/{id}` (M2-17): admin only. A valid post saves, schedules (`Engine.Schedule`) and announces the monitor, then redirects (303) to the monitor's page; an invalid one is answered 422 with the form, every error at once and the typed values kept (secrets excepted). Unknown id: 404.
+- `GET|HEAD /monitors/{id}` (M2-18): admins and viewers; `?tab=overview|history|incidents|configuration|diagnostics`, anything else is the overview. Unknown id: 404.
+- `POST /monitors/{id}/pause|resume` (M2-18): admin only; 303 back to the monitor; idempotent.
+- `POST /monitors/{id}/delete` (M2-18): admin only. Without `confirm=1` it answers 200 with the confirmation page and changes nothing; with it the monitor is deleted, `monitor.deleted` is sent and the answer is 303 to `/monitors`.
+- `GET|HEAD /fragments/monitors` (M2-18): the list rows alone, for the list to refresh itself; admins and viewers, `no-store`.

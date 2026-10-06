@@ -151,3 +151,12 @@
     padding: var(--space-4);
   }
 }
+
+/* "Monitors" above a monitor page: the way back up. */
+.crumb {
+  font-size: var(--text-sm);
+}
+
+.crumb a {
+  color: var(--text-muted);
+}

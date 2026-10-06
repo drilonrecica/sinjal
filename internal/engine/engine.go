@@ -121,13 +121,14 @@ func startDelay(i, n int) time.Duration {
 
 // Pause stops checking a monitor and marks it paused (docs/10 "Pausing").
 // A check that is running at that moment is discarded by the result
-// processor. Pausing a paused monitor does nothing.
-func (e *Engine) Pause(ctx context.Context, id string) error {
+// processor. Pausing a paused monitor does nothing; changed reports
+// whether this call paused it.
+func (e *Engine) Pause(ctx context.Context, id string) (changed bool, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	changed, err := store.PauseMonitor(ctx, e.db, id, time.Now())
+	changed, err = store.PauseMonitor(ctx, e.db, id, time.Now())
 	if err != nil {
-		return err
+		return false, err
 	}
 	// Removed even when the row was paused already: harmless, and it
 	// brings the schedule back in line should the two ever disagree.
@@ -135,24 +136,38 @@ func (e *Engine) Pause(ctx context.Context, id string) error {
 	if changed {
 		e.updated(id)
 	}
-	return nil
+	return changed, nil
 }
 
 // Resume makes a paused monitor pending and checks it at once. Resuming a
-// monitor that is not paused does nothing.
-func (e *Engine) Resume(ctx context.Context, id string) error {
+// monitor that is not paused does nothing; changed reports whether this
+// call resumed it.
+func (e *Engine) Resume(ctx context.Context, id string) (changed bool, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	changed, err := store.ResumeMonitor(ctx, e.db, id, time.Now())
+	changed, err = store.ResumeMonitor(ctx, e.db, id, time.Now())
 	if err != nil || !changed {
-		return err
+		return false, err
 	}
 	m, err := store.GetMonitor(ctx, e.db.Reader, id)
 	if err != nil {
-		return err
+		return true, err
 	}
 	e.sch.Set(id, time.Duration(m.IntervalSeconds)*time.Second, 0)
 	e.updated(id)
+	return true, nil
+}
+
+// Delete removes a monitor with its history (store.DeleteMonitor) and takes
+// it off the schedule. A check that is running is discarded by the result
+// processor, which no longer finds the monitor.
+func (e *Engine) Delete(ctx context.Context, id string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := store.DeleteMonitor(ctx, e.db, id); err != nil {
+		return err
+	}
+	e.sch.Remove(id)
 	return nil
 }
 

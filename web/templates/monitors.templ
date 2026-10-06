@@ -29,12 +29,30 @@ templ MonitorList(page Page, v MonitorListView) {
 			</section>
 		} else {
 			@Live() {
-				<ul class="monitor-list" role="list" aria-label="Monitors">
-					for _, m := range v.Monitors {
-						@MonitorRow(m)
-					}
-				</ul>
+				@MonitorRows(v.Monitors)
 			}
 		}
 	}
+}
+
+// MonitorRows is the list itself. It replaces itself from
+// /fragments/monitors when live.js sends it "refresh", which it does when a
+// monitor is created or deleted.
+templ MonitorRows(ms []MonitorView) {
+	<ul
+		class="monitor-list"
+		role="list"
+		aria-label="Monitors"
+		data-live-list
+		hx-get="/fragments/monitors"
+		hx-trigger="refresh"
+		hx-swap="outerHTML"
+	>
+		for _, m := range ms {
+			@MonitorRow(m)
+		}
+		if len(ms) == 0 {
+			<li class="monitor-row monitor-row-empty">No monitors left.</li>
+		}
+	</ul>
 }

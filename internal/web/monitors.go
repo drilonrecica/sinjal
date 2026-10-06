@@ -39,12 +39,14 @@ func NewMonitors(d *db.DB, key *vault.Key, eng *engine.Engine, events *sse.Hub, 
 	return &Monitors{db: d, key: key, engine: eng, events: events, log: logging.Sub(logger, "http"), now: time.Now}
 }
 
-// RegisterMonitors mounts the monitor list and its live fragments inside
-// RequireAuth. They are read-only and viewers see them too, minus the
-// checked address.
+// RegisterMonitors mounts the monitor list, the detail page and their live
+// fragments inside RequireAuth. They are read-only and viewers see them
+// too, minus the checked address and failure details.
 func RegisterMonitors(r chi.Router, h *Monitors) {
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
 		r.Method(method, "/monitors", http.HandlerFunc(h.list))
+		r.Method(method, "/monitors/{id}", http.HandlerFunc(h.detail))
+		r.Method(method, "/fragments/monitors", http.HandlerFunc(h.listFragment))
 		r.Method(method, "/fragments/monitors/{id}/row", h.fragment(func(m templates.MonitorView) templ.Component { return templates.MonitorRow(m) }))
 		r.Method(method, "/fragments/monitors/{id}/header", h.fragment(func(m templates.MonitorView) templ.Component { return templates.MonitorHeader(m) }))
 	}
@@ -147,8 +149,32 @@ func joinUnits(a int, au string, b int, bu string) string {
 
 // list serves GET /monitors.
 func (h *Monitors) list(w http.ResponseWriter, r *http.Request) {
-	ctx, q := r.Context(), h.db.Reader
 	v := templates.MonitorListView{Admin: isAdmin(r)}
+	var err error
+	if v.Monitors, err = h.rows(r, v.Admin); err != nil {
+		h.log.Error("monitor list failed", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	render(w, r, h.log, http.StatusOK, templates.MonitorList(pageFor(r, "Monitors — Sinjal"), v))
+}
+
+// listFragment serves GET /fragments/monitors: the rows alone, for the list
+// to replace itself when monitors are created or deleted.
+func (h *Monitors) listFragment(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.rows(r, isAdmin(r))
+	if err != nil {
+		h.log.Error("monitor list fragment failed", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	render(w, r, h.log, http.StatusOK, templates.MonitorRows(rows))
+}
+
+// rows builds every row of the list in four queries, however many
+// monitors there are.
+func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, error) {
+	ctx, q := r.Context(), h.db.Reader
 	monitors, err := store.ListMonitors(ctx, q)
 	var tags map[string][]string
 	var latencies map[string]time.Duration
@@ -159,64 +185,64 @@ func (h *Monitors) list(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		latencies, err = store.LastDurations(ctx, q)
 	}
-	if err == nil && v.Admin {
+	if err == nil && admin {
 		urls, err = store.HTTPURLs(ctx, q)
 	}
 	if err != nil {
-		h.log.Error("monitor list failed", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	names := make(map[string]string, len(monitors))
 	for _, m := range monitors {
 		names[m.ID] = m.Name
 	}
 	now := h.now()
+	var out []templates.MonitorView
 	for _, m := range monitors {
 		d, ok := latencies[m.ID]
-		v.Monitors = append(v.Monitors, monitorView(m, viewInput{
+		out = append(out, monitorView(m, viewInput{
 			Tags: tags[m.ID], Latency: d, HasLatency: ok, URL: urls[m.ID],
-			Parent: names[m.ParentMonitorID], Admin: v.Admin,
+			Parent: names[m.ParentMonitorID], Admin: admin,
 		}, now))
 	}
-	render(w, r, h.log, http.StatusOK, templates.MonitorList(pageFor(r, "Monitors — Sinjal"), v))
+	return out, nil
 }
 
-// view loads one monitor for display, or store.ErrNotFound.
-func (h *Monitors) view(r *http.Request, id string) (templates.MonitorView, error) {
+// view loads one monitor for display, or store.ErrNotFound. It returns the
+// row as well, for pages that show more than the view.
+func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.MonitorView, error) {
 	ctx, q := r.Context(), h.db.Reader
 	m, err := store.GetMonitor(ctx, q, id)
 	if err != nil {
-		return templates.MonitorView{}, err
+		return m, templates.MonitorView{}, err
 	}
 	in := viewInput{Admin: isAdmin(r)}
 	if in.Tags, err = store.MonitorTags(ctx, q, id); err != nil {
-		return templates.MonitorView{}, err
+		return m, templates.MonitorView{}, err
 	}
 	if in.Latency, in.HasLatency, err = store.LastDuration(ctx, q, id); err != nil {
-		return templates.MonitorView{}, err
+		return m, templates.MonitorView{}, err
 	}
 	if in.Admin && m.Type == "http" {
 		cfg, err := store.GetHTTPConfig(ctx, q, id)
 		if err != nil {
-			return templates.MonitorView{}, err
+			return m, templates.MonitorView{}, err
 		}
 		in.URL = cfg.URL
 	}
 	if m.ParentMonitorID != "" {
 		p, err := store.GetMonitor(ctx, q, m.ParentMonitorID)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return templates.MonitorView{}, err
+			return m, templates.MonitorView{}, err
 		}
 		in.Parent = p.Name
 	}
-	return monitorView(m, in, h.now()), nil
+	return m, monitorView(m, in, h.now()), nil
 }
 
 // fragment serves one component for the monitor named in the URL.
 func (h *Monitors) fragment(component func(templates.MonitorView) templ.Component) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		v, err := h.view(r, chi.URLParam(r, "id"))
+		_, v, err := h.view(r, chi.URLParam(r, "id"))
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			http.NotFound(w, r)

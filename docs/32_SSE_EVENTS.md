@@ -93,10 +93,12 @@ The other names in the list above arrive with their features.
 
 ### Browser side
 
-Pages that show live monitors wrap them in the `Live` component (`web/templates/monitor_row.templ`): one `<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated">`. The vendored htmx SSE extension (`web/static/js/htmx-ext-sse.js`) owns the `EventSource` and its reconnects and re-dispatches each named event as a DOM event on that div. `web/static/js/live.js` (first-party, ~35 lines, renders nothing) does the rest:
+Pages that show live monitors wrap them in the `Live` component (`web/templates/monitor_row.templ`): one `<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted">` (the extension only listens for the events named there). The vendored htmx SSE extension (`web/static/js/htmx-ext-sse.js`) owns the `EventSource` and its reconnects and re-dispatches each named event as a DOM event on that div. `web/static/js/live.js` (first-party, ~35 lines, renders nothing) does the rest:
 
 - `sse:monitor.updated`: read `monitor_id`, then ask every element marked `data-live` with that `data-monitor-id` to `refresh`. Such an element (`MonitorRow`, `MonitorHeader`) carries `hx-get` of its own fragment (`/fragments/monitors/{id}/row|header`), `hx-trigger="refresh"` and `hx-swap="outerHTML"`, so htmx fetches the fragment and replaces the element.
-- `htmx:sseOpen` (first load, reconnect, server restart): refresh every `data-live` element under the stream's div, since nothing is replayed after a gap.
+- `sse:monitor.created`: refresh every `data-live-list` element. The monitor list (`MonitorRows`) is one, with `hx-get="/fragments/monitors"`, so a new monitor appears in name order, rendered by the server.
+- `sse:monitor.deleted`: an element showing that monitor with `data-gone-href` (the detail header) sends the browser there (`/monitors`); every `data-live-list` is refreshed, which drops the row.
+- `htmx:sseOpen` (first load, reconnect, server restart): refresh every `data-live-list` and every `data-live` element that is not inside one (a list brings its rows along), since nothing is replayed after a gap.
 
 Why a script instead of an `hx-trigger` filter such as `sse:monitor.updated[...]`: htmx runs trigger filters through `eval`, which the page turns off (`allowEval: false`, no `unsafe-eval` in the CSP). The payload is never rendered; an id that matches nothing is ignored, and a malformed one is dropped.
 

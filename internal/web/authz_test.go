@@ -100,14 +100,14 @@ func TestRouteTableGuardsCatchOmissions(t *testing.T) {
 	r := e.h.(*chi.Mux)
 	ok := func(w http.ResponseWriter, _ *http.Request) {}
 	logger, _ := quietLogger()
-	r.Post("/monitors/{id}/delete", ok) // state change without RequireAdmin
-	r.Get("/secret-page", ok)           // page without RequireAuth
+	r.Post("/monitors/{id}/unguarded", ok) // state change without RequireAdmin
+	r.Get("/secret-page", ok)              // page without RequireAuth
 	r.With(LoadSession(e.sessions, logger), RequireAuth(logger)).Post("/viewer-can-do-this", ok)
 
 	got := strings.Join(guardViolations(t, e, r), "\n")
 	for _, want := range []string{
-		"POST /monitors/{id}/delete anonymous = 200",
-		"POST /monitors/{id}/delete as viewer = 200",
+		"POST /monitors/{id}/unguarded anonymous = 200",
+		"POST /monitors/{id}/unguarded as viewer = 200",
 		"GET /secret-page anonymous = 200",
 		"POST /viewer-can-do-this as viewer = 200",
 	} {

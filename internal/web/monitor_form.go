@@ -30,13 +30,17 @@ import (
 // the rest of the fields with room to spare.
 const monitorFormMaxBody = 512 << 10
 
-// RegisterMonitorForms mounts the create and edit routes. They must sit
-// behind RequireAdmin: the form shows the full configuration.
-func RegisterMonitorForms(r chi.Router, h *Monitors) {
+// RegisterMonitorChanges mounts the create and edit forms and the pause,
+// resume and delete actions. They must sit behind RequireAdmin: the form
+// shows the full configuration, and every one of them changes monitors.
+func RegisterMonitorChanges(r chi.Router, h *Monitors) {
 	r.Get("/monitors/new", h.newForm)
 	r.Post("/monitors", h.create)
 	r.Get("/monitors/{id}/edit", h.editForm)
 	r.Post("/monitors/{id}", h.update)
+	r.Post("/monitors/{id}/pause", h.pause)
+	r.Post("/monitors/{id}/resume", h.resume)
+	r.Post("/monitors/{id}/delete", h.remove)
 }
 
 // Form field names whose store rule key differs (the form uses other units).
@@ -642,7 +646,7 @@ func (h *Monitors) save(w http.ResponseWriter, r *http.Request, id string) {
 		h.log.Info("monitor created", "user_id", cs.User.ID, "monitor_id", id)
 		h.audit(r, audit.MonitorCreated, id, in.Name)
 	}
-	http.Redirect(w, r, "/monitors", http.StatusSeeOther)
+	http.Redirect(w, r, "/monitors/"+id, http.StatusSeeOther)
 }
 
 // audit records a monitor event after the change it describes has been

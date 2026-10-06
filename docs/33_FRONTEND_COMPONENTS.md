@@ -85,6 +85,10 @@ Use for:
 
 `MonitorRow` and `MonitorHeader` (fed by `MonitorView`, built in `internal/web/monitors.go`) are layout-free fragments served at `/fragments/monitors/{id}/row|header`. Mark an element `data-live` with `data-monitor-id` and an `hx-get` of its fragment, put it inside `Live()`, and it refreshes when the monitor's `monitor.updated` event arrives (see `32_SSE_EVENTS.md`, browser side). A page using `Live` adds `templates.LiveScripts` to its assets. `StatusBadge` is the one status icon plus text; its glyph is `aria-hidden` and differs in shape per state.
 
+### Monitor detail
+
+`MonitorDetail` (`web/templates/monitor_detail.templ`, `css/monitor_detail.css`) is fed by `MonitorDetailView`, built in `internal/web/monitor_detail.go`, which also removes what viewers may not see. Tabs are links with `aria-current="page"` (marked by weight and a bar as well as colour). `MonitorDeleteConfirm` is the delete step. `MonitorRows` is the list element that refreshes itself on `monitor.created` / `monitor.deleted`.
+
 ### Monitor form
 
 `MonitorFormPage` (`web/templates/monitor_form.templ`, `css/monitor_form.css` on top of the form primitives in `css/auth.css`) is fed by `MonitorForm`, which keeps numbers as typed so a rejected value comes back unchanged. The translation to `store.HTTPMonitor` (seconds → ms, KiB → bytes, `Name: value` lines → `headers_json`, assertion rows → `json_assertions_json`) lives in `internal/web/monitor_form.go`. Primitives used: text input and select through `field` (label, hint, error with `aria-describedby` / `aria-invalid`), `checkbox`, `numberField`, secret inputs with a "keep" note, the collapsible Advanced section and a validation summary (`role="alert"`, links in page order).

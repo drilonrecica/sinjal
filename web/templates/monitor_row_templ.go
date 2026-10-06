@@ -137,8 +137,8 @@ func StatusBadge(state string) templ.Component {
 }
 
 // Live wraps everything that refreshes from the event stream. It opens one
-// EventSource (htmx SSE extension) and re-dispatches monitor.updated as DOM
-// events; live.js routes them to the elements marked data-live
+// EventSource (htmx SSE extension) and re-dispatches the monitor events as
+// DOM events; live.js routes them to the elements marked data-live
 // (docs/32_SSE_EVENTS.md). The attributes are static: no payload is ever
 // rendered from an event.
 func Live() templ.Component {
@@ -162,7 +162,7 @@ func Live() templ.Component {
 			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div hx-ext=\"sse\" sse-connect=\"/events\" hx-trigger=\"sse:monitor.updated\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div hx-ext=\"sse\" sse-connect=\"/events\" hx-trigger=\"sse:monitor.updated, sse:monitor.created, sse:monitor.deleted\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -446,7 +446,8 @@ func MonitorRow(m MonitorView) templ.Component {
 }
 
 // MonitorHeader is the top block of the monitor detail page. Like the row it
-// replaces itself from /fragments/monitors/{id}/header.
+// replaces itself from /fragments/monitors/{id}/header; when its monitor is
+// deleted, live.js leaves the page for data-gone-href.
 func MonitorHeader(m MonitorView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -475,7 +476,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue("monitor-header-" + m.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 138, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 139, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 		if templ_7745c5c3_Err != nil {
@@ -488,20 +489,20 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(m.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 140, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 141, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" data-state=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" data-gone-href=\"/monitors\" data-state=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(m.State)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 141, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 143, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 		if templ_7745c5c3_Err != nil {
@@ -514,7 +515,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var25 string
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue("/fragments/monitors/" + m.ID + "/header")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 142, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 144, Col: 52}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 		if templ_7745c5c3_Err != nil {
@@ -527,7 +528,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(m.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 147, Col: 15}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 149, Col: 15}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 		if templ_7745c5c3_Err != nil {
@@ -548,7 +549,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var27 string
 		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(m.Type)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 151, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 153, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
@@ -566,7 +567,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(m.Target)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 153, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 155, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
@@ -585,7 +586,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 			var templ_7745c5c3_Var29 string
 			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(m.Parent)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 156, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 158, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
@@ -603,7 +604,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(m.SinceAt)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 162, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 164, Col: 34}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 		if templ_7745c5c3_Err != nil {
@@ -616,7 +617,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(m.Since)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 162, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 164, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
@@ -629,7 +630,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(m.Latency)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 166, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 168, Col: 19}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -642,7 +643,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(m.LastCheck)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 170, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 172, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
@@ -655,7 +656,7 @@ func MonitorHeader(m MonitorView) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(m.Uptime)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 174, Col: 18}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/monitor_row.templ`, Line: 176, Col: 18}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {

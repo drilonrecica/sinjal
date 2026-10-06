@@ -284,7 +284,7 @@ func TestPauseAndResume(t *testing.T) {
 	r := e.start()
 	eventually(t, "the monitor to be up", func() bool { return e.get(id).State == "up" })
 
-	if err := r.Pause(context.Background(), id); err != nil {
+	if _, err := r.Pause(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	if m := e.get(id); m.State != "paused" || m.Enabled {
@@ -307,7 +307,7 @@ func TestPauseAndResume(t *testing.T) {
 		t.Fatalf("state while paused: %s", m.State)
 	}
 
-	if err := r.Resume(context.Background(), id); err != nil {
+	if _, err := r.Resume(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	if m := e.get(id); m.State != "pending" && m.State != "up" || !m.Enabled {
@@ -338,27 +338,27 @@ func TestPauseAndResumeAreIdempotent(t *testing.T) {
 
 	// Resuming a monitor that runs must neither reset its state nor check
 	// it again.
-	if err := r.Resume(context.Background(), id); err != nil {
-		t.Fatal(err)
+	if changed, err := r.Resume(context.Background(), id); err != nil || changed {
+		t.Fatalf("needless resume: changed %v, %v", changed, err)
 	}
 	time.Sleep(150 * time.Millisecond)
 	if m := e.get(id); m.State != "up" || !m.StateSince.Equal(since) || tg.hits.Load() != 1 {
 		t.Fatalf("after a needless resume: %+v, %d requests", m, tg.hits.Load())
 	}
 
-	for range 2 {
-		if err := r.Pause(context.Background(), id); err != nil {
-			t.Fatal(err)
+	for i := range 2 {
+		if changed, err := r.Pause(context.Background(), id); err != nil || changed != (i == 0) {
+			t.Fatalf("pause %d: changed %v, %v", i+1, changed, err)
 		}
 	}
 	if n := e.rowsIn("monitor_pauses", id); n != 1 {
 		t.Fatalf("%d pause intervals after pausing twice", n)
 	}
 
-	if err := r.Pause(context.Background(), "missing"); !errors.Is(err, store.ErrNotFound) {
+	if _, err := r.Pause(context.Background(), "missing"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("Pause of an unknown monitor: %v", err)
 	}
-	if err := r.Resume(context.Background(), "missing"); !errors.Is(err, store.ErrNotFound) {
+	if _, err := r.Resume(context.Background(), "missing"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("Resume of an unknown monitor: %v", err)
 	}
 }
@@ -382,7 +382,7 @@ func TestPauseDuringACheckDiscardsItsResult(t *testing.T) {
 
 	r := e.start()
 	<-entered
-	if err := r.Pause(context.Background(), id); err != nil {
+	if _, err := r.Pause(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	release()
@@ -410,7 +410,7 @@ func TestPausedMonitorIsNotCheckedByAWaitingJob(t *testing.T) {
 	r := e.startWith(1)
 	<-entered
 	eventually(t, "the second job to wait for the worker", func() bool { return r.pool.Stats().Queued == 1 })
-	if err := r.Pause(context.Background(), waiting); err != nil {
+	if _, err := r.Pause(context.Background(), waiting); err != nil {
 		t.Fatal(err)
 	}
 	release()
@@ -556,9 +556,9 @@ func TestConcurrentPauseAndResume(t *testing.T) {
 				id := ids[rand.IntN(len(ids))]
 				var err error
 				if rand.IntN(2) == 0 {
-					err = r.Pause(context.Background(), id)
+					_, err = r.Pause(context.Background(), id)
 				} else {
-					err = r.Resume(context.Background(), id)
+					_, err = r.Resume(context.Background(), id)
 				}
 				if err != nil {
 					t.Error(err)
@@ -587,7 +587,7 @@ func TestConcurrentPauseAndResume(t *testing.T) {
 	// Whatever is scheduled is still checked: resume everything and see
 	// every monitor come up.
 	for _, id := range ids {
-		if err := r.Resume(context.Background(), id); err != nil {
+		if _, err := r.Resume(context.Background(), id); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -617,25 +617,25 @@ func TestChangesAreAnnounced(t *testing.T) {
 		t.Fatalf("announced before the result was stored: state %s", m.State)
 	}
 
-	if err := r.Pause(context.Background(), id); err != nil {
+	if _, err := r.Pause(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	if n := e.announced(id); n != 2 {
 		t.Fatalf("%d announcements after the pause, want 2", n)
 	}
-	if err := r.Pause(context.Background(), id); err != nil {
+	if _, err := r.Pause(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	if n := e.announced(id); n != 2 {
 		t.Fatalf("pausing a paused monitor was announced (%d)", n)
 	}
 
-	if err := r.Resume(context.Background(), id); err != nil {
+	if _, err := r.Resume(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	// The resume itself, then the result of its immediate check.
 	eventually(t, "the resume and its check to be announced", func() bool { return e.announced(id) == 4 })
-	if err := r.Resume(context.Background(), id); err != nil {
+	if _, err := r.Resume(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(50 * time.Millisecond)
@@ -695,7 +695,7 @@ func TestSchedule(t *testing.T) {
 	eventually(t, "a check after the edit", func() bool { return tg.hits.Load() > hits })
 
 	// An edit of a paused monitor does not schedule it again.
-	if err := r.Pause(ctx, id); err != nil {
+	if _, err := r.Pause(ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Schedule(ctx, id); err != nil {
@@ -709,7 +709,7 @@ func TestSchedule(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A monitor that no longer exists is removed, not an error.
-	if err := r.Resume(ctx, id); err != nil {
+	if _, err := r.Resume(ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.DeleteMonitor(ctx, e.d, id); err != nil {
@@ -719,4 +719,34 @@ func TestSchedule(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually(t, "nothing scheduled", func() bool { return r.sch.Len() == 0 })
+}
+
+func TestDelete(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	tg := newTarget(t)
+	id := e.monitor("api", tg.URL, nil)
+	e.exec(`UPDATE monitors SET interval_seconds = 1 WHERE id = ?`, id)
+	r := e.start()
+	eventually(t, "the monitor to be up", func() bool { return e.get(id).State == "up" })
+
+	if err := r.Delete(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the monitor off the schedule", func() bool { return r.sch.Len() == 0 })
+	if _, err := store.GetMonitor(context.Background(), e.d.Reader, id); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("after delete: %v", err)
+	}
+	if n := e.rows(id); n != 0 {
+		t.Fatalf("%d results left", n)
+	}
+	time.Sleep(100 * time.Millisecond) // a check already on its way may land
+	hits := tg.hits.Load()
+	time.Sleep(1300 * time.Millisecond)
+	if got := tg.hits.Load(); got != hits {
+		t.Fatalf("%d checks after the delete", got-hits)
+	}
+	if err := r.Delete(context.Background(), id); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("second delete: %v", err)
+	}
 }

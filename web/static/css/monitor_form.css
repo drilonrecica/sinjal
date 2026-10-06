@@ -7,14 +7,6 @@
   max-width: 44rem;
 }
 
-.crumb {
-  font-size: var(--text-sm);
-}
-
-.crumb a {
-  color: var(--text-muted);
-}
-
 .monitor-form {
   display: grid;
   gap: var(--space-5);

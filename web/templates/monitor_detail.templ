@@ -1,0 +1,143 @@
+package templates
+
+import "strconv"
+
+// MonitorDetail is the monitor page: the live header, admin actions and
+// the five tabs. Tabs are plain links, so every tab has an address and
+// works without JavaScript.
+templ MonitorDetail(page Page, v MonitorDetailView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/monitor_detail.css"}, LiveScripts), "monitors") {
+		<div class="monitor-detail">
+			<p class="crumb"><a href="/monitors">Monitors</a></p>
+			@Live() {
+				@MonitorHeader(v.Monitor)
+			}
+			if v.Admin {
+				<div class="detail-actions">
+					<a class="detail-button" href={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/edit") }>Edit</a>
+					if v.Paused {
+						<form method="post" action={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/resume") }>
+							@CSRFField(page)
+							<button class="detail-button" type="submit">Resume</button>
+						</form>
+					} else {
+						<form method="post" action={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/pause") }>
+							@CSRFField(page)
+							<button class="detail-button" type="submit">Pause</button>
+						</form>
+					}
+					<form method="post" action={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/delete") }>
+						@CSRFField(page)
+						<button class="detail-button detail-button-danger" type="submit">Delete…</button>
+					</form>
+				</div>
+			}
+			<nav class="tabs" aria-label="Monitor sections">
+				<ul role="list">
+					for _, t := range DetailTabs {
+						<li>
+							<a
+								class="tab-link"
+								href={ templ.SafeURL(tabURL(v.Monitor.ID, t.Key)) }
+								if t.Key == v.Tab {
+									aria-current="page"
+								}
+							>{ t.Label }</a>
+						</li>
+					}
+				</ul>
+			</nav>
+			<section class="tab-panel" aria-labelledby="tab-title">
+				switch v.Tab {
+					case "history":
+						<h2 id="tab-title">History</h2>
+						@emptyNote("Check history, latency charts and the availability timeline arrive with stored history.")
+					case "incidents":
+						<h2 id="tab-title">Incidents</h2>
+						@emptyNote("Incidents are recorded from the next milestone on. State changes are already tracked above.")
+					case "configuration":
+						<h2 id="tab-title">Configuration</h2>
+						for _, g := range v.Config {
+							<h3>{ g.Title }</h3>
+							@facts(g.Facts)
+						}
+						if !v.Admin {
+							<p class="tab-note">The checked address and request details are visible to admins only.</p>
+						}
+					case "diagnostics":
+						<h2 id="tab-title">Diagnostics</h2>
+						if len(v.Failures) == 0 {
+							@emptyNote("No failed checks are stored for this monitor.")
+						} else {
+							<p class="tab-note">The { strconv.Itoa(len(v.Failures)) } most recent failed checks, newest first.</p>
+							<ol class="failure-list" role="list">
+								for _, f := range v.Failures {
+									<li class="failure">
+										<p class="failure-head">
+											<time datetime={ f.WhenAt }>{ f.When }</time>
+											<span class="failure-kind">{ f.Kind }</span>
+											if f.Status != "" {
+												<span class="failure-status">{ f.Status }</span>
+											}
+											if f.Duration != "" {
+												<span class="failure-duration">{ f.Duration }</span>
+											}
+										</p>
+										if f.Message != "" {
+											<p class="failure-message">{ f.Message }</p>
+										}
+										if f.Snippet != "" {
+											<pre class="failure-snippet" tabindex="0" aria-label="Response excerpt">{ f.Snippet }</pre>
+										}
+									</li>
+								}
+							</ol>
+							if !v.Admin {
+								<p class="tab-note">Error messages and response excerpts are visible to admins only.</p>
+							}
+						}
+					default:
+						<h2 id="tab-title">Overview</h2>
+						@facts(v.Overview)
+						@emptyNote("Uptime, the latency graph and the availability timeline arrive with stored history.")
+				}
+			</section>
+		</div>
+	}
+}
+
+templ facts(fs []Fact) {
+	<dl class="detail-facts">
+		for _, f := range fs {
+			<div>
+				<dt>{ f.Label }</dt>
+				<dd>{ f.Value }</dd>
+			</div>
+		}
+	</dl>
+}
+
+templ emptyNote(text string) {
+	<p class="tab-empty">{ text }</p>
+}
+
+// MonitorDeleteConfirm asks before a monitor and its history are deleted.
+// It is a page of its own rather than a dialog (docs/04: no modal-heavy
+// workflows) and works without JavaScript.
+templ MonitorDeleteConfirm(page Page, v DeleteConfirmView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/monitor_detail.css"}, nil), "monitors") {
+		<div class="monitor-detail">
+			<p class="crumb"><a href="/monitors">Monitors</a></p>
+			<h1>Delete { v.Name }?</h1>
+			<p>The monitor, its settings, its secrets and all of its check history are removed. This cannot be undone. Pausing keeps everything.</p>
+			<div class="detail-actions">
+				<form method="post" action={ templ.SafeURL("/monitors/" + v.ID + "/delete") }>
+					@CSRFField(page)
+					<input type="hidden" name="confirm" value="1"/>
+					<button class="detail-button detail-button-danger" type="submit">Delete monitor</button>
+				</form>
+				<a class="detail-button" href={ templ.SafeURL("/monitors/" + v.ID) }>Cancel</a>
+			</div>
+		</div>
+	}
+}
