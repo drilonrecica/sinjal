@@ -59,7 +59,7 @@ Shared fields:
 - last_check_at
 - last_success_at
 - last_failure_at
-- flapping_since nullable (persists FLAPPING across restart)
+- flapping_since nullable (FLAPPING overlay; `current_state` stays the real up/pending/down/paused)
 - tls_not_after nullable (last observed HTTPS certificate expiry)
 
 ## Type-specific monitor config

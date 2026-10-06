@@ -177,3 +177,4 @@ This summarizes the locked design rounds.
 - P0-05: approved dependency list in `docs/40_DEPENDENCIES.md` (chi, modernc sqlite, templ, x/crypto, x/net, go-webauthn, rsc.io/qr, go.yaml.in/yaml/v3; vendored htmx+SSE, uPlot, Lucide subset); TOTP hand-written on stdlib.
 - P0-06: self-host Inter + JetBrains Mono as variable woff2 subset to Latin + Latin Extended-A; ≤150 KB font budget; system fallbacks; no CDN.
 - P0-07: JSON assertions use a strict path subset (`$`, `.name`, `["key"]`, `[n]`); typed scalar expected values; type-aware equality; `not equals` requires the path to exist.
+- P0-08: FLAPPING is an overlay (`flapping_since`) on the real state; enter at ≥4 confirmed transitions in 10 min, exit after 10 min without one; one warning on entry, DOWN or STABLE on exit; window rebuilt from incidents after restart.

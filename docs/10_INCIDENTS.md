@@ -23,7 +23,7 @@ DOWN
 UP
 ```
 
-States: UP, PENDING, DOWN, FLAPPING, PAUSED. There is no `DEGRADED` state.
+Stored states: UP, PENDING, DOWN, PAUSED. FLAPPING is an overlay on top of these (see Flapping). There is no `DEGRADED` state.
 
 Warnings (v1: TLS certificate expiring) are indicators alongside UP. They do not enter this state machine, do not open incidents, and do not affect uptime.
 
@@ -49,17 +49,37 @@ On recovery:
 
 ## Flapping
 
-Detect repeated UP/DOWN transitions over a rolling window.
+Policy (decision P0-08). Fixed constants in v1, not per-monitor settings.
 
-Implementation may choose exact threshold, but must document and test it. Suggested starting policy:
-- 4 or more state transitions in 10 minutes -> FLAPPING
+Transition:
+- a confirmed UP → DOWN (incident opened) or DOWN → UP (incident closed)
+- PENDING blips that recover on the confirmation retry are not transitions
 
-When FLAPPING:
-- continue checks
-- continue incident/state recording
-- suppress repeated transition notification spam
-- send one flapping warning if appropriate
-- return to normal behavior after a stable period
+Enter:
+- 4 or more transitions within a rolling 10-minute window
+- set `monitors.flapping_since`
+
+Exit:
+- 10 minutes with no transition
+- clear `flapping_since`
+- pausing the monitor also clears it
+
+FLAPPING is an overlay, not a replacement state:
+- `current_state` keeps the real health (up/pending/down)
+- UI, filters and status pages show FLAPPING while `flapping_since` is set (paused monitors show PAUSED)
+- checks continue
+- incidents keep opening and closing normally, so history and uptime stay truthful
+
+Notifications:
+- on entry: one FLAPPING notification, severity `warning`
+- while flapping: DOWN, RECOVERY and reminder notifications are suppressed; each suppression is recorded as an incident event
+- on exit: one notification for the current real state: DOWN (critical) if down, otherwise STABLE (info)
+- parent-dependency and maintenance suppression still apply on top
+
+Restart:
+- `flapping_since` is persisted
+- the transition window is rebuilt from `incidents.started_at` / `ended_at`; no separate transition table
+- the exit condition is evaluated on the next processed result
 
 Avoid hidden adaptive retry algorithms.
 

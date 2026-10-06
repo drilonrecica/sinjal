@@ -74,6 +74,8 @@ Defaults are configurable per monitor, but the UI should present sensible defaul
 - FLAPPING
 - PAUSED
 
+UP, PENDING, DOWN and PAUSED are the stored state (`current_state`). FLAPPING is a displayed state: an overlay set while the monitor is flapping (`flapping_since`), shown instead of UP/DOWN. The real UP/DOWN state and its incidents continue underneath (see `10_INCIDENTS.md`).
+
 There is no `DEGRADED` state. Conditions where the target is reachable but needs attention (v1: TLS certificate expiring soon) are shown as a **warning indicator alongside UP**, not as a monitor state. Warnings never change the monitor state, never open incidents, and never affect uptime.
 
 A failed assertion (status, text, JSON) is an ordinary check failure and follows the normal PENDING → DOWN path.

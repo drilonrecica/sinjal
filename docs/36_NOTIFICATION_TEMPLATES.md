@@ -59,6 +59,17 @@ Repeated state changes detected in the last 10 minutes.
 Further transition notifications are temporarily suppressed.
 ```
 
+## STABLE
+
+Sent once when flapping ends and the monitor is UP (severity info). If the monitor is DOWN when flapping ends, a normal DOWN notification is sent instead.
+
+Example:
+
+```text
+API is stable again
+Currently UP. No state changes in the last 10 minutes.
+```
+
 ## UNRESOLVED REMINDER
 
 Example:

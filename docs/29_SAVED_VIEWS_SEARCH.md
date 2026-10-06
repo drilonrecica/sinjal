@@ -12,7 +12,7 @@ Global monitor search by:
 - UP
 - DOWN
 - PENDING
-- FLAPPING
+- FLAPPING (monitors with `flapping_since` set)
 - PAUSED
 - monitor type
 - tag

@@ -87,9 +87,9 @@ CREATE TABLE monitors (
   type TEXT NOT NULL CHECK (type IN ('http','tcp','icmp','dns','heartbeat')),
   enabled INTEGER NOT NULL DEFAULT 1,
   current_state TEXT NOT NULL DEFAULT 'pending'
-    CHECK (current_state IN ('up','pending','down','flapping','paused')),
+    CHECK (current_state IN ('up','pending','down','paused')),
   current_state_since TEXT NOT NULL,
-  flapping_since TEXT, -- set while FLAPPING; survives restart (policy: docs/10)
+  flapping_since TEXT, -- FLAPPING overlay; set while flapping, survives restart (policy: docs/10)
   interval_seconds INTEGER NOT NULL DEFAULT 30,
   timeout_ms INTEGER NOT NULL DEFAULT 5000,
   failure_threshold INTEGER NOT NULL DEFAULT 2,
