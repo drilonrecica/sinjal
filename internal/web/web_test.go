@@ -8,13 +8,35 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/drilonrecica/sinjal/internal/assets"
 )
 
-func quietLogger() (*slog.Logger, *bytes.Buffer) {
-	var buf bytes.Buffer
-	return slog.New(slog.NewTextHandler(&buf, nil)), &buf
+// lockedBuffer is a log sink that is safe to read while the server goroutine
+// is still writing access-log lines.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func quietLogger() (*slog.Logger, *lockedBuffer) {
+	buf := &lockedBuffer{}
+	return slog.New(slog.NewTextHandler(buf, nil)), buf
 }
 
 func TestNewRouterInstallsMiddleware(t *testing.T) {
@@ -196,5 +218,34 @@ func TestRunReportsServeFailure(t *testing.T) {
 	err = Run(context.Background(), NewServer("", http.NotFoundHandler()), ln, time.Second, logger)
 	if err == nil {
 		t.Error("expected Run to report the serve error")
+	}
+}
+
+func TestStaticRoute(t *testing.T) {
+	logger, buf := quietLogger()
+	r := NewRouter(logger)
+	RegisterStatic(r, assets.Default)
+
+	srv := newTestServer(t, r)
+	url := assets.URL("js/htmx.min.js")
+	resp, err := http.Get(srv + url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 || !strings.Contains(resp.Header.Get("Cache-Control"), "immutable") {
+		t.Errorf("GET %s = %d, Cache-Control %q", url, resp.StatusCode, resp.Header.Get("Cache-Control"))
+	}
+	if !strings.Contains(buf.String(), "route=/static/*") {
+		t.Errorf("access log should show the route pattern, got: %s", buf.String())
+	}
+
+	resp, err = http.Get(srv + "/static/js/htmx.min.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("unhashed URL = %d, want 404", resp.StatusCode)
 	}
 }

@@ -82,3 +82,12 @@ Use for:
 Use custom CSS/token system.
 
 A utility CSS build step may be used only if it does not force a stock visual language or production runtime. The preferred direction is authored CSS with tokens/components.
+
+## Static assets
+
+Files under `web/static/` are embedded in the binary (`web.Static`) and served by `internal/assets` at `/static/<name>.<content-hash>.<ext>`:
+
+- templates get URLs from `assets.URL("css/base.css")`; an unknown name panics, so every template is rendered in tests
+- hashed URLs are cached `public, max-age=31536000, immutable`; the unhashed name is not served (404)
+- CSS, JS, SVG, JSON and text are gzip-compressed once at startup and served to clients that accept gzip (distinct ETag per representation, `Vary: Accept-Encoding`)
+- vendored third-party files start with a comment recording upstream URL, exact version and licence (`40_DEPENDENCIES.md`)
