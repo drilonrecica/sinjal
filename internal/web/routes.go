@@ -2,6 +2,7 @@ package web
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/auth"
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/logging"
+	"github.com/drilonrecica/sinjal/internal/vault"
 )
 
 // App is what the route table needs from startup.
@@ -19,7 +21,8 @@ type App struct {
 	Assets   *assets.Registry
 	Sessions *auth.Sessions
 	Setup    *Setup
-	CSRFKey  []byte // vault.Key.Derive(CSRFKeyLabel)
+	CSRFKey  []byte     // vault.Key.Derive(CSRFKeyLabel)
+	Vault    *vault.Key // encrypts secrets at rest (TOTP)
 }
 
 // Routes mounts the whole route table (docs/31_HTTP_ROUTES.md) on r, which
@@ -32,9 +35,11 @@ type App struct {
 //     public; everything else requires a session (RequireAuth), and every
 //     state change requires an admin (RequireAdmin).
 func Routes(r chi.Router, app App) {
-	authn := auth.NewAuthenticator(app.DB, logging.Sub(app.Logger, "auth"))
+	authn := auth.NewAuthenticator(app.DB, app.Vault, logging.Sub(app.Logger, "auth"))
 	login := NewLogin(authn, app.Sessions, app.Logger)
 	reauth := NewReauth(authn, app.Sessions, login.limiter, app.Logger)
+	settingsAuth := NewSettingsAuth(authn, app.Sessions, app.Logger)
+	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
 	RegisterHealth(r, app.Health)
 	RegisterStatic(r, app.Assets)
@@ -53,9 +58,10 @@ func Routes(r chi.Router, app App) {
 
 			// Admins only. Every state-changing app route is mounted here;
 			// TestRouteTableGuards fails for one mounted anywhere else.
-			// Sensitive actions add RequireRecentAuth(app.Logger, time.Now).
+			// Sensitive actions sit behind recentAuth.
 			r.Group(func(r chi.Router) {
 				r.Use(RequireAdmin(app.Logger))
+				RegisterSettingsAuth(r, settingsAuth, recentAuth)
 			})
 		})
 	})

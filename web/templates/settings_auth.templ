@@ -1,0 +1,65 @@
+package templates
+
+// settingsFrame is the app shell around a settings page. Minimal until the
+// settings layout lands (M1-18).
+templ settingsFrame(page Page) {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/settings.css"}, nil), "settings") {
+		<div class="settings">
+			{ children... }
+		</div>
+	}
+}
+
+// SettingsAuth is Settings → Authentication: the signed-in admin's own
+// sign-in methods.
+templ SettingsAuth(page Page, v SettingsAuthView) {
+	@settingsFrame(page) {
+		<h1>Authentication</h1>
+		<section class="settings-section" aria-labelledby="totp-heading">
+			<h2 id="totp-heading">Authenticator app</h2>
+			if v.TOTPEnabled {
+				<p><strong>On.</strong> Signing in with your password also asks for a 6-digit code from your authenticator app.</p>
+				<form method="post" action="/settings/authentication/totp/disable">
+					@CSRFField(page)
+					<button class="settings-button" type="submit">Turn off</button>
+				</form>
+				<p class="auth-hint">To move to a new phone, turn it off and set it up again.</p>
+			} else {
+				<p><strong>Off.</strong> Add a 6-digit code from an authenticator app (TOTP) as a second step after your password.</p>
+				<p><a href="/settings/authentication/totp">Set up an authenticator app</a></p>
+			}
+		</section>
+	}
+}
+
+// TOTPSetup shows a new TOTP secret as QR code, key and link, and asks for
+// the first code to confirm the app has it.
+templ TOTPSetup(page Page, v TOTPSetupView) {
+	@settingsFrame(page) {
+		<h1>Set up an authenticator app</h1>
+		if v.Error != "" {
+			<p class="auth-alert" role="alert">{ v.Error }</p>
+		}
+		<ol class="settings-steps">
+			<li>
+				<p>Scan this QR code with your authenticator app.</p>
+				<img class="totp-qr" src={ v.QR } alt="QR code containing the setup key"/>
+				<p>If you cannot scan it, enter this setup key in the app: <code class="totp-secret">{ v.Secret }</code></p>
+				<details>
+					<summary>Show the setup link</summary>
+					<code class="totp-uri">{ v.URI }</code>
+				</details>
+			</li>
+			<li>
+				<p>Enter the code the app shows to turn it on.</p>
+				<form class="auth-form" method="post" action="/settings/authentication/totp">
+					@CSRFField(page)
+					<input type="hidden" name="pending" value={ v.Pending }/>
+					@codeField("6-digit code", true)
+					<button class="auth-submit" type="submit">Turn on</button>
+				</form>
+			</li>
+		</ol>
+		<p><a href="/settings/authentication">Cancel</a></p>
+	}
+}

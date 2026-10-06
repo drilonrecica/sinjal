@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/drilonrecica/sinjal/internal/vault"
 )
 
 const testPassword = "correct horse battery"
@@ -21,7 +23,12 @@ type loginEnv struct {
 func newLoginEnv(t *testing.T) loginEnv {
 	t.Helper()
 	d := testDB(t)
-	e := loginEnv{t: t, a: NewAuthenticator(d, slog.New(slog.NewTextHandler(io.Discard, nil))), calls: new([]string)}
+	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
+	key, err := vault.LoadOrCreate(context.Background(), t.TempDir(), d.Reader, quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := loginEnv{t: t, a: NewAuthenticator(d, key, quiet), calls: new([]string)}
 	t.Cleanup(func() { verify = VerifyPassword })
 	verify = func(pw, hash string) (bool, bool, error) {
 		*e.calls = append(*e.calls, hash)
@@ -178,12 +185,12 @@ func TestReauthenticate(t *testing.T) {
 	e.user("u2", "off", "admin", e.hash(testPassword), true)
 	ctx := context.Background()
 
-	if err := e.a.Reauthenticate(ctx, "u1", testPassword, "203.0.113.9", now); err != nil {
+	if err := e.a.Reauthenticate(ctx, "u1", testPassword, "", "203.0.113.9", now); err != nil {
 		t.Fatalf("right password: %v", err)
 	}
 	for _, tc := range []struct{ uid, pw string }{{"u1", "wrong password!"}, {"u2", testPassword}, {"gone", testPassword}} {
 		*e.calls = nil
-		if err := e.a.Reauthenticate(ctx, tc.uid, tc.pw, "203.0.113.9", now); !errors.Is(err, ErrInvalidCredentials) {
+		if err := e.a.Reauthenticate(ctx, tc.uid, tc.pw, "", "203.0.113.9", now); !errors.Is(err, ErrInvalidCredentials) {
 			t.Errorf("%s/%s: err = %v, want ErrInvalidCredentials", tc.uid, tc.pw, err)
 		}
 		if len(*e.calls) != 1 {

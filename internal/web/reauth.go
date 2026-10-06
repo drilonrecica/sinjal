@@ -67,8 +67,8 @@ func sameOriginReferer(r *http.Request) string {
 	return u.RequestURI()
 }
 
-// Reauth serves /reauth. It shares the login limiter: password failures
-// count per client IP and user.
+// Reauth serves /reauth. It shares the login limiter: failures (password or
+// TOTP code) count per client IP and user.
 type Reauth struct {
 	auth     *auth.Authenticator
 	sessions *auth.Sessions
@@ -91,7 +91,25 @@ func RegisterReauth(r chi.Router, h *Reauth) {
 
 func (h *Reauth) serveForm(w http.ResponseWriter, r *http.Request) {
 	cs, _ := SessionFromContext(r.Context())
-	h.render(w, r, http.StatusOK, templates.ReauthForm{Login: cs.User.Login, Next: safeNextOrEmpty(r.URL.Query().Get("next"))})
+	form := templates.ReauthForm{Login: cs.User.Login, Next: safeNextOrEmpty(r.URL.Query().Get("next"))}
+	if !h.loadFactors(w, r, &form) {
+		return
+	}
+	h.render(w, r, http.StatusOK, form)
+}
+
+// loadFactors fills in which factors the form asks for. It answers 500 and
+// reports false when that cannot be read.
+func (h *Reauth) loadFactors(w http.ResponseWriter, r *http.Request, form *templates.ReauthForm) bool {
+	cs, _ := SessionFromContext(r.Context())
+	totp, err := h.auth.TOTPEnabled(r.Context(), cs.User.ID)
+	if err != nil {
+		h.log.Error("reauth: reading the account's factors failed", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return false
+	}
+	form.TOTP = totp
+	return true
 }
 
 func (h *Reauth) submit(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +120,9 @@ func (h *Reauth) submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	form := templates.ReauthForm{Login: cs.User.Login, Next: safeNextOrEmpty(r.PostForm.Get("next"))}
+	if !h.loadFactors(w, r, &form) {
+		return
+	}
 	ip := proxy.ClientIP(r).String()
 	// Logins cannot contain control characters, so this key never collides
 	// with a login key (ip NUL login).
@@ -115,12 +136,15 @@ func (h *Reauth) submit(w http.ResponseWriter, r *http.Request) {
 		h.render(w, r, http.StatusTooManyRequests, form)
 		return
 	}
-	err := h.auth.Reauthenticate(r.Context(), cs.User.ID, r.PostForm.Get("password"), ip, now)
+	err := h.auth.Reauthenticate(r.Context(), cs.User.ID, r.PostForm.Get("password"), r.PostForm.Get("code"), ip, now)
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		h.limiter.Add(key, now)
 		h.log.Info("reauth failed", "user_id", cs.User.ID, "client_ip", ip)
 		form.Error = "Incorrect password."
+		if form.TOTP {
+			form.Error = "Incorrect password or code."
+		}
 		h.render(w, r, http.StatusUnauthorized, form)
 		return
 	case err != nil:
@@ -133,14 +157,13 @@ func (h *Reauth) submit(w http.ResponseWriter, r *http.Request) {
 
 	// A new token marks the proof; the old one (and its CSRF token) stops
 	// working.
-	token, sess, err := h.sessions.Rotate(r.Context(), cs.Session, r.UserAgent(), ip, now)
+	sess, err := rotateSession(w, r, h.sessions, now)
 	if err != nil {
 		h.log.Error("reauth: rotating the session failed", "session_id", cs.Session.ID, "error", err)
 		form.Error = "Confirming failed. Check the server log and try again."
 		h.render(w, r, http.StatusInternalServerError, form)
 		return
 	}
-	SetSessionCookie(w, r, token, sess.ExpiresAt)
 	h.log.Info("reauthenticated", "user_id", cs.User.ID, "session_id", sess.ID)
 	http.Redirect(w, r, safeNext(form.Next), http.StatusSeeOther)
 }

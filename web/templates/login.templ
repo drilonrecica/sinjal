@@ -24,3 +24,33 @@ templ Login(page Page, f LoginForm) {
 		</form>
 	}
 }
+
+// LoginTOTP asks for the authenticator code after a correct password.
+templ LoginTOTP(page Page, f LoginTOTPForm) {
+	@authFrame(page) {
+		<h1>Enter your code</h1>
+		<p class="auth-lead">Open your authenticator app and enter the 6-digit code for Sinjal.</p>
+		if f.Error != "" {
+			<p class="auth-alert" role="alert">{ f.Error }</p>
+		}
+		<form class="auth-form" method="post" action="/login/totp">
+			@CSRFField(page)
+			<input type="hidden" name="challenge" value={ f.Challenge }/>
+			if f.Next != "" {
+				<input type="hidden" name="next" value={ f.Next }/>
+			}
+			@codeField("Authentication code", true)
+			<button class="auth-submit" type="submit">Sign in</button>
+		</form>
+		<p class="auth-hint"><a href="/login">Start over</a></p>
+	}
+}
+
+// codeField is the input for a 6-digit TOTP code. Apps show it as "123 456",
+// so a space is allowed.
+templ codeField(label string, focus bool) {
+	<div class="auth-field">
+		<label for="code">{ label }</label>
+		<input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" maxlength="7" required autofocus?={ focus }/>
+	</div>
+}

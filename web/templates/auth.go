@@ -23,12 +23,37 @@ type LoginForm struct {
 	Error string
 }
 
+// LoginTOTPForm is the second sign-in step for accounts with TOTP.
+// Challenge is the opaque token proving the password was already checked.
+type LoginTOTPForm struct {
+	Challenge string
+	Next      string
+	Error     string
+}
+
 // ReauthForm is the state of the re-authentication form. Login is shown
-// (and offered to password managers); it is not editable.
+// (and offered to password managers); it is not editable. TOTP adds the
+// code field for accounts that have it enabled.
 type ReauthForm struct {
 	Login string
 	Next  string
 	Error string
+	TOTP  bool
+}
+
+// SettingsAuthView is Settings → Authentication for the signed-in admin.
+type SettingsAuthView struct {
+	TOTPEnabled bool
+}
+
+// TOTPSetupView is the TOTP enrolment page. It shows a new secret, so it is
+// only rendered after recent re-authentication. QR is a PNG data URI.
+type TOTPSetupView struct {
+	Secret  string // base32, grouped for reading
+	URI     string
+	QR      string
+	Pending string
+	Error   string
 }
 
 // fieldAttrs returns the accessibility attributes of an input: hint ids

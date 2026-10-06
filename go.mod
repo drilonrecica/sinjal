@@ -7,6 +7,7 @@ require (
 	github.com/go-chi/chi/v5 v5.3.2
 	golang.org/x/crypto v0.57.0
 	modernc.org/sqlite v1.60.1
+	rsc.io/qr v0.2.0
 )
 
 require (

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/vault"
 )
 
 // ErrInvalidCredentials is the only failure a login reports: unknown user,
@@ -38,22 +39,25 @@ func dummy() string {
 	return dummyHash
 }
 
-// Authenticator checks passwords for login and re-authentication and
-// writes their audit events.
+// Authenticator checks passwords and TOTP codes for login and
+// re-authentication, manages TOTP enrolment and writes the audit events.
+// key encrypts TOTP secrets.
 type Authenticator struct {
 	db  *db.DB
+	key *vault.Key
 	log *slog.Logger
 }
 
-// NewAuthenticator returns the password checker.
-func NewAuthenticator(d *db.DB, logger *slog.Logger) *Authenticator {
-	return &Authenticator{db: d, log: logger}
+// NewAuthenticator returns the credential checker.
+func NewAuthenticator(d *db.DB, key *vault.Key, logger *slog.Logger) *Authenticator {
+	return &Authenticator{db: d, key: key, log: logger}
 }
 
 type credentials struct {
 	user     User
 	hash     string // "" when the account has no password
 	disabled bool
+	totp     bool // a TOTP secret is stored
 }
 
 // Login checks login and password. Every failure is ErrInvalidCredentials
@@ -61,6 +65,9 @@ type credentials struct {
 // Both outcomes are audited with the client IP; the attempted login string
 // is never stored (people type passwords into it by mistake). A correct
 // password with outdated hash parameters is rehashed.
+//
+// When the account has TOTP enabled, a correct password returns the user
+// with ErrTOTPRequired and audits nothing yet: LoginTOTP finishes the login.
 func (a *Authenticator) Login(ctx context.Context, login, password, clientIP string, now time.Time) (User, error) {
 	var c credentials
 	found := false
@@ -73,6 +80,9 @@ func (a *Authenticator) Login(ctx context.Context, login, password, clientIP str
 	ok, err := a.check(ctx, c, found, password, now)
 	if err != nil {
 		return User{}, err
+	}
+	if ok && c.totp {
+		return c.user, ErrTOTPRequired
 	}
 	ev := audit{Event: "auth.login_failed", Metadata: map[string]string{"client_ip": clientIP}}
 	if found {
@@ -101,10 +111,10 @@ func (s Session) RecentlyAuthenticated(now time.Time) bool {
 }
 
 // Reauthenticate checks the signed-in user's password again before a
-// sensitive action. Failures are ErrInvalidCredentials. Both outcomes are
-// audited (auth.reauthenticated / auth.reauth_failed). TOTP (M1-13) and
-// passkeys (M1-14) add their own checks next to this one.
-func (a *Authenticator) Reauthenticate(ctx context.Context, userID, password, clientIP string, now time.Time) error {
+// sensitive action, plus a TOTP code when the account has TOTP enabled
+// (code is ignored otherwise). Failures are ErrInvalidCredentials. Both
+// outcomes are audited (auth.reauthenticated / auth.reauth_failed).
+func (a *Authenticator) Reauthenticate(ctx context.Context, userID, password, code, clientIP string, now time.Time) error {
 	c, found, err := a.lookup(ctx, `u.id = ?`, userID)
 	if err != nil {
 		return err
@@ -112,6 +122,12 @@ func (a *Authenticator) Reauthenticate(ctx context.Context, userID, password, cl
 	ok, err := a.check(ctx, c, found, password, now)
 	if err != nil {
 		return err
+	}
+	// Only after the password: a wrong password must not use up a code.
+	if ok && c.totp {
+		if ok, err = a.verifyTOTP(ctx, userID, code, now); err != nil {
+			return err
+		}
 	}
 	ev := audit{Event: "auth.reauth_failed", Metadata: map[string]string{"client_ip": clientIP}}
 	if found { // the account may have been deleted since the session was loaded
@@ -180,9 +196,10 @@ func (a *Authenticator) rehash(ctx context.Context, userID, password, old string
 func (a *Authenticator) lookup(ctx context.Context, where string, arg string) (credentials, bool, error) {
 	var c credentials
 	var hash, theme sql.NullString
-	err := a.db.Reader.QueryRowContext(ctx, `SELECT u.id, u.login, u.role, u.theme, u.density, u.password_hash, u.disabled
+	err := a.db.Reader.QueryRowContext(ctx, `SELECT u.id, u.login, u.role, u.theme, u.density, u.password_hash, u.disabled,
+			u.totp_secret_enc IS NOT NULL
 		FROM users u WHERE `+where, arg).
-		Scan(&c.user.ID, &c.user.Login, &c.user.Role, &theme, &c.user.Density, &hash, &c.disabled)
+		Scan(&c.user.ID, &c.user.Login, &c.user.Role, &theme, &c.user.Density, &hash, &c.disabled, &c.totp)
 	if errors.Is(err, sql.ErrNoRows) {
 		return credentials{}, false, nil
 	}

@@ -11,6 +11,7 @@ Fields:
 - role: admin | viewer
 - password hash optional when passkey-only is configured later
 - TOTP encrypted secret optional
+- last accepted TOTP time step (replay prevention)
 - created/updated timestamps
 - disabled flag
 - UI preferences: theme (NULL = instance default), density (comfortable | compact), sidebar collapsed

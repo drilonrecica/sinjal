@@ -91,7 +91,7 @@ Rotation:
 
 Invalidation:
 - logout deletes the current session
-- password change, TOTP reset/disable and passkey removal delete all **other** sessions of that user (the current one is rotated)
+- a credential change (password change, turning TOTP on or off, adding or removing a passkey) deletes all **other** sessions of that user (the current one is rotated)
 - disabling a user, deleting a user or changing their role deletes all of that user's sessions
 - Settings → Authentication offers "Sign out other sessions" (requires re-authentication)
 
@@ -141,7 +141,7 @@ At minimum:
 - `web.RequireRecentAuth(logger, now)` is mounted inside `RequireAuth` on sensitive routes. A stale page request gets 303 to `/reauth?next=<path>`. A stale POST cannot be replayed, so it returns to the page the form was on: the `Referer` when it is Sinjal's own origin (`Referrer-Policy: same-origin` keeps it), otherwise no `next`. htmx requests get 403 with `HX-Redirect`. Without a session it fails closed (401).
 - `/reauth` (behind `RequireAuth`, open to viewers): a password form for the signed-in user. `auth.Authenticator.Reauthenticate` uses the same verification path as login (dummy hash, one Argon2 per attempt) and audits `auth.reauthenticated` / `auth.reauth_failed`. Failures share the login limiter, keyed by client IP and user ID (10 per 15 minutes, then 429).
 - Success rotates the session (`Sessions.Rotate`): a new token, `reauthenticated_at` = now, and a new 30-day lifetime, since re-authentication proves the same credentials as a login. The old cookie and its CSRF token stop working. Redirect: 303 to `safeNext(next)`.
-- No production route uses `RequireRecentAuth` yet; password change, session sign-out, TOTP and passkey management (M1-13…M1-18) mount it. TOTP and passkeys add their options to the `/reauth` page next to the password.
+- TOTP management (M1-13) is the first production user of `RequireRecentAuth`; password change, session sign-out and passkey management (M1-14…M1-18) follow. When the account has TOTP enabled, `/reauth` asks for the code together with the password and both must be right (the code is checked only after the password, so a wrong password does not use it up).
 
 ## Passkeys
 
@@ -161,6 +161,19 @@ Optional.
 Store encrypted secret.
 
 Provide recovery/reset flow requiring admin re-authentication.
+
+### Implementation (M1-13)
+
+Admins only. Hand-written on the standard library (`internal/auth/totp.go`, `40_DEPENDENCIES.md`).
+
+- Algorithm: RFC 6238 with HMAC-SHA1, 6 digits and 30-second steps, the parameters every authenticator app supports. The current step and one step either side are accepted; all three candidates are compared in constant time. A code may be typed with a space ("123 456"). Tested against RFC 4226 Appendix D and RFC 6238 Appendix B.
+- Secret: 20 random bytes, stored only as a v1 envelope in `users.totp_secret_enc` (AAD `users` / `totp_secret_enc` / user id). It is shown once, during enrolment, and never logged.
+- Replay prevention: `users.totp_last_step` holds the last accepted time step. A code counts only if `UPDATE … WHERE totp_last_step IS NULL OR totp_last_step < <step>` changes the row, so the same code, an older code, or the same code in two concurrent requests is accepted at most once.
+- Enrolment (`GET /settings/authentication/totp`, recent re-authentication required): each load creates a new secret and shows it as a QR code (`rsc.io/qr`, inline PNG data URI), as a base32 setup key and as the `otpauth://totp/Sinjal:<login>?secret=…&issuer=Sinjal&algorithm=SHA1&digits=6&period=30` link. Nothing is stored yet: the secret travels in a hidden form field, encrypted with the master key, bound to the user and valid for 10 minutes. `POST` with a valid code stores the secret and marks the code's step as used, in one transaction with the session revocation and the audit event `auth.totp_enabled`.
+- Disable (`POST /settings/authentication/totp/disable`, recent re-authentication required, which itself needs a code): clears both columns, audit event `auth.totp_disabled`. Reset is disable followed by a new enrolment. A lost device is recovered with `sinjal reset-admin`.
+- Login: a correct password for an account with TOTP does not sign in. `/login` answers with the code form, which carries a challenge: the user id and a 5-minute expiry, encrypted with the master key. `POST /login/totp` checks the challenge and the code, then creates the session. `auth.login_succeeded` is written only then; a wrong code is `auth.login_failed`, both with `"factor":"totp"`.
+- Rate limit: wrong login codes share the login limiter, counted per account from any address (10 per 15 minutes, then 429). Guessing a code needs the password first, so this cannot be used to lock out an account whose password is unknown, and spreading guesses over many addresses does not help. Re-authentication failures (password or code) stay keyed by client IP and user.
+- Sessions: turning TOTP on or off deletes the user's other sessions and rotates the current one.
 
 ## Account recovery
 

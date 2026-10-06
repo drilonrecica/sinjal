@@ -86,8 +86,8 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	}
 
 	// Loading the key at startup enforces its permissions and catches a
-	// missing key early. Secrets are stored with it from M1-13; for now it
-	// only derives the CSRF key.
+	// missing key early. It encrypts stored secrets (TOTP) and derives the
+	// CSRF key.
 	masterKey, err := vault.LoadOrCreate(ctx, cfg.DataDir, database.Reader, logging.Sub(logger, "vault"))
 	if err != nil {
 		return fatalf(stderr, "%v", err)
@@ -123,6 +123,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		Sessions: sessions,
 		Setup:    web.NewSetup(database, setupToken, logger),
 		CSRFKey:  masterKey.Derive(web.CSRFKeyLabel),
+		Vault:    masterKey,
 	})
 
 	cleanupDone := make(chan struct{})

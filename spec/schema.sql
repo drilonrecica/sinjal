@@ -13,6 +13,7 @@ CREATE TABLE users (
   role TEXT NOT NULL CHECK (role IN ('admin','viewer')),
   password_hash TEXT,
   totp_secret_enc BLOB,
+  totp_last_step INTEGER, -- last accepted TOTP time step (replay prevention); NULL = none yet
   disabled INTEGER NOT NULL DEFAULT 0,
   theme TEXT CHECK (theme IN ('carbon','paper','midnight','terminal')), -- NULL = instance default
   density TEXT NOT NULL DEFAULT 'comfortable' CHECK (density IN ('comfortable','compact')),

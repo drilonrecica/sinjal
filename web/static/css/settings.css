@@ -1,0 +1,63 @@
+/* Settings pages: one readable column of sections. Minimal until the
+ * settings layout and themed polish land (M1-18). */
+
+.settings {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 38rem;
+}
+
+.settings-section {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.settings-steps {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+/* The items stay list items so their numbers show. */
+.settings-steps li > * + * {
+  margin-top: var(--space-3);
+}
+
+.settings-steps .auth-form {
+  max-width: 16rem;
+}
+
+.settings-button {
+  min-height: 2.25rem;
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-button:hover {
+  background: var(--surface-2);
+}
+
+/* Black on white in every theme: phone cameras need the contrast. */
+.totp-qr {
+  width: 13rem;
+  height: 13rem;
+  image-rendering: pixelated;
+  border-radius: var(--radius-sm);
+}
+
+.totp-secret {
+  white-space: nowrap;
+}
+
+.totp-uri {
+  display: block;
+  margin-top: var(--space-2);
+  overflow-wrap: anywhere;
+}

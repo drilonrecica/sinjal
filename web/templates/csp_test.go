@@ -46,7 +46,11 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"setup":       Setup(page, SetupForm{Token: "t", Errors: map[string]string{"login": "x", "form": "y"}}, 12),
 		"authMessage": AuthMessage(page, "Heading", "Message"),
 		"login":       Login(page, LoginForm{Login: "a", Next: "/x", Error: "e"}),
-		"reauth":      Reauth(page, ReauthForm{Login: "a", Next: "/x", Error: "e"}),
+		"loginTOTP":   LoginTOTP(page, LoginTOTPForm{Challenge: "c", Next: "/x", Error: "e"}),
+		"reauth":      Reauth(page, ReauthForm{Login: "a", Next: "/x", Error: "e", TOTP: true}),
+		"settings":    SettingsAuth(page, SettingsAuthView{TOTPEnabled: true}),
+		"settingsOff": SettingsAuth(page, SettingsAuthView{}),
+		"totpSetup":   TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}
 	for name, c := range pages {
 		var buf bytes.Buffer

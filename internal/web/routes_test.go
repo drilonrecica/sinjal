@@ -13,6 +13,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/assets"
 	"github.com/drilonrecica/sinjal/internal/auth"
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/vault"
 )
 
 // appEnv is the production route table (Routes) on a migrated database.
@@ -30,6 +31,10 @@ func newAppEnv(t *testing.T, trusted ...netip.Prefix) *appEnv {
 	t.Helper()
 	logger, logs := quietLogger()
 	d := migratedDB(t)
+	key, err := vault.LoadOrCreate(context.Background(), t.TempDir(), d.Reader, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 	e := &appEnv{
 		db:       d,
 		sessions: auth.NewSessions(d, logger),
@@ -45,6 +50,7 @@ func newAppEnv(t *testing.T, trusted ...netip.Prefix) *appEnv {
 		Sessions: e.sessions,
 		Setup:    NewSetup(d, nil, logger),
 		CSRFKey:  testCSRFKey,
+		Vault:    key,
 	})
 	e.h = r
 	return e

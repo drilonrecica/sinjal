@@ -13,12 +13,13 @@ import (
 
 // Routes reachable without a session, for any method.
 var publicRoutes = map[string]bool{
-	"/healthz":  true,
-	"/readyz":   true,
-	"/static/*": true,
-	"/setup":    true,
-	"/login":    true,
-	"/logout":   true, // ends the caller's own session; harmless without one
+	"/healthz":    true,
+	"/readyz":     true,
+	"/static/*":   true,
+	"/setup":      true,
+	"/login":      true,
+	"/login/totp": true, // second sign-in step; needs the sealed challenge from /login
+	"/logout":     true, // ends the caller's own session; harmless without one
 }
 
 // State-changing routes a viewer may use: they act only on the caller's own

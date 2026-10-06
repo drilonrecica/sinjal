@@ -58,6 +58,19 @@ func ClearSessionCookie(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// rotateSession replaces the request's session with a new one for the same
+// user and sets its cookie: after re-authentication and after a credential
+// change. The old token and its CSRF token stop working.
+func rotateSession(w http.ResponseWriter, r *http.Request, sessions *auth.Sessions, now time.Time) (auth.Session, error) {
+	cs, _ := SessionFromContext(r.Context())
+	token, sess, err := sessions.Rotate(r.Context(), cs.Session, r.UserAgent(), proxy.ClientIP(r).String(), now)
+	if err != nil {
+		return auth.Session{}, err
+	}
+	SetSessionCookie(w, r, token, sess.ExpiresAt)
+	return sess, nil
+}
+
 // CurrentSession is the signed-in session of a request.
 type CurrentSession struct {
 	Session auth.Session

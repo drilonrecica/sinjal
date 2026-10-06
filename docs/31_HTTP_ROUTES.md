@@ -9,6 +9,7 @@ GET  /healthz
 GET  /readyz
 GET  /login
 POST /login
+POST /login/totp             # second sign-in step for accounts with TOTP
 POST /logout
 GET  /setup                  # only before initial admin exists; requires setup token
 POST /setup                  # see 13_AUTH_SECURITY.md "Initial setup"
@@ -61,6 +62,9 @@ POST /maintenance/{id}/delete
 GET  /settings/general
 GET  /settings/appearance
 GET  /settings/authentication
+GET  /settings/authentication/totp           # admin, recent re-authentication
+POST /settings/authentication/totp           # enable
+POST /settings/authentication/totp/disable
 GET  /settings/data
 GET  /settings/backup
 GET  /settings/system
