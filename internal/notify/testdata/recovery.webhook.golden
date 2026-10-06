@@ -1,0 +1,16 @@
+{
+  "event": "monitor.recovered",
+  "severity": "info",
+  "timestamp": "2026-10-06T16:42:13Z",
+  "monitor": {
+    "id": "m1",
+    "name": "API",
+    "type": "http"
+  },
+  "incident": {
+    "id": "i1",
+    "started_at": "2026-10-06T16:40:00Z",
+    "duration_seconds": 257
+  },
+  "latency_ms": 51
+}

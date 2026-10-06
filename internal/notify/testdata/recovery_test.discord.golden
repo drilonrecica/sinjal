@@ -1,0 +1,13 @@
+{
+  "allowed_mentions": {
+    "parse": []
+  },
+  "embeds": [
+    {
+      "color": 9145752,
+      "description": "This is a simulated Sinjal incident.\nDowntime: 4m 17s\nCurrent latency: 51 ms",
+      "timestamp": "2026-10-06T16:42:13Z",
+      "title": "[TEST] API recovered"
+    }
+  ]
+}

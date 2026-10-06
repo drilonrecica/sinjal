@@ -1,0 +1,12 @@
+{
+  "allowed_mentions": {
+    "parse": []
+  },
+  "embeds": [
+    {
+      "color": 15026253,
+      "description": "",
+      "title": "API is DOWN"
+    }
+  ]
+}

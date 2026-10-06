@@ -1,0 +1,13 @@
+{
+  "allowed_mentions": {
+    "parse": []
+  },
+  "embeds": [
+    {
+      "color": 16098596,
+      "description": "Expiry: 2026-10-21",
+      "timestamp": "2026-10-06T16:42:13Z",
+      "title": "Website TLS certificate expires in 14 days"
+    }
+  ]
+}

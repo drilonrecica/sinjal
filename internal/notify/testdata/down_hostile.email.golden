@@ -1,0 +1,7 @@
+Subject: API @everyone <b>x</b> is DOWN
+
+API @everyone <b>x</b> is DOWN
+Reason: dial tcp 10.0.0.1:443: connection refused @here long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long l…
+Failed at: 2026-10-06 18:42:13 CEST
+Attempts: 2
+Last latency: 74 ms

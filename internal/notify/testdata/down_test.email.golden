@@ -1,0 +1,8 @@
+Subject: [TEST] API is DOWN
+
+[TEST] API is DOWN
+This is a simulated Sinjal incident.
+Reason: timeout after 5s
+Failed at: 2026-10-06 18:42:13 CEST
+Attempts: 2
+Last latency: 74 ms

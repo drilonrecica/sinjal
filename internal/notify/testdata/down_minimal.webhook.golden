@@ -1,0 +1,10 @@
+{
+  "event": "monitor.down",
+  "severity": "critical",
+  "monitor": {
+    "id": "m1",
+    "name": "API",
+    "type": "http"
+  },
+  "incident": null
+}
