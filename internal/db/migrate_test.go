@@ -3,7 +3,9 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -358,10 +360,69 @@ func TestBackupPathWithQuoteIsEscaped(t *testing.T) {
 	}
 }
 
-func TestEmbeddedMigrationsAreValid(t *testing.T) {
-	// Real embedded set: must always load (contiguous, well named).
+func TestEmbeddedFoundationMigration(t *testing.T) {
 	e := newEnv(t)
-	if err := Migrate(context.Background(), e.db, e.backupDir, "test", quiet); err != nil {
+	for range 2 { // second run must be a no-op
+		if err := Migrate(context.Background(), e.db, e.backupDir, "test", quiet); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := e.versions(t); !equalInts(got, []int{1}) {
+		t.Errorf("versions = %v, want [1]", got)
+	}
+	if got := e.backups(t); len(got) != 0 {
+		t.Errorf("fresh install must not create a backup, found %v", got)
+	}
+
+	rows, err := e.db.Writer.Query(`SELECT name, type, "notnull", pk FROM pragma_table_info('system_settings') ORDER BY cid`)
+	if err != nil {
 		t.Fatal(err)
+	}
+	defer rows.Close()
+	type col struct {
+		name, typ string
+		notNull   bool
+		pk        int
+	}
+	var got []col
+	for rows.Next() {
+		var c col
+		if err := rows.Scan(&c.name, &c.typ, &c.notNull, &c.pk); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, c)
+	}
+	want := []col{{"key", "TEXT", false, 1}, {"value", "TEXT", true, 0}, {"updated_at", "TEXT", true, 0}}
+	if len(got) != len(want) {
+		t.Fatalf("system_settings columns = %+v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("column %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+// Guards every future milestone: the embedded set must load (contiguous,
+// well-named) and each file must match its recorded version.
+func TestEmbeddedMigrationsAreValid(t *testing.T) {
+	fsys, err := fs.Sub(embeddedMigrations, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	migs, err := loadMigrations(fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(migs) == 0 {
+		t.Fatal("no embedded migrations")
+	}
+	for i, m := range migs {
+		if !strings.HasPrefix(m.name, fmt.Sprintf("%03d_", i+1)) {
+			t.Errorf("migration %d is %s", i+1, m.name)
+		}
+		if strings.TrimSpace(m.sql) == "" {
+			t.Errorf("%s is empty", m.name)
+		}
 	}
 }

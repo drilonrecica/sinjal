@@ -17,9 +17,7 @@ import (
 	"time"
 )
 
-// The .gitkeep keeps the directory embeddable; it is ignored by the loader.
-//
-//go:embed all:migrations
+//go:embed migrations
 var embeddedMigrations embed.FS
 
 var migrationName = regexp.MustCompile(`^(\d{3})_[a-z0-9_]+\.sql$`)
