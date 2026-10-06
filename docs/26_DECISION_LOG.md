@@ -186,3 +186,4 @@ This summarizes the locked design rounds.
 - P0-14: browser tests use chromedp in a separate dev-only `tests/browser` module, run via `make test-browser`, never in the product module; dev-only tools listed in 40.
 - P0-15: status pages show a 90-day adjusted uptime strip; unlisted URLs are `/s/{token}` (hashed, shown once, noindex); logos PNG/JPEG only; mapped hostnames serve only that page's public routes.
 - P0-16: config import matches by name/key/slug, modes `skip` (default) and `replace`, never deletes, mandatory dry-run preview, all-or-nothing transaction; secrets never imported.
+- P0-17: releases are signed with `ssh-keygen -Y sign` using a dedicated Ed25519 release key over `checksums.txt`; SBOM via syft as SPDX JSON; public key in `docs/release-signing/allowed_signers`.

@@ -1,0 +1,8 @@
+# Sinjal release signing key (decision P0-17).
+#
+# Not yet populated: the owner generates a dedicated Ed25519 key and adds one line:
+#   release@sinjal namespaces="sinjal-release" ssh-ed25519 AAAA...
+#
+# Verify a release:
+#   ssh-keygen -Y verify -f allowed_signers -I release@sinjal -n sinjal-release \
+#     -s checksums.txt.sig < checksums.txt

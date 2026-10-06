@@ -92,6 +92,23 @@ Target:
 
 Do not add runtime complexity for release tooling.
 
+Tooling (decision P0-17):
+- checksums: `sha256sum` over the binaries and the SBOM → `checksums.txt`
+- SBOM: `syft scan file:dist/sinjal-linux-amd64 -o spdx-json=dist/sbom.spdx.json` (dev-only tool; the `syft version` output is saved next to the artifacts)
+- signature: `ssh-keygen -Y sign -n sinjal-release` over `checksums.txt` → `signatures/checksums.txt.sig`
+- signing key: a **dedicated Ed25519 release key**, not a login key; generated and stored privately by the owner; passed to the release script via `SINJAL_RELEASE_KEY`
+- public key: `docs/release-signing/allowed_signers`
+
+Verifying a release:
+
+```bash
+sha256sum -c checksums.txt
+ssh-keygen -Y verify -f allowed_signers -I release@sinjal -n sinjal-release \
+  -s checksums.txt.sig < checksums.txt
+```
+
+No external signing service, transparency log or keyless OIDC flow.
+
 ## Change log
 
 Maintain `CHANGELOG.md` once real releases begin.

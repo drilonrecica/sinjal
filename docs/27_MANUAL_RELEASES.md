@@ -23,8 +23,8 @@ The helper may:
 - build linux/amd64
 - build linux/arm64
 - generate checksums
-- generate SBOM
-- sign artifacts if signing configuration exists
+- generate SBOM (syft, SPDX JSON)
+- sign `checksums.txt` with the SSH release key if `SINJAL_RELEASE_KEY` is set (see `17_MIGRATIONS_RELEASES.md`)
 
 It must NOT:
 - push git tags
@@ -37,6 +37,7 @@ Inspect:
 - artifact sizes
 - checksum file
 - SBOM
+- signature verifies against `docs/release-signing/allowed_signers`
 - version output
 - clean install
 - upgrade from previous version

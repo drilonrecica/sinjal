@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
+# Local release helper. It builds, checksums, generates an SBOM and signs.
+# It intentionally does NOT tag, push, publish or upload anything.
 set -euo pipefail
 
 VERSION="${1:-}"
 if [[ -z "$VERSION" ]]; then
   echo "usage: $0 <version>"
+  echo "env:   SINJAL_RELEASE_KEY=<path to private Ed25519 release key> (optional; signing skipped if unset)"
   exit 1
 fi
 
@@ -12,18 +15,33 @@ mkdir -p dist
 
 go test ./...
 
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-  -trimpath -ldflags "-s -w -X main.version=$VERSION" \
-  -o "dist/sinjal-linux-amd64" ./cmd/sinjal
+for arch in amd64 arm64; do
+  CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build \
+    -trimpath -tags timetzdata -ldflags "-s -w -X main.version=$VERSION" \
+    -o "dist/sinjal-linux-$arch" ./cmd/sinjal
+done
 
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
-  -trimpath -ldflags "-s -w -X main.version=$VERSION" \
-  -o "dist/sinjal-linux-arm64" ./cmd/sinjal
+# SBOM (dev-only tool; see docs/40_DEPENDENCIES.md). Go binaries embed their
+# module list, so scanning one binary covers both architectures.
+command -v syft >/dev/null || { echo "syft not found; install it to generate the SBOM"; exit 1; }
+syft version > dist/syft-version.txt
+syft scan "file:dist/sinjal-linux-amd64" -o "spdx-json=dist/sbom.spdx.json"
 
 (
   cd dist
-  sha256sum sinjal-linux-* > checksums.txt
+  sha256sum sinjal-linux-* sbom.spdx.json > checksums.txt
 )
+
+# Signature over checksums.txt with a dedicated SSH release key (docs/17).
+if [[ -n "${SINJAL_RELEASE_KEY:-}" ]]; then
+  mkdir -p dist/signatures
+  ssh-keygen -Y sign -f "$SINJAL_RELEASE_KEY" -n sinjal-release dist/checksums.txt
+  mv dist/checksums.txt.sig dist/signatures/
+  ssh-keygen -Y verify -f docs/release-signing/allowed_signers -I release@sinjal \
+    -n sinjal-release -s dist/signatures/checksums.txt.sig < dist/checksums.txt
+else
+  echo "SINJAL_RELEASE_KEY not set: skipping signature."
+fi
 
 echo "Artifacts created in dist/."
 echo "This script intentionally does NOT publish, tag, or upload anything."
