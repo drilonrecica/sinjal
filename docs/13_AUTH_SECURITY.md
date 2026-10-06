@@ -106,6 +106,14 @@ Store encrypted secret.
 
 Provide recovery/reset flow requiring admin re-authentication.
 
+## Account recovery
+
+There is no email or web-based recovery.
+
+A locked-out admin (lost password, TOTP device or passkeys) recovers with `sinjal reset-admin` on the host or inside the container (see `15_CONFIG_BACKUP.md`). Access to the host/container and `/data` is the trust boundary; anyone with it can already read the database and master key.
+
+Authentication state (users, password hashes, TOTP, passkeys, sessions) is always read from the database, never cached in process memory, so a CLI reset takes effect immediately.
+
 ## Secrets at rest
 
 Use a 32-byte random master key.

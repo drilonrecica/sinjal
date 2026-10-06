@@ -180,3 +180,4 @@ This summarizes the locked design rounds.
 - P0-08: FLAPPING is an overlay (`flapping_since`) on the real state; enter at ≥4 confirmed transitions in 10 min, exit after 10 min without one; one warning on entry, DOWN or STABLE on exit; window rebuilt from incidents after restart.
 - P0-09: sessions use a 32-byte token (SHA-256 stored), `__Host-` cookie when Secure, SameSite=Lax, absolute 30 d lifetime, `last_seen_at` throttled to 5 min, re-auth valid 10 min, other sessions revoked on security changes.
 - P0-10: `/setup` requires a one-time in-memory setup token logged at startup while no admin exists; rotated on restart; 404 after setup.
+- P0-11: account recovery is `sinjal reset-admin` (new printed password, TOTP cleared, sessions revoked, passkeys optionally removed, audited); host access is the trust boundary; no web recovery.

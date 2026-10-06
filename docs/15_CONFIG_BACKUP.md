@@ -62,9 +62,20 @@ sinjal export-config <path>
 sinjal import-config <path>
 sinjal check-db
 sinjal healthcheck
+sinjal reset-admin [--login <login>] [--remove-passkeys]
 ```
 
 `sinjal healthcheck` performs `GET http://127.0.0.1:<port>/healthz` (port taken from `SINJAL_LISTEN`) with a 3 s timeout and exits 0 on HTTP 200, otherwise 1. It makes no other network calls and does not open the database. It exists for the Docker `HEALTHCHECK` in the `scratch` image.
+
+`sinjal reset-admin` recovers a locked-out admin (decision P0-11):
+- operates on the database in `SINJAL_DATA_DIR`
+- `--login` is required only when more than one admin exists
+- sets a new random password and prints it once to stdout
+- clears TOTP
+- deletes all sessions of that user
+- keeps passkeys unless `--remove-passkeys` is given
+- writes the audit event `admin_reset_cli`
+- safe while the server is running (e.g. `docker exec <container> /sinjal reset-admin`): it performs ordinary transactional DB writes, and the server never caches authentication state in memory
 
 Do not grow a huge CLI framework.
 
