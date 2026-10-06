@@ -3,7 +3,7 @@ package templates
 // SettingsSystem is Settings → System: the audit log, newest first. It is
 // read-only; events are written by the actions they record.
 templ SettingsSystem(page Page, v SystemView) {
-	@settingsFrame(page.withAssets([]string{"css/audit.css"}, nil)) {
+	@settingsFrame(page.withAssets([]string{"css/audit.css"}, nil), "system") {
 		<h1>System</h1>
 		<section class="settings-section" aria-labelledby="audit-heading">
 			<h2 id="audit-heading">Audit log</h2>

@@ -24,6 +24,7 @@ const (
 	Reauthenticated = "auth.reauthenticated"
 	ReauthFailed    = "auth.reauth_failed"
 	PasswordChanged = "auth.password_changed"
+	SessionsRevoked = "auth.sessions_revoked"
 	TOTPEnabled     = "auth.totp_enabled"
 	TOTPDisabled    = "auth.totp_disabled"
 	PasskeyAdded    = "auth.passkey_added"

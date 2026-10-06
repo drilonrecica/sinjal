@@ -11,7 +11,7 @@ templ Reauth(page Page, f ReauthForm) {
 			<p class="auth-lead">Enter your password to continue. Sensitive changes need a recent confirmation.</p>
 		}
 		if f.Error != "" {
-			<p class="auth-alert" role="alert">{ f.Error }</p>
+			<p id="form-error" class="auth-alert" role="alert">{ f.Error }</p>
 		}
 		<form class="auth-form" method="post" action="/reauth">
 			@CSRFField(page)
@@ -21,10 +21,10 @@ templ Reauth(page Page, f ReauthForm) {
 			<input type="text" name="username" value={ f.Login } autocomplete="username" hidden/>
 			<div class="auth-field">
 				<label for="password">Password for { f.Login }</label>
-				<input id="password" name="password" type="password" autocomplete="current-password" required autofocus/>
+				<input id="password" name="password" type="password" autocomplete="current-password" required autofocus { formErrorAttrs(f.Error != "")... }/>
 			</div>
 			if f.TOTP {
-				@codeField("Authentication code", false)
+				@codeField("Authentication code", false, f.Error != "")
 			}
 			<button class="auth-submit" type="submit">Continue</button>
 		</form>

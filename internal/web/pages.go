@@ -14,10 +14,12 @@ import (
 // density, and the CSRF token for forms.
 func pageFor(r *http.Request, title string) templates.Page {
 	var theme, density string
+	var admin bool
 	if cs, ok := SessionFromContext(r.Context()); ok {
-		theme, density = cs.User.Theme, cs.User.Density
+		theme, density, admin = cs.User.Theme, cs.User.Density, cs.User.Role == "admin"
 	}
 	page := templates.NewPage(title, theme, density)
+	page.Admin = admin
 	page.CSRFToken = CSRFToken(r)
 	return page
 }

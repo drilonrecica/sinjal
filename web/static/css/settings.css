@@ -1,10 +1,45 @@
-/* Settings pages: one readable column of sections. Minimal until the
- * settings layout and themed polish land (M1-18). */
+/* Settings pages: a navigation strip, then one readable column of sections. */
 
 .settings {
   display: grid;
   gap: var(--space-5);
-  max-width: 38rem;
+  max-width: 42rem;
+}
+
+.settings-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-nav-link {
+  position: relative;
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.settings-nav-link:hover {
+  color: var(--text);
+}
+
+/* The current page is marked by weight and a bar, not by colour alone. */
+.settings-nav-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.settings-nav-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 2px;
+  background: var(--accent);
 }
 
 .settings-section {
@@ -31,7 +66,7 @@
 }
 
 .settings-button {
-  min-height: 2.25rem;
+  min-height: 2.75rem; /* touch target */
   padding: var(--space-2) var(--space-4);
   background: transparent;
   border: 1px solid var(--border-strong);
@@ -42,6 +77,13 @@
 
 .settings-button:hover {
   background: var(--surface-2);
+}
+
+/* Actions that remove access sit apart in the danger colour, always with a
+ * text label (docs/04_DESIGN_SYSTEM.md "Forms"). */
+.settings-button-danger {
+  border-color: var(--status-down);
+  color: var(--status-down);
 }
 
 /* Black on white in every theme: phone cameras need the contrast. */

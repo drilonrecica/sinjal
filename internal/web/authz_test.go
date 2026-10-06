@@ -27,10 +27,11 @@ var publicRoutes = map[string]bool{
 // State-changing routes a viewer may use: they act only on the caller's own
 // session or account.
 var viewerMutations = map[string]bool{
-	"/reauth":                true, // confirms the caller's own password
-	"/reauth/passkey/begin":  true, // or the caller's own passkey
-	"/reauth/passkey/finish": true,
-	"/account/password":      true, // changes the caller's own password
+	"/reauth":                           true, // confirms the caller's own password
+	"/reauth/passkey/begin":             true, // or the caller's own passkey
+	"/reauth/passkey/finish":            true,
+	"/account/password":                 true, // changes the caller's own password
+	"/account/sessions/sign-out-others": true, // ends the caller's other sessions
 }
 
 var routeParamRe = regexp.MustCompile(`\{[^}]+\}|\*`)

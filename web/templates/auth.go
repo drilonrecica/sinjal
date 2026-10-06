@@ -71,8 +71,9 @@ type ViewerForm struct {
 // PasswordForm is the change-password form; Changed shows the success
 // message after the redirect.
 type PasswordForm struct {
-	Errors  map[string]string
-	Changed bool
+	Errors    map[string]string
+	Changed   bool
+	SignedOut bool // other sessions were just signed out
 }
 
 // PasskeyView is one row of the passkey list. Dates are preformatted.
@@ -131,4 +132,31 @@ type AuditRow struct {
 	Event   string
 	Object  string
 	Details string
+}
+
+// settingsPage is one entry of the settings navigation. Admin entries are
+// hidden from viewers, who can reach only their own account page.
+type settingsPage struct {
+	Key   string
+	Label string
+	Path  string
+	Admin bool
+}
+
+// settingsPages lists the settings pages that exist, in display order. The
+// others from docs/03_INFORMATION_ARCHITECTURE.md join as they are built.
+var settingsPages = []settingsPage{
+	{"account", "Your account", "/account/password", false},
+	{"authentication", "Authentication", "/settings/authentication", true},
+	{"system", "System", "/settings/system", true},
+}
+
+// formErrorAttrs ties an input to the form-level alert (id "form-error")
+// when failed is set: the one generic message is read with the field and
+// the field is marked invalid.
+func formErrorAttrs(failed bool) templ.Attributes {
+	if !failed {
+		return nil
+	}
+	return templ.Attributes{"aria-invalid": "true", "aria-describedby": "form-error"}
 }

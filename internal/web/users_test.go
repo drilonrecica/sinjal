@@ -209,3 +209,81 @@ func TestChangeOwnPasswordNeedsRecentAuth(t *testing.T) {
 		t.Error("the password changed without re-authentication")
 	}
 }
+
+func TestSignOutOtherSessions(t *testing.T) {
+	for _, role := range []string{"admin", "viewer"} {
+		t.Run(role, func(t *testing.T) {
+			e := newAppEnv(t)
+			e.addUser(t, "u1", role, role, testPassword)
+			e.addUser(t, "u2", "bystander", role, testPassword)
+			cookie, sess := e.signIn(t, "u1")
+			other1, _ := e.signIn(t, "u1")
+			other2, _ := e.signIn(t, "u1")
+			bystander, _ := e.signIn(t, "u2")
+			alive := func(c string) bool { return e.serve(withCookie(req("GET", "/monitors", nil), c)).Code == 200 }
+
+			f := url.Values{CSRFFormField: {e.csrf.token(sess.ID)}}
+			rec := e.serve(withCookie(req("POST", "/account/sessions/sign-out-others", f), cookie))
+			if rec.Code != 303 || rec.Header().Get("Location") != "/account/password?signedout=1" {
+				t.Fatalf("sign out others = %d %q", rec.Code, rec.Header().Get("Location"))
+			}
+			if !alive(cookie) {
+				t.Error("the current session was signed out")
+			}
+			if alive(other1) || alive(other2) {
+				t.Error("another session of the user survived")
+			}
+			if !alive(bystander) {
+				t.Error("another user's session was signed out")
+			}
+			var meta string
+			if err := e.db.Reader.QueryRow(`SELECT metadata_json FROM audit_events WHERE event_type = 'auth.sessions_revoked' AND user_id = 'u1'`).Scan(&meta); err != nil || !strings.Contains(meta, `"count":"2"`) {
+				t.Errorf("audit metadata = %q, %v; want count 2", meta, err)
+			}
+
+			page := e.serve(withCookie(req("GET", "/account/password?signedout=1", nil), cookie)).Body.String()
+			if !strings.Contains(page, "Every other session was signed out.") {
+				t.Error("the page does not confirm it")
+			}
+		})
+	}
+}
+
+func TestSignOutOtherSessionsNeedsRecentAuth(t *testing.T) {
+	e := newReauthEnv(t)
+	other, _ := e.signIn(t, "u1")
+	e.age(t)
+	f := url.Values{CSRFFormField: {e.csrf.token(e.sess.ID)}}
+	rec := e.serve(withCookie(req("POST", "/account/sessions/sign-out-others", f), e.cookie))
+	if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), "/reauth") {
+		t.Errorf("stale POST = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if e.serve(withCookie(req("GET", "/monitors", nil), other)).Code != 200 {
+		t.Error("sessions were signed out without re-authentication")
+	}
+}
+
+// The settings navigation links only to pages the role may open.
+func TestSettingsNavigationByRole(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "a1", "admin", "admin", testPassword)
+	e.addUser(t, "v1", "vera", "viewer", testPassword)
+	admin, _ := e.signIn(t, "a1")
+	viewer, _ := e.signIn(t, "v1")
+
+	body := e.serve(withCookie(req("GET", "/account/password", nil), admin)).Body.String()
+	for _, want := range []string{`href="/settings/authentication"`, `href="/settings/system"`, `href="/account/password" aria-current="page"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("admin navigation lacks %q", want)
+		}
+	}
+	body = e.serve(withCookie(req("GET", "/account/password", nil), viewer)).Body.String()
+	if !strings.Contains(body, `aria-label="Settings"`) || !strings.Contains(body, `href="/account/password"`) {
+		t.Error("the viewer has no account navigation")
+	}
+	for _, hidden := range []string{"/settings/authentication", "/settings/system"} {
+		if strings.Contains(body, hidden) {
+			t.Errorf("the viewer's page links to admin-only %s", hidden)
+		}
+	}
+}

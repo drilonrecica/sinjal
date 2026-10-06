@@ -2,24 +2,39 @@ package templates
 
 import "strconv"
 
-// AccountPassword is the signed-in user's own password change. It is open
-// to viewers, so it sits in the settings frame without admin-only content.
+// AccountPassword is the signed-in user's own account page: password
+// change and signing out other sessions. It is open to viewers, so it holds
+// nothing admin-only.
 templ AccountPassword(page Page, f PasswordForm, minPassword int) {
-	@settingsFrame(page) {
-		<h1>Change password</h1>
+	@settingsFrame(page, "account") {
+		<h1>Your account</h1>
 		if f.Changed {
 			<p class="auth-notice" role="status">Your password was changed. Your other sessions were signed out.</p>
 		}
-		<form class="auth-form" method="post" action="/account/password">
-			@CSRFField(page)
-			@field("password", "New password", f.Errors) {
-				<input id="password" name="password" type="password" autocomplete="new-password" required minlength={ strconv.Itoa(minPassword) } { fieldAttrs("password", f.Errors, "password-hint")... }/>
-				<p id="password-hint" class="auth-hint">At least { strconv.Itoa(minPassword) } characters. A passphrase works well.</p>
-			}
-			@field("confirm", "Confirm new password", f.Errors) {
-				<input id="confirm" name="confirm" type="password" autocomplete="new-password" required { fieldAttrs("confirm", f.Errors)... }/>
-			}
-			<button class="auth-submit" type="submit">Change password</button>
-		</form>
+		if f.SignedOut {
+			<p class="auth-notice" role="status">Every other session was signed out.</p>
+		}
+		<section class="settings-section" aria-labelledby="password-heading">
+			<h2 id="password-heading">Change password</h2>
+			<form class="auth-form" method="post" action="/account/password">
+				@CSRFField(page)
+				@field("password", "New password", f.Errors) {
+					<input id="password" name="password" type="password" autocomplete="new-password" required minlength={ strconv.Itoa(minPassword) } { fieldAttrs("password", f.Errors, "password-hint")... }/>
+					<p id="password-hint" class="auth-hint">At least { strconv.Itoa(minPassword) } characters. A passphrase works well.</p>
+				}
+				@field("confirm", "Confirm new password", f.Errors) {
+					<input id="confirm" name="confirm" type="password" autocomplete="new-password" required { fieldAttrs("confirm", f.Errors)... }/>
+				}
+				<button class="auth-submit" type="submit">Change password</button>
+			</form>
+		</section>
+		<section class="settings-section" aria-labelledby="sessions-heading">
+			<h2 id="sessions-heading">Sessions</h2>
+			<p>Signed in somewhere you no longer use? This signs out every other browser and device. You stay signed in here.</p>
+			<form method="post" action="/account/sessions/sign-out-others">
+				@CSRFField(page)
+				<button class="settings-button settings-button-danger" type="submit">Sign out other sessions</button>
+			</form>
+		</section>
 	}
 }

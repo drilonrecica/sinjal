@@ -1,5 +1,5 @@
-/* Pre-login pages (setup, later login and re-auth): one narrow centred
- * column, no app shell. Themed polish arrives with M1-18. */
+/* Pre-login pages (setup, login, re-auth) and the forms inside settings:
+ * one narrow centred column, no app shell. Colours come from tokens only. */
 
 .auth {
   display: grid;
@@ -13,6 +13,10 @@
   gap: var(--space-4);
   width: 100%;
   max-width: 24rem;
+  padding: var(--space-5);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .auth-brand {
@@ -45,12 +49,18 @@
 }
 
 .auth-field input {
+  min-height: 2.75rem; /* touch target */
   padding: var(--space-2) var(--space-3);
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
 }
 
+.auth-field input:focus-visible {
+  border-color: var(--accent);
+}
+
+/* An invalid field is marked by its border and by the message under it. */
 .auth-field input[aria-invalid="true"] {
   border-color: var(--status-down);
 }
@@ -72,6 +82,7 @@
 }
 
 .auth-submit {
+  min-height: 2.75rem;
   padding: var(--space-2) var(--space-4);
   background: var(--accent);
   color: var(--accent-contrast);
@@ -81,6 +92,15 @@
   cursor: pointer;
 }
 
+.auth-submit:hover {
+  filter: brightness(1.08);
+}
+
+/* The settings pages place these forms in the main column, not a card. */
+.settings .auth-form {
+  max-width: 22rem;
+}
+
 /* Passkey button under a form, and its error line (filled by passkey.js). */
 .passkey {
   display: grid;
@@ -88,6 +108,7 @@
 }
 
 .auth-secondary {
+  min-height: 2.75rem;
   padding: var(--space-2) var(--space-4);
   background: transparent;
   border: 1px solid var(--border-strong);

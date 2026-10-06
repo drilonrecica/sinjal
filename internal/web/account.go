@@ -40,15 +40,16 @@ func RegisterAccount(r chi.Router, h *Account, recent func(http.Handler) http.Ha
 		r.Get(accountPasswordPath, h.passwordForm)
 		r.Head(accountPasswordPath, h.passwordForm)
 		r.Post(accountPasswordPath, h.passwordChange)
+		r.Post("/account/sessions/sign-out-others", h.signOutOthers)
 	})
 }
 
 func (h *Account) passwordForm(w http.ResponseWriter, r *http.Request) {
-	h.render(w, r, http.StatusOK, templates.PasswordForm{Changed: r.URL.Query().Get("changed") == "1"})
+	h.render(w, r, http.StatusOK, templates.PasswordForm{Changed: r.URL.Query().Get("changed") == "1", SignedOut: r.URL.Query().Get("signedout") == "1"})
 }
 
 func (h *Account) render(w http.ResponseWriter, r *http.Request, status int, f templates.PasswordForm) {
-	render(w, r, h.log, status, templates.AccountPassword(pageFor(r, "Change password — Sinjal"), f, auth.MinPasswordLen))
+	render(w, r, h.log, status, templates.AccountPassword(pageFor(r, "Your account — Sinjal"), f, auth.MinPasswordLen))
 }
 
 // passwordChange stores the new password, deletes the user's other
@@ -84,4 +85,18 @@ func (h *Account) passwordChange(w http.ResponseWriter, r *http.Request) {
 		h.log.Error("rotating the session after a password change failed", "error", err)
 	}
 	http.Redirect(w, r, accountPasswordPath+"?changed=1", http.StatusSeeOther)
+}
+
+// signOutOthers ends every other session of the signed-in user, for a
+// forgotten browser or a lost device. The current session stays.
+func (h *Account) signOutOthers(w http.ResponseWriter, r *http.Request) {
+	cs, _ := SessionFromContext(r.Context())
+	n, err := auth.SignOutOtherSessions(r.Context(), h.db, cs.User.ID, cs.Session.ID, proxy.ClientIP(r).String(), h.now())
+	if err != nil {
+		h.log.Error("account: signing out other sessions failed", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	h.log.Info("other sessions signed out", "user_id", cs.User.ID, "count", n)
+	http.Redirect(w, r, accountPasswordPath+"?signedout=1", http.StatusSeeOther)
 }

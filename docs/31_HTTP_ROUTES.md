@@ -80,6 +80,7 @@ POST /settings/authentication/viewers/{id}/disable   # also deletes the viewer's
 POST /settings/authentication/viewers/{id}/enable
 GET  /account/password       # own password change; admin or viewer, recent re-authentication
 POST /account/password
+POST /account/sessions/sign-out-others   # own other sessions; admin or viewer, recent re-authentication
 GET  /settings/data
 GET  /settings/backup
 GET  /settings/system

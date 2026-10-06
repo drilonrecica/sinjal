@@ -389,6 +389,16 @@ Record:
 
 Do not build compliance-grade immutable audit infrastructure.
 
+### Implementation (M1-18)
+
+Auth UI (`web/templates/*.templ`, `web/static/css/{auth,settings,audit}.css`). Every page is server-rendered with no inline script or style; colours come from tokens, so all four themes apply.
+
+- Forms: a visible label on every input (`TestEveryInputHasALabel`), field errors next to the field with `aria-invalid` and `aria-describedby` (`fieldAttrs`), and for the one generic failure of login, TOTP and re-authentication an alert (`id="form-error"`, `role="alert"`) that the fields point at (`formErrorAttrs`). Passwords are never echoed. Inputs and buttons are at least 2.75 rem tall.
+- Pre-login pages sit in a bordered card; the settings pages share a navigation strip (`settingsPages`): Your account for everyone, Authentication and System for admins only (`Page.Admin`). The current page is marked by weight and a bar as well as colour.
+- `/account/password` is "Your account": change password and **Sign out other sessions** (`POST /account/sessions/sign-out-others`, recent re-authentication, `auth.SignOutOtherSessions` deletes the user's other sessions and audits `auth.sessions_revoked` with the count). Open to viewers.
+- Settings → Authentication: account link, authenticator app, passkeys, viewers. Actions that remove access (turn off, remove, disable) use the danger colour with a text label.
+- Checked in Chromium against the built binary: setup, sign-in failure, Authentication, System and Your account, desktop and 390 px wide, with no CSP violation (only the unrelated `/favicon.ico` 404).
+
 ### Implementation (M1-17)
 
 - `internal/audit` is the one writer: `audit.Write(ctx, q, Event, now)` takes a `*sql.DB` or a `*sql.Tx`, so an event joins the transaction of the change it records (a rolled-back change leaves no event); `audit.Record` writes on its own with the busy retry. Event types are constants in the package (`audit.LoginSucceeded`, …); a later milestone adds its own next to them. The auth package's private writer is gone.

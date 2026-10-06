@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/audit"
@@ -155,4 +156,32 @@ func ChangePassword(ctx context.Context, d *db.DB, userID, password, keepID, cli
 		}
 		return tx.Commit()
 	})
+}
+
+// SignOutOtherSessions deletes all of the user's sessions except keepID and
+// audits it (`auth.sessions_revoked`, with the count), in one transaction.
+// Callers require recent re-authentication. It returns how many were
+// signed out.
+func SignOutOtherSessions(ctx context.Context, d *db.DB, userID, keepID, clientIP string, now time.Time) (int64, error) {
+	var n int64
+	err := db.Retry(ctx, func() error {
+		tx, err := d.Writer.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		res, err := tx.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ? AND id <> ?`, userID, keepID)
+		if err != nil {
+			return err
+		}
+		if n, err = res.RowsAffected(); err != nil {
+			return err
+		}
+		meta := map[string]string{"client_ip": clientIP, "count": strconv.FormatInt(n, 10)}
+		if err := audit.Write(ctx, tx, audit.Event{UserID: userID, Type: audit.SessionsRevoked, ObjectType: "user", ObjectID: userID, Metadata: meta}, now); err != nil {
+			return err
+		}
+		return tx.Commit()
+	})
+	return n, err
 }

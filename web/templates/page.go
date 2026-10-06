@@ -27,6 +27,7 @@ type Page struct {
 	Styles    []string
 	Scripts   []string
 	CSRFToken string
+	Admin     bool // the signed-in user is an admin (settings navigation)
 }
 
 // NewPage builds a Page. Unknown theme or density values fall back to the
