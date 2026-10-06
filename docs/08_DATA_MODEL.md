@@ -27,6 +27,8 @@ Only admin can mutate configuration.
 - reauthenticated_at
 - user agent/IP metadata optional and privacy-limited
 
+Policy in `13_AUTH_SECURITY.md`: 30-day absolute expiry, `last_seen_at` written at most every 5 minutes, re-authentication valid for 10 minutes.
+
 ## Passkey credential
 
 - user_id

@@ -107,6 +107,8 @@ Mitigations:
 - Secure/HttpOnly
 - expiry/rotation
 - revoke security changes
+- `__Host-` cookie prefix over HTTPS
+- "Sign out other sessions" action
 
 ## Explicitly accepted risks
 

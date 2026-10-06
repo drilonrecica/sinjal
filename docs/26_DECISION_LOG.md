@@ -178,3 +178,4 @@ This summarizes the locked design rounds.
 - P0-06: self-host Inter + JetBrains Mono as variable woff2 subset to Latin + Latin Extended-A; ≤150 KB font budget; system fallbacks; no CDN.
 - P0-07: JSON assertions use a strict path subset (`$`, `.name`, `["key"]`, `[n]`); typed scalar expected values; type-aware equality; `not equals` requires the path to exist.
 - P0-08: FLAPPING is an overlay (`flapping_since`) on the real state; enter at ≥4 confirmed transitions in 10 min, exit after 10 min without one; one warning on entry, DOWN or STABLE on exit; window rebuilt from incidents after restart.
+- P0-09: sessions use a 32-byte token (SHA-256 stored), `__Host-` cookie when Secure, SameSite=Lax, absolute 30 d lifetime, `last_seen_at` throttled to 5 min, re-auth valid 10 min, other sessions revoked on security changes.

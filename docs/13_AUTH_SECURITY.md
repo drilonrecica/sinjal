@@ -23,18 +23,38 @@ Parameters should be benchmarked on target hardware and documented. Avoid weak d
 
 ## Sessions
 
+Policy (decision P0-09). Applies to admins and viewers.
+
+Token:
+- 32 random bytes from `crypto/rand`, base64url in the cookie
+- only the SHA-256 hash is stored (`sessions.token_hash`)
+
 Cookie:
-- Secure when served over HTTPS
+- name `__Host-sinjal_session` when Secure; `sinjal_session` on plain HTTP (local/dev)
+- Secure when served over HTTPS directly or via a trusted proxy
 - HttpOnly
-- SameSite=Lax or Strict based on tested auth UX
-- opaque random token; store hash server-side
+- `Path=/`, no `Domain`
+- `SameSite=Lax`: Strict would drop the session when following links from notifications (email, Telegram, Discord) into the dashboard; CSRF tokens still protect every state change
 
-Default long-lived session:
-- up to ~30 days
-- refresh/rotation strategy documented
-- immediate invalidation on password/security reset
+Lifetime:
+- absolute 30 days from login (`expires_at`); no sliding extension, no idle timeout
+- `last_seen_at` is updated at most once per 5 minutes per session, to keep request handling free of DB writes
+- expired sessions are rejected on read and deleted by the daily cleanup job
 
-Sensitive actions require recent re-authentication.
+Rotation:
+- a new token is issued on login and on re-authentication
+- no periodic rotation
+
+Invalidation:
+- logout deletes the current session
+- password change, TOTP reset/disable and passkey removal delete all **other** sessions of that user (the current one is rotated)
+- disabling a user, deleting a user or changing their role deletes all of that user's sessions
+- Settings → Authentication offers "Sign out other sessions" (requires re-authentication)
+
+Sensitive actions require recent re-authentication:
+- re-authenticate with password (plus TOTP when enabled) or a passkey
+- valid for 10 minutes from `sessions.reauthenticated_at`
+- a fresh login counts as re-authentication
 
 ## Re-authentication actions
 
