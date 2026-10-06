@@ -1,0 +1,110 @@
+/* Reset, typography and spacing scale. Colours come from tokens.css only.
+ * Self-hosted Inter / JetBrains Mono arrive with the design pass (M8-01);
+ * until then the system stacks from docs/04_DESIGN_SYSTEM.md apply. */
+
+:root {
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* Spacing follows the density setting (comfortable 1, compact 0.8). */
+  --space-1: calc(0.25rem * var(--space-density-factor));
+  --space-2: calc(0.5rem * var(--space-density-factor));
+  --space-3: calc(0.75rem * var(--space-density-factor));
+  --space-4: calc(1rem * var(--space-density-factor));
+  --space-5: calc(1.5rem * var(--space-density-factor));
+  --space-6: calc(2rem * var(--space-density-factor));
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, p, ul, ol, dl, figure, pre {
+  margin: 0;
+}
+
+h1 { font-size: var(--text-xl); line-height: 1.25; font-weight: 650; }
+h2 { font-size: var(--text-lg); line-height: 1.3; font-weight: 600; }
+h3 { font-size: var(--text-base); line-height: 1.4; font-weight: 600; }
+
+ul[role="list"], ol[role="list"] {
+  list-style: none;
+  padding: 0;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.15em;
+}
+
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+img, svg {
+  display: block;
+  max-width: 100%;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

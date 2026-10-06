@@ -12,6 +12,7 @@ import (
 	"syscall"
 	_ "time/tzdata" // SINJAL_TIMEZONE must work without system zoneinfo (scratch image)
 
+	"github.com/drilonrecica/sinjal/internal/assets"
 	"github.com/drilonrecica/sinjal/internal/config"
 	"github.com/drilonrecica/sinjal/internal/datadir"
 	"github.com/drilonrecica/sinjal/internal/db"
@@ -91,6 +92,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 
 	router := web.NewRouter(logger)
 	web.RegisterHealth(router, health)
+	web.RegisterStatic(router, assets.Default)
 	srv := web.NewServer(cfg.Listen, router)
 	if err := web.Run(ctx, srv, ln, web.ShutdownGrace, logger); err != nil {
 		return fatalf(stderr, "http server: %v", err)

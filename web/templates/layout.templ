@@ -1,13 +1,18 @@
 package templates
 
+import "github.com/drilonrecica/sinjal/internal/assets"
+
 // Layout is the document skeleton shared by every page.
-templ Layout(title string) {
+templ Layout(page Page) {
 	<!DOCTYPE html>
-	<html lang="en">
+	<html lang="en" data-theme={ page.Theme } data-density={ page.Density }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ title }</title>
+			<meta name="color-scheme" content={ page.ColorScheme() }/>
+			<title>{ page.Title }</title>
+			<link rel="stylesheet" href={ assets.URL("css/tokens.css") }/>
+			<link rel="stylesheet" href={ assets.URL("css/base.css") }/>
 		</head>
 		<body>
 			{ children... }
