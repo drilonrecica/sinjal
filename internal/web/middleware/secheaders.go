@@ -14,7 +14,7 @@ const ContentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 
 // PermissionsPolicy turns off powerful features Sinjal never uses. WebAuthn
 // (publickey-credentials-*) keeps its default of self for passkeys.
 const PermissionsPolicy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), " +
-	"serial=(), bluetooth=(), midi=(), display-capture=(), browsing-topics=()"
+	"serial=(), midi=(), display-capture=(), browsing-topics=()"
 
 // SecurityHeaders sets the response security headers (docs/13 "Security
 // headers") before the handler runs, so every response carries them:

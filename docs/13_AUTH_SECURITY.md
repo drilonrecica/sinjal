@@ -301,7 +301,7 @@ Avoid CDN dependencies that complicate CSP.
 
 - `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
 - `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` (`/setup` overrides with `no-referrer`), `X-Frame-Options: DENY` (for old browsers; `frame-ancestors` is the real control), `Cross-Origin-Opener-Policy: same-origin`
-- `Permissions-Policy` disables camera, microphone, geolocation, payment, USB, serial, Bluetooth, MIDI, display capture and topics. WebAuthn keeps its default (self) for passkeys.
+- `Permissions-Policy` disables camera, microphone, geolocation, payment, USB, serial, MIDI, display capture and topics. WebAuthn keeps its default (self) for passkeys.
 
 Notes:
 - There is no inline script, so no hash is needed: the theme is rendered on the server as `data-theme`/`data-density`, which also avoids a flash of the wrong theme.
