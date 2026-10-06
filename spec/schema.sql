@@ -165,6 +165,20 @@ CREATE TABLE heartbeat_monitor_config (
   last_beat_at TEXT
 );
 
+-- Pause intervals; paused time is excluded from uptime (docs/10).
+CREATE TABLE monitor_pauses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+  paused_at TEXT NOT NULL,
+  resumed_at TEXT
+);
+
+CREATE INDEX idx_monitor_pauses_monitor_time
+  ON monitor_pauses(monitor_id, paused_at);
+-- At most one open pause per monitor.
+CREATE UNIQUE INDEX idx_monitor_pauses_open
+  ON monitor_pauses(monitor_id) WHERE resumed_at IS NULL;
+
 CREATE TABLE tags (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE

@@ -16,7 +16,7 @@ Embedded numbered SQL migrations:
 internal/db/migrations/
   001_foundation.sql      # M0: system_settings
   002_auth.sql            # M1: users (+ UI prefs), sessions, passkeys, audit_events
-  003_monitors.sql        # M2: monitors, http config, secrets, tags, check_results,
+  003_monitors.sql        # M2: monitors, monitor_pauses, http config, secrets, tags, check_results,
                           #     minimal notification_profiles (FK target)
   004_incidents.sql       # M3: incidents (+ notification state), incident_events,
                           #     maintenance_windows

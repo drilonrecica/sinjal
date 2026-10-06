@@ -87,6 +87,15 @@ Encrypted-at-rest values associated with a monitor:
 
 Store separately enough that normal monitor listing queries do not pull secret blobs.
 
+## Monitor pause
+
+Interval log used to exclude paused time from uptime:
+- monitor_id
+- paused_at
+- resumed_at nullable (NULL while paused)
+
+At most one open pause per monitor. Written only on pause/resume.
+
 ## Tags
 
 Many-to-many:

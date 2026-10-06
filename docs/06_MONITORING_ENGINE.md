@@ -36,7 +36,8 @@ Default:
 Paused monitors:
 - are not scheduled
 - preserve history and incidents
-- do not count pause time as outage
+- do not count pause time as outage (pause intervals are excluded from uptime; see `10_INCIDENTS.md`)
+- pausing closes an active incident without a recovery notification
 - UI must clearly distinguish PAUSED from DOWN
 
 ## HTTP(S)

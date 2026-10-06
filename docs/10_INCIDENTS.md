@@ -93,6 +93,42 @@ During maintenance:
 
 The UI must show maintenance overlays.
 
+## Pausing
+
+Pausing a monitor:
+- closes its active incident, if any, at the pause time with an incident event `paused`
+- sends no recovery notification
+- clears the FLAPPING overlay
+- records the pause interval (`monitor_pauses`)
+
+Resuming closes the pause interval and sets the state to PENDING until the first check result; from there the normal state machine applies.
+
+## Uptime
+
+Time-weighted, computed from incidents and pause intervals (decision P0-12). It does not use check counts, so single failures that recover on the confirmation retry do not count as downtime, and the same formula works for any range regardless of raw-result retention.
+
+For a monitor and a requested range:
+
+```text
+R  = requested range clipped to [monitor.created_at, now)
+P  = paused time within R                      (monitor_pauses)
+O  = R − P                                     observed time
+D  = incident time within O                    (started_at → ended_at, active incident → now)
+M  = time within O covered by in-scope maintenance windows
+     with exclude_from_adjusted_uptime = 1
+
+raw uptime      = (O − D) / O
+adjusted uptime = (O − M − (D − D∩M)) / (O − M)
+```
+
+Rules:
+- incidents start at the first qualifying failure (see "Opening incident"), so the confirmation period counts as downtime once DOWN is confirmed
+- every incident counts, including parent-suppressed and flapping ones; suppression only affects notifications
+- denominator 0 (e.g. fully paused range) → "no data", never 100%
+- display with two decimals, truncated rather than rounded, so a range with any downtime never shows 100.00%
+- maintenance time M is expanded from the current maintenance window definitions; editing or deleting a window that already occurred changes historical adjusted uptime (accepted v1 behavior, documented in the UI help text)
+- latency statistics (avg/min/max/p95) come from raw results and aggregates; uptime does not
+
 ## Parent dependency
 
 If parent is DOWN:

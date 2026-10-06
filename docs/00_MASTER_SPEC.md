@@ -122,6 +122,8 @@ Show both:
 - raw uptime
 - adjusted uptime
 
+Uptime is time-weighted from incidents and pause intervals; formulas in `10_INCIDENTS.md`.
+
 ## History
 
 Retention tiers:
