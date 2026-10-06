@@ -108,3 +108,4 @@ Claude Code should update this file as milestones are completed.
 - M0-01: Go module `github.com/drilonrecica/sinjal` (go 1.27); chi and modernc sqlite pinned; templ pinned via `tool` directive. `cmd/sinjal/deps.go` is temporary and is deleted once chi/sqlite are imported for real.
 - M0-02: `cmd/sinjal` entrypoint with testable `run()`; `serve` (default) and `version`; `serve` is a stub until M0-10.
 - M0-03: `Makefile` (dev, generate, fmt, lint, test, test-race, bench, build, reset-dev-db, release-local stub); dev data in git-ignored `./.dev-data`.
+- M0-04: `internal/config` environment loader (strict, reports all errors, rejects unknown `SINJAL_*`); `serve` fails fast on bad config; tzdata embedded; env table in `docs/15_CONFIG_BACKUP.md`.

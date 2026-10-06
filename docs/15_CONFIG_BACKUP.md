@@ -8,7 +8,7 @@ Environment/CLI:
 SQLite:
 - what Sinjal monitors and user-managed app configuration
 
-## Environment examples
+## Environment variables
 
 ```text
 SINJAL_DATA_DIR=/data
@@ -16,8 +16,23 @@ SINJAL_LISTEN=:8080
 SINJAL_BASE_URL=https://sinjal.example.com
 SINJAL_TRUSTED_PROXIES=172.16.0.0/12
 SINJAL_LOG_FORMAT=text
+SINJAL_LOG_LEVEL=info
 SINJAL_TIMEZONE=Europe/Belgrade
+SINJAL_WORKERS=16
 ```
+
+| Variable | Default | Rules |
+|---|---|---|
+| `SINJAL_DATA_DIR` | `/data` | made absolute |
+| `SINJAL_LISTEN` | `:8080` | `host:port` or `:port`, numeric port 1–65535 |
+| `SINJAL_BASE_URL` | unset | absolute http/https URL, no credentials/query/fragment; trailing slash trimmed |
+| `SINJAL_TRUSTED_PROXIES` | none | comma-separated CIDRs or bare IPs; empty trusts no proxy |
+| `SINJAL_LOG_FORMAT` | `text` | `text` or `json` |
+| `SINJAL_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+| `SINJAL_TIMEZONE` | `UTC` | IANA name (tz database is embedded) |
+| `SINJAL_WORKERS` | auto | integer 1–256; auto is `min(32, max(8, NumCPU*4))` |
+
+Blank values count as unset. Invalid values and unknown `SINJAL_*` variables (typos) are fatal at startup, and every problem is reported at once.
 
 Do not put every monitor in environment variables.
 

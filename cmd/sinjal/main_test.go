@@ -47,3 +47,18 @@ func TestVersionOverride(t *testing.T) {
 		t.Errorf("stdout = %q", got)
 	}
 }
+
+func TestServeRejectsInvalidConfig(t *testing.T) {
+	t.Setenv("SINJAL_LOG_LEVEL", "loud")
+	t.Setenv("SINJAL_WORKERS", "0")
+
+	var stderr bytes.Buffer
+	if code := run([]string{"serve"}, &bytes.Buffer{}, &stderr); code != 1 {
+		t.Errorf("exit code = %d, want 1", code)
+	}
+	for _, want := range []string{"invalid configuration", "SINJAL_LOG_LEVEL", "SINJAL_WORKERS"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr %q is missing %q", stderr.String(), want)
+		}
+	}
+}

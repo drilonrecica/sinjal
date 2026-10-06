@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	_ "time/tzdata" // SINJAL_TIMEZONE must work without system zoneinfo (scratch image)
+
+	"github.com/drilonrecica/sinjal/internal/config"
 )
 
 // version is set at build time: -ldflags "-X main.version=1.2.3".
@@ -22,7 +25,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	switch cmd {
 	case "serve":
-		return fatalf(stderr, "serve is not implemented yet")
+		return serve(stderr)
 	case "version":
 		fmt.Fprintf(stdout, "sinjal %s\n", version)
 		return 0
@@ -36,4 +39,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 func fatalf(stderr io.Writer, format string, a ...any) int {
 	fmt.Fprintf(stderr, "sinjal: "+format+"\n", a...)
 	return 1
+}
+
+func serve(stderr io.Writer) int {
+	cfg, err := config.Load(os.Getenv, os.Environ)
+	if err != nil {
+		return fatalf(stderr, "invalid configuration:\n%v", err)
+	}
+	_ = cfg // consumed by the server in M0-10
+	return fatalf(stderr, "serve is not implemented yet")
 }
