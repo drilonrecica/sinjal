@@ -10,8 +10,8 @@ GET  /readyz
 GET  /login
 POST /login
 POST /logout
-GET  /setup                  # only before initial admin exists
-POST /setup
+GET  /setup                  # only before initial admin exists; requires setup token
+POST /setup                  # see 13_AUTH_SECURITY.md "Initial setup"
 ```
 
 ## App

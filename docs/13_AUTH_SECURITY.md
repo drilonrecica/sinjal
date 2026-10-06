@@ -9,6 +9,25 @@ Support:
 
 Password + passkey is the normal recommended setup.
 
+## Initial setup
+
+Prevents a stranger who reaches a fresh instance first from creating the admin account (decision P0-10).
+
+While no admin account exists:
+- on every startup, generate a one-time setup token (128 bits from `crypto/rand`, base32)
+- keep it in memory only; never store it in the database
+- log it once at WARN level: `Initial setup: <SINJAL_BASE_URL or http://localhost:<port>>/setup?token=<token>`
+- a restart generates a new token and invalidates the old one
+- `/setup` requires the token (query parameter on GET, hidden form field on POST), compared in constant time
+- failed attempts are rate-limited like login and return a generic error
+
+Creating the admin:
+- transactional and race-safe: it succeeds only if no admin exists at commit time
+- writes an audit event
+- discards the token
+
+After an admin exists, `/setup` returns 404 and no token is generated or logged.
+
 ## Password hashing
 
 Use Argon2id via a vetted library.

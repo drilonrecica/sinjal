@@ -101,6 +101,14 @@ Mitigations:
 - timeout
 - operational soft limits/warnings
 
+### Instance takeover during setup
+A fresh instance reachable from the internet could be claimed by whoever opens `/setup` first.
+
+Mitigations:
+- one-time setup token logged at startup, required by `/setup`
+- token kept in memory only and rotated on restart
+- `/setup` returns 404 once an admin exists
+
 ### Session theft
 Mitigations:
 - TLS expected at reverse proxy
