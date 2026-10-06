@@ -1,8 +1,9 @@
 // Package integration holds black-box tests that run the real sinjal binary.
 //
 // Milestone 0 scenario: boot from an empty data directory, create the
-// database, record every embedded migration, answer health checks, render the app shell,
-// serve hashed assets, stop cleanly on SIGTERM and restart without a backup.
+// database and master key, record every embedded migration, answer health
+// checks, render the app shell, serve hashed assets, stop cleanly on SIGTERM
+// and restart without a backup or a new key.
 package integration
 
 import (
@@ -299,6 +300,7 @@ func TestMilestone0(t *testing.T) {
 	}
 	dataDir := filepath.Join(t.TempDir(), "data") // empty: does not exist yet
 	dbPath := filepath.Join(dataDir, "sinjal.db")
+	keyPath := filepath.Join(dataDir, "master.key")
 	wantVersions := embeddedMigrationVersions(t)
 
 	// ---- first boot from an empty data directory --------------------------
@@ -420,12 +422,15 @@ func TestMilestone0(t *testing.T) {
 		if hasMsg(first, "pre-migration backup written") {
 			t.Error("a brand-new database must not be backed up")
 		}
+		if !hasMsg(first, keyGeneratedMsg) {
+			t.Errorf("first boot did not log the new master key warning:\n%s", s.logs)
+		}
 	})
 
 	t.Run("data directory state", func(t *testing.T) {
 		for path, want := range map[string]os.FileMode{
 			dataDir: 0o700, filepath.Join(dataDir, "backups"): 0o700, filepath.Join(dataDir, "uploads"): 0o700,
-			dbPath: 0o600,
+			dbPath: 0o600, keyPath: 0o600,
 		} {
 			info, err := os.Stat(path)
 			if err != nil {
@@ -445,6 +450,10 @@ func TestMilestone0(t *testing.T) {
 	})
 
 	// ---- restart on the same data directory -------------------------------
+	firstKey, err := os.ReadFile(keyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	s2 := start(t, dataDir)
 	if resp, b := body(t, http.DefaultClient, s2.base+"/healthz", nil); resp.StatusCode != 200 || strings.TrimSpace(string(b)) != "ok" {
 		t.Errorf("after restart GET /healthz = %d %q", resp.StatusCode, b)
@@ -466,6 +475,15 @@ func TestMilestone0(t *testing.T) {
 		}
 		if got := schemaVersions(t, dbPath); !sameInts(got, wantVersions) {
 			t.Errorf("schema_migrations after restart = %v, want %v", got, wantVersions)
+		}
+	})
+
+	t.Run("restart keeps the master key", func(t *testing.T) {
+		if hasMsg(second, keyGeneratedMsg) {
+			t.Errorf("restart generated a new master key:\n%s", s2.logs)
+		}
+		if got, err := os.ReadFile(keyPath); err != nil || !bytes.Equal(got, firstKey) {
+			t.Errorf("master key changed across restart (err %v)", err)
 		}
 	})
 }

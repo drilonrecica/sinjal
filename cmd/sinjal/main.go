@@ -17,6 +17,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/datadir"
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/logging"
+	"github.com/drilonrecica/sinjal/internal/vault"
 	"github.com/drilonrecica/sinjal/internal/web"
 )
 
@@ -80,6 +81,12 @@ func serve(ctx context.Context, stderr io.Writer) int {
 
 	if err := db.Migrate(ctx, database, filepath.Join(cfg.DataDir, "backups"), version, logging.Sub(logger, "db")); err != nil {
 		return fatalf(stderr, "database migration: %v", err)
+	}
+
+	// The key is unused until secrets are stored (M1-13, M2); loading it at
+	// startup still enforces its permissions and catches a missing key early.
+	if _, err := vault.LoadOrCreate(ctx, cfg.DataDir, database.Reader, logging.Sub(logger, "vault")); err != nil {
+		return fatalf(stderr, "%v", err)
 	}
 
 	health.SetReady() // migrations are complete; the listener opens next

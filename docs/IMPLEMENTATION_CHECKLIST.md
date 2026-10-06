@@ -15,7 +15,7 @@ Claude Code should update this file as milestones are completed.
 - [ ] password auth
 - [ ] sessions
 - [ ] CSRF
-- [ ] encryption key
+- [x] encryption key
 - [ ] secret envelope
 - [ ] passkeys
 - [ ] TOTP
@@ -128,3 +128,4 @@ Claude Code should update this file as milestones are completed.
   - Baseline for later regression checks (linux/amd64, idle, empty DB): binary 11.5 MB (`CGO_ENABLED=0`, stripped), cold start to `/readyz` 37 ms, RSS 15 MB, 8 threads, ~0% CPU, shell HTML 1.4 KB served in <1 ms. Budgets in `18_PERFORMANCE.md`: <50 MB RAM, <1 s start, <50 ms HTML.
   - Not covered by the M0 gate (no code yet): migration from a real prior-release fixture (only fake-FS upgrade tests exist), hot-path benchmarks, container image size, arm64 build.
 - M1-01: `002_auth.sql` — `users` (with theme/density/sidebar prefs), `sessions`, `passkeys`, `audit_events` + indexes, identical to `spec/schema.sql` (drift guard test). Tests cover columns/defaults, CHECK/UNIQUE/FK constraints, cascade on user delete (audit rows kept with NULL user), AUTOINCREMENT ids, and a real 001→002 upgrade with data and a pre-migration backup. M0 integration test now derives the expected schema versions from the migration files. M0-G treated as signed off when M1-01 was requested.
+- M1-02: `internal/vault.LoadOrCreate` — `master.key` (32 raw bytes, 0600, temp file + fsync + hard link so it is never overwritten); refuses loose permissions, wrong size, non-regular or unreadable files; when the key is missing it is generated only if no `*_enc` column holds data, otherwise startup fails with restore guidance. Wired into `serve` after migrations. Unit tests plus integration: key 0600 on first boot, unchanged on restart, and refusal to start (no key created) when the key is missing but encrypted data exists. Mutation-checked: disabling the guard turns both tests red.

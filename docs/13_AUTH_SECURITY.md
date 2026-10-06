@@ -132,6 +132,16 @@ For each encrypted value:
 
 Never reuse nonce with same key.
 
+### Master key lifecycle
+
+Implemented in `internal/vault` and loaded at startup, after migrations and before the listener opens.
+
+- Format: exactly 32 raw bytes (not hex/base64) in `<data dir>/master.key`. A symlink to a mounted secret is followed.
+- Creation: only when the file does not exist **and** no `*_enc` column in the database holds a value. The key comes from `crypto/rand`, is written to a 0600 temp file and fsynced, then hard-linked into place. The link cannot overwrite an existing file. A WARN line asks the operator to back it up.
+- Loading refuses to start, and changes nothing, when the file is not a regular file, has any group/other permission bit (the message says to run `chmod 600`), is not 32 bytes, or cannot be read.
+- Missing key with encrypted data present: startup fails with instructions to restore `master.key` from backup. Sinjal never generates a replacement key (`19_RELIABILITY.md`).
+- Encrypted columns are named `*_enc`; the presence check relies on this convention, so new tables are covered automatically.
+
 ## Backup implications
 
 A full disaster-recovery backup includes required key material and must be treated as highly sensitive.
