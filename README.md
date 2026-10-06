@@ -1,4 +1,4 @@
-# Sinjal
+<h1><img src="docs/brand/sinjal-wordmark.svg" alt="Sinjal" width="224" height="72"></h1>
 
 **Lightweight self-hosted uptime monitoring.**  
 **Tagline:** Uptime monitoring without the overhead.
