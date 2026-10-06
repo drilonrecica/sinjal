@@ -105,6 +105,8 @@ Expected behind:
 
 TLS termination remains outside Sinjal in normal deployments.
 
+Live updates use one long-lived response per open browser tab (`GET /events`, `32_SSE_EVENTS.md`). The proxy must pass it on unbuffered and must not cut idle connections in under 20 s. Caddy and Traefik do this without configuration; for nginx, Sinjal sends `X-Accel-Buffering: no`. Over HTTP/1.1 a browser allows about six connections per host, so serve Sinjal over HTTP/2 (any of these proxies with TLS) if many tabs stay open.
+
 ## Native binary
 
 Goal:

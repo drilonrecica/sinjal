@@ -11,6 +11,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/vault"
+	"github.com/drilonrecica/sinjal/internal/web/sse"
 )
 
 // App is what the route table needs from startup.
@@ -20,6 +21,7 @@ type App struct {
 	Health   *Health
 	Assets   *assets.Registry
 	Sessions *auth.Sessions
+	Events   *sse.Hub // live updates on GET /events
 	Setup    *Setup
 	CSRFKey  []byte     // vault.Key.Derive(CSRFKeyLabel)
 	Vault    *vault.Key // encrypts secrets at rest (TOTP)
@@ -59,6 +61,7 @@ func Routes(r chi.Router, app App) {
 		r.Group(func(r chi.Router) {
 			r.Use(RequireAuth(app.Logger))
 			RegisterPages(r, app.Logger)
+			RegisterEvents(r, app.Events, app.Sessions, app.Logger)
 			RegisterReauth(r, reauth)
 			RegisterPasskeyReauth(r, passkeys)
 			RegisterAccount(r, account, recentAuth) // the caller's own password; viewers too

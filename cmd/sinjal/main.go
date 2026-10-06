@@ -22,6 +22,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/vault"
 	"github.com/drilonrecica/sinjal/internal/web"
+	"github.com/drilonrecica/sinjal/internal/web/sse"
 )
 
 // version is set at build time: -ldflags "-X main.version=1.2.3".
@@ -125,6 +126,9 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	} else if reason != "" {
 		log.Warn("passkeys are off: " + reason)
 	}
+	// Live updates: the engine announces changed monitors, browsers listen
+	// on GET /events.
+	events := sse.NewHub(logging.Sub(logger, "sse"))
 	router := web.NewRouter(logger, cfg.TrustedProxies)
 	web.Routes(router, web.App{
 		Logger:   logger,
@@ -132,6 +136,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		Health:   health,
 		Assets:   assets.Default,
 		Sessions: sessions,
+		Events:   events,
 		Setup:    web.NewSetup(database, setupToken, logger),
 		CSRFKey:  masterKey.Derive(web.CSRFKeyLabel),
 		Vault:    masterKey,
@@ -141,7 +146,8 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	// Monitoring starts once the port is known to be free. Checks stop with
 	// ctx: active ones are cancelled and the results already finished are
 	// stored before the database closes (docs/07 "Shutdown").
-	monitoring := engine.New(database, masterKey, cfg.Workers, "Sinjal/"+version, logger)
+	monitoring := engine.New(database, masterKey, cfg.Workers, "Sinjal/"+version,
+		func(monitorID string) { events.Publish(sse.MonitorUpdated, monitorID) }, logger)
 	if err := monitoring.Start(ctx); err != nil {
 		ln.Close()
 		return fatalf(stderr, "starting the monitors: %v", err)
@@ -154,6 +160,9 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	}()
 
 	srv := web.NewServer(cfg.Listen, router)
+	// Open event streams never finish by themselves; without this a
+	// graceful shutdown would wait out its whole grace period on them.
+	srv.RegisterOnShutdown(events.Close)
 	err = web.Run(ctx, srv, ln, web.ShutdownGrace, logger)
 	// ctx is done once Run returns; let the jobs finish before the DB closes.
 	<-cleanupDone

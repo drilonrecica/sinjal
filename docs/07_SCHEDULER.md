@@ -155,6 +155,7 @@ The engine gives the worker pool one function. For each job it:
 - pause: the row is changed first (`store.PauseMonitor`), then the monitor is removed from the scheduler. A job that was already waiting for a worker is skipped; the result of a check that was already running is discarded by the result processor
 - resume: the row is changed (`store.ResumeMonitor`), then the monitor is scheduled with an immediate first check
 - both do nothing when the monitor is already in that state, and the two steps of each are serialised, so concurrent calls cannot leave a monitor pending but unscheduled
+- a pause or resume that changed the monitor is announced as `monitor.updated` (`32_SSE_EVENTS.md`), like every stored check result
 
 ## Clock behavior
 

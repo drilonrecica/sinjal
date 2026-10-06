@@ -110,6 +110,7 @@ Sensitive actions require recent re-authentication:
 - `LoadSession` middleware puts the session and user into the request context; it enforces nothing (M1-11). An invalid cookie is cleared; a database error answers 500.
 - `POST /logout` deletes the current session, clears the cookie and redirects (303) to `/login`. CSRF protection follows in M1-08.
 - Cleanup: `serve` deletes expired sessions at startup and every 24 hours until shutdown; this moves into the daily job runner (M6-04).
+- Event stream: `GET /events` stays open long after the request that passed `RequireAuth`, so it repeats `Lookup` every 20 s and ends when the session is gone (logout, expiry, rotation, disabled viewer); see `32_SSE_EVENTS.md`.
 
 ## Authorization
 

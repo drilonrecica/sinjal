@@ -29,6 +29,28 @@ type env struct {
 	t   *testing.T
 	d   *db.DB
 	key *vault.Key
+
+	mu      sync.Mutex
+	updated []string // monitor ids announced by the engines, in order
+}
+
+// announced is how often a monitor has been announced as updated.
+func (e *env) announced(id string) int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	n := 0
+	for _, got := range e.updated {
+		if got == id {
+			n++
+		}
+	}
+	return n
+}
+
+func (e *env) announce(id string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.updated = append(e.updated, id)
 }
 
 func newEnv(t *testing.T) *env {
@@ -108,7 +130,7 @@ func (e *env) start() *running {
 
 func (e *env) startWith(workers int) *running {
 	e.t.Helper()
-	eng := New(e.d, e.key, workers, "Sinjal/test", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := New(e.d, e.key, workers, "Sinjal/test", e.announce, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := eng.Start(ctx); err != nil {
 		cancel()
@@ -509,7 +531,7 @@ func TestCheckSendsSecrets(t *testing.T) {
 func TestStartFailsWhenMonitorsCannotBeRead(t *testing.T) {
 	e := newEnv(t)
 	e.d.Close()
-	eng := New(e.d, e.key, 4, "Sinjal/test", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := New(e.d, e.key, 4, "Sinjal/test", nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err := eng.Start(context.Background()); err == nil {
 		t.Fatal("Start succeeded on a closed database")
 	}
@@ -577,6 +599,52 @@ func TestConcurrentPauseAndResume(t *testing.T) {
 		}
 		return true
 	})
+}
+
+// Everything that changes what a monitor's row shows is announced once, for
+// the live-update stream: a stored result, a pause, a resume. A call that
+// changed nothing announces nothing.
+func TestChangesAreAnnounced(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	tg := newTarget(t)
+	id := e.monitor("api", tg.URL, nil)
+	other := e.monitor("other", tg.URL, func(m *store.HTTPMonitor) { m.Enabled = false })
+
+	r := e.start()
+	eventually(t, "the first result to be announced", func() bool { return e.announced(id) == 1 })
+	if m := e.get(id); m.State != "up" {
+		t.Fatalf("announced before the result was stored: state %s", m.State)
+	}
+
+	if err := r.Pause(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	if n := e.announced(id); n != 2 {
+		t.Fatalf("%d announcements after the pause, want 2", n)
+	}
+	if err := r.Pause(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	if n := e.announced(id); n != 2 {
+		t.Fatalf("pausing a paused monitor was announced (%d)", n)
+	}
+
+	if err := r.Resume(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	// The resume itself, then the result of its immediate check.
+	eventually(t, "the resume and its check to be announced", func() bool { return e.announced(id) == 4 })
+	if err := r.Resume(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if n := e.announced(id); n != 4 {
+		t.Fatalf("resuming a running monitor was announced (%d)", n)
+	}
+	if n := e.announced(other); n != 0 {
+		t.Fatalf("a monitor that never changed was announced %d times", n)
+	}
 }
 
 func TestStartDelay(t *testing.T) {

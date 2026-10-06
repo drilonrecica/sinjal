@@ -41,6 +41,10 @@ type Engine struct {
 	pool *scheduler.Pool
 	proc *results.Processor
 
+	// updated is told the id of a monitor whose row has changed: a stored
+	// result, a pause, a resume. It must not block.
+	updated func(monitorID string)
+
 	// mu makes a pause or resume one step: the database change and the
 	// scheduler command belong together, or two callers could leave a
 	// monitor pending but unscheduled.
@@ -50,18 +54,23 @@ type Engine struct {
 
 // New returns an engine that is not running yet. workers is the number of
 // checks that may run at once; userAgent is sent by HTTP checks that set
-// none of their own.
-func New(d *db.DB, key *vault.Key, workers int, userAgent string, logger *slog.Logger) *Engine {
+// none of their own. updated, which may be nil, is called with the id of a
+// monitor after its row changed (the SSE hub); it must not block.
+func New(d *db.DB, key *vault.Key, workers int, userAgent string, updated func(monitorID string), logger *slog.Logger) *Engine {
+	if updated == nil {
+		updated = func(string) {}
+	}
 	e := &Engine{
-		db:   d,
-		key:  key,
-		log:  logging.Sub(logger, "engine"),
-		http: httpcheck.NewPool(userAgent),
-		done: make(chan struct{}),
+		db:      d,
+		key:     key,
+		log:     logging.Sub(logger, "engine"),
+		http:    httpcheck.NewPool(userAgent),
+		updated: updated,
+		done:    make(chan struct{}),
 	}
 	e.pool = scheduler.NewPool(workers, 0, e.check, logging.Sub(logger, "scheduler"))
 	e.sch = scheduler.New(e.pool.Submit)
-	e.proc = results.New(d, logging.Sub(logger, "results"), e.sch.Retry, nil)
+	e.proc = results.New(d, logging.Sub(logger, "results"), e.sch.Retry, updated)
 	return e
 }
 
@@ -116,10 +125,16 @@ func startDelay(i, n int) time.Duration {
 func (e *Engine) Pause(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if _, err := store.PauseMonitor(ctx, e.db, id, time.Now()); err != nil {
+	changed, err := store.PauseMonitor(ctx, e.db, id, time.Now())
+	if err != nil {
 		return err
 	}
+	// Removed even when the row was paused already: harmless, and it
+	// brings the schedule back in line should the two ever disagree.
 	e.sch.Remove(id)
+	if changed {
+		e.updated(id)
+	}
 	return nil
 }
 
@@ -137,6 +152,7 @@ func (e *Engine) Resume(ctx context.Context, id string) error {
 		return err
 	}
 	e.sch.Set(id, time.Duration(m.IntervalSeconds)*time.Second, 0)
+	e.updated(id)
 	return nil
 }
 

@@ -1,9 +1,12 @@
 package integration
 
 import (
+	"bufio"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -112,5 +115,103 @@ func TestRestartKeepsMonitorState(t *testing.T) {
 	}
 	if !hasMsg(s.records(), "monitoring started") {
 		t.Errorf("no \"monitoring started\" log line\n%s", s.logs)
+	}
+}
+
+// TestEventsStream: a signed-in browser on GET /events is told when a
+// monitor's check has been stored, nobody else gets the stream, and a
+// shutdown ends an open stream cleanly and at once instead of waiting out
+// the grace period.
+func TestEventsStream(t *testing.T) {
+	skipShort(t)
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer target.Close()
+
+	dir := t.TempDir()
+	s := start(t, dir)
+	createAdmin(t, s)
+	if err := s.stop(); err != nil {
+		t.Fatal(err)
+	}
+	d := openDB(t, dir)
+	id := seedMonitor(t, d, "api", target.URL)
+	// Checked every two seconds, so that events keep coming after the
+	// stream is open (validation allows nothing below ten).
+	if _, err := d.Writer.Exec(`UPDATE monitors SET interval_seconds = 2 WHERE id = ?`, id); err != nil {
+		t.Fatal(err)
+	}
+
+	s = start(t, dir)
+	resp, err := noRedirect.Get(s.base + "/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("GET /events signed out = %d, want a redirect to the login", resp.StatusCode)
+	}
+
+	c := signIn(t, s, "admin", adminPassword)
+	req, _ := http.NewRequest(http.MethodGet, s.base+"/events", nil)
+	req.AddCookie(&http.Cookie{Name: "sinjal_session", Value: c.token})
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("GET /events = %d %q", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+
+	lines := make(chan string, 256)
+	ended := make(chan error, 1)
+	go func() {
+		br := bufio.NewReader(resp.Body)
+		for {
+			line, err := br.ReadString('\n')
+			if err != nil {
+				ended <- err
+				return
+			}
+			lines <- strings.TrimRight(line, "\n")
+		}
+	}()
+	// The frame of the next stored check: event name, then the monitor id.
+	want := []string{"event: monitor.updated", `data: {"monitor_id":"` + id + `"}`}
+	deadline := time.After(15 * time.Second)
+	for found := 0; found < len(want); {
+		select {
+		case line := <-lines:
+			switch {
+			case line == want[found]:
+				found++
+			case found > 0:
+				t.Fatalf("after %q came %q, want %q", want[found-1], line, want[found])
+			}
+		case err := <-ended:
+			t.Fatalf("the stream ended early: %v\n%s", err, s.logs)
+		case <-deadline:
+			t.Fatalf("no monitor.updated event within 15 s\n%s", s.logs)
+		}
+	}
+
+	// Shutdown with the stream open.
+	begin := time.Now()
+	if err := s.stop(); err != nil {
+		t.Fatalf("exit after SIGTERM: %v\n%s", err, s.logs)
+	}
+	if took := time.Since(begin); took > 5*time.Second {
+		t.Errorf("shutdown with an open stream took %v", took)
+	}
+	select {
+	case err := <-ended:
+		if err != io.EOF {
+			t.Errorf("the stream ended with %v, want a clean end", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("the stream was not closed by the shutdown")
+	}
+	if hasMsg(s.records(), "graceful shutdown timed out; closing remaining connections") {
+		t.Errorf("the shutdown had to cut connections\n%s", s.logs)
 	}
 }
