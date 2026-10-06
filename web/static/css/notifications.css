@@ -1,0 +1,54 @@
+/* Notifications: channel rows like the maintenance list; the form reuses
+ * the monitor form's primitives. */
+
+.chan-list {
+  margin: var(--space-2) 0 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.chan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.chan-row:last-child {
+  border-bottom: 0;
+}
+.chan-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.chan-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.chan-type {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.chan-status {
+  margin: 0;
+  font-size: var(--text-sm);
+  text-align: right;
+}
+.chan-detail {
+  grid-column: 1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.chan-actions {
+  grid-column: 2;
+  justify-self: end;
+}
+.chan-delete {
+  margin-top: var(--space-5);
+}

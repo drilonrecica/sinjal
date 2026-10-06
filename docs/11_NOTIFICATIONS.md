@@ -8,6 +8,19 @@ V1:
 - Discord
 - generic webhook
 
+### Channel configuration
+
+Each channel stores one typed configuration, encrypted as a whole in `notification_channels.config_enc` (AAD: table, column and the channel id, so a copied value does not open on another channel). The type is fixed once the channel exists.
+
+| Type | Fields (secret ones marked) |
+|---|---|
+| SMTP | server, port, security (STARTTLS or TLS), user name, **password**, from, recipients (up to 20) |
+| Telegram | **bot token**, chat id (numeric, or `@channelname`) |
+| Discord | **webhook URL** (it carries a token) |
+| Webhook | URL, optional extra header name, **header value** |
+
+Secrets are write-only in the UI: an input is never filled in, a stored one is announced as "saved", and leaving it empty on edit keeps it. A password belongs to its user name, and a header value to its header name: changing the name means entering the value again. Recipients and the from address are bare addresses, without a display name. URLs may not carry user info. Validation shows every problem at once.
+
 ## Profiles
 
 Reusable profile example:

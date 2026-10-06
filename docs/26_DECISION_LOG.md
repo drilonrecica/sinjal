@@ -60,6 +60,7 @@ This summarizes the locked design rounds.
 - channel health.
 - safe template variables.
 - test/simulated incident.
+- channel configuration is one typed value per channel, sealed as a whole; secrets are write-only and a secret follows its name field (M5-02, `11`).
 
 ## Data
 - raw 7d.

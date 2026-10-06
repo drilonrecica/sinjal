@@ -50,6 +50,7 @@ func Routes(r chi.Router, app App) {
 	monitors := NewMonitors(app.DB, app.Vault, app.Engine, app.Events, app.Timezone, app.Logger)
 	account := NewAccount(app.DB, app.Sessions, app.Logger)
 	maint := NewMaintenance(app.DB, app.Events, app.Timezone, app.Logger)
+	notifications := NewNotifications(app.DB, app.Vault, app.Timezone, app.Logger)
 	overview := NewOverview(app.DB, app.Timezone, app.Logger)
 	incidents := NewIncidents(app.DB, app.Events, app.Timezone, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
@@ -72,6 +73,7 @@ func Routes(r chi.Router, app App) {
 			RegisterEvents(r, app.Events, app.Sessions, app.Logger)
 			RegisterMonitors(r, monitors)
 			RegisterMaintenance(r, maint)
+			RegisterNotifications(r, notifications)
 			RegisterIncidents(r, incidents)
 			RegisterOverview(r, overview)
 			RegisterReauth(r, reauth)
@@ -88,6 +90,7 @@ func Routes(r chi.Router, app App) {
 				RegisterSettingsSystem(r, system) // read-only, but shows client addresses
 				RegisterMonitorChanges(r, monitors, recentAuth)
 				RegisterMaintenanceChanges(r, maint)
+				RegisterNotificationChanges(r, notifications)
 				RegisterIncidentChanges(r, incidents)
 			})
 		})

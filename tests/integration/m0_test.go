@@ -363,7 +363,7 @@ func TestMilestone0(t *testing.T) {
 	})
 
 	t.Run("assets are hashed, immutable and gzip", func(t *testing.T) {
-		_, b := body(t, http.DefaultClient, s.base+"/notifications", signedIn)
+		_, b := body(t, http.DefaultClient, s.base+"/status-pages", signedIn)
 		urls := regexp.MustCompile(`(?:href|src)="(/static/[^"]+)"`).FindAllStringSubmatch(string(b), -1)
 		if len(urls) != 4 {
 			t.Fatalf("page links %d static assets, want 4 (tokens, base, shell css + htmx)", len(urls))

@@ -45,6 +45,7 @@ POST /status-pages/{id}/delete
 GET  /notifications
 GET  /notifications/channels/new
 POST /notifications/channels
+GET  /notifications/channels/{id}/edit
 POST /notifications/channels/{id}
 POST /notifications/channels/{id}/test
 POST /notifications/channels/{id}/delete

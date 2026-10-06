@@ -1,0 +1,176 @@
+package templates
+
+import "strconv"
+
+// NotificationsPage is the Notifications page (docs/03): the channels
+// notifications can be sent through, with their health.
+templ NotificationsPage(page Page, v ChannelListView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/notifications.css"}, nil), "notifications") {
+		<div class="page-head">
+			<h1>Notifications</h1>
+			if v.Admin {
+				<a class="action" href="/notifications/channels/new">Add channel</a>
+			}
+		</div>
+		<section aria-labelledby="channels-title">
+			<h2 id="channels-title">Channels</h2>
+			if len(v.Rows) == 0 {
+				<div class="empty-state">
+					<p>No channels yet. A channel is where Sinjal sends alerts: email, Telegram, Discord or a webhook.</p>
+					if v.Admin {
+						<a class="action" href="/notifications/channels/new">Add channel</a>
+					}
+				</div>
+			} else {
+				<ul class="chan-list" role="list">
+					for _, c := range v.Rows {
+						<li class="chan-row">
+							<div class="chan-main">
+								<span class="chan-name">{ c.Name }</span>
+								<span class="chan-type">{ c.TypeLabel }</span>
+							</div>
+							<p class="chan-status">{ c.Status }</p>
+							if c.Detail != "" {
+								<p class="chan-detail">{ c.Detail }</p>
+							}
+							if v.Admin {
+								<div class="chan-actions">
+									<a href={ templ.SafeURL("/notifications/channels/" + c.ID + "/edit") }>Edit<span class="visually-hidden">{ c.Name }</span></a>
+								</div>
+							}
+						</li>
+					}
+				</ul>
+			}
+		</section>
+	}
+}
+
+// ChannelFormPage creates or edits a channel. The type is chosen first on
+// a new channel (the form depends on it) and fixed afterwards. Secret
+// inputs are never filled in.
+templ ChannelFormPage(page Page, f ChannelForm) {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/monitor_form.css", "css/monitor_detail.css", "css/notifications.css"}, nil), "notifications") {
+		<div class="monitor-form-page">
+			<p class="crumb"><a href="/notifications">Notifications</a></p>
+			if f.Editing() {
+				<h1>Edit { f.Name }</h1>
+			} else {
+				<h1>Add channel</h1>
+			}
+			if msg, ok := f.Errors["form"]; ok {
+				<p class="auth-alert" role="alert">{ msg }</p>
+			}
+			if items := f.summary(); len(items) > 0 {
+				<div class="form-summary" role="alert" aria-labelledby="summary-title">
+					<h2 id="summary-title">Fix { strconv.Itoa(len(items)) } { plural(len(items), "problem", "problems") } to save</h2>
+					<ul>
+						for _, it := range items {
+							<li><a href={ templ.SafeURL("#" + it.Field) }>{ it.Label }</a>: { it.Message }</li>
+						}
+					</ul>
+				</div>
+			}
+			<form class="monitor-form" method="post" action={ templ.SafeURL(f.Action()) } novalidate>
+				@CSRFField(page)
+				<fieldset class="form-section">
+					<legend>Channel</legend>
+					if f.Editing() {
+						<div class="form-group">
+							<p class="form-group-title">Type</p>
+							<p class="type-fixed">{ ChannelTypeLabel(f.Type) }</p>
+						</div>
+					} else {
+						<input type="hidden" name="type" value={ f.Type }/>
+						<div class="form-group" role="group" aria-labelledby="type-title">
+							<p id="type-title" class="form-group-title">Type</p>
+							<nav id="type" class="type-switch" aria-labelledby="type-title">
+								for _, t := range ChannelTypes {
+									<a
+										href={ templ.SafeURL("/notifications/channels/new?type=" + t.Value) }
+										if f.Type == t.Value {
+											aria-current="page"
+										}
+									>{ t.Label }</a>
+								}
+							</nav>
+							<p class="auth-hint">Choose the type first: switching starts the form over.</p>
+						</div>
+					}
+					@field("name", "Name", f.Errors) {
+						<input id="name" name="name" type="text" value={ f.Name } required maxlength="100" autocomplete="off" { fieldAttrs("name", f.Errors)... }/>
+					}
+					@checkbox("enabled", "Enabled", f.Enabled, "A disabled channel is kept but receives nothing.")
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>{ ChannelTypeLabel(f.Type) }</legend>
+					for _, fld := range ChannelFields(f.Type) {
+						@channelInput(fld, f)
+					}
+				</fieldset>
+				<div class="form-actions">
+					<button class="auth-submit" type="submit">
+						if f.Editing() {
+							Save changes
+						} else {
+							Add channel
+						}
+					</button>
+					<a href="/notifications">Cancel</a>
+				</div>
+			</form>
+			if f.Editing() {
+				<form class="chan-delete" method="post" action={ templ.SafeURL("/notifications/channels/" + f.ID + "/delete") }>
+					@CSRFField(page)
+					<button class="detail-button detail-button-danger" type="submit">Delete this channel</button>
+				</form>
+			}
+		</div>
+	}
+}
+
+// channelInput is one field of a channel form. A secret is a password
+// input without a value; when one is stored, the hint says so.
+templ channelInput(fld ChannelField, f ChannelForm) {
+	@field(fld.Name, fld.Label, f.Errors) {
+		switch fld.Kind {
+			case "select":
+				<select id={ fld.Name } name={ fld.Name } { fieldAttrs(fld.Name, f.Errors, hintID(fld))... }>
+					for _, o := range fld.Options {
+						<option value={ o.Value } selected?={ f.Values[fld.Name] == o.Value }>{ o.Label }</option>
+					}
+				</select>
+			case "password":
+				<input id={ fld.Name } name={ fld.Name } type="password" autocomplete="new-password" spellcheck="false" { fieldAttrs(fld.Name, f.Errors, keepHint(f.SecretSet[fld.Name], fld.Name), hintID(fld))... }/>
+				if f.SecretSet[fld.Name] {
+					<p id={ fld.Name + "-keep" } class="auth-hint">A value is saved and not shown. Leave empty to keep it.</p>
+				}
+			case "number":
+				<input id={ fld.Name } name={ fld.Name } type="number" min="1" max="65535" inputmode="numeric" value={ f.Values[fld.Name] } placeholder={ fld.Placeholder } { fieldAttrs(fld.Name, f.Errors, hintID(fld))... }/>
+			default:
+				<input id={ fld.Name } name={ fld.Name } type="text" value={ f.Values[fld.Name] } placeholder={ fld.Placeholder } autocomplete="off" spellcheck="false" { fieldAttrs(fld.Name, f.Errors, hintID(fld))... }/>
+		}
+		if fld.Hint != "" {
+			<p id={ fld.Name + "-hint" } class="auth-hint">{ fld.Hint }</p>
+		}
+	}
+}
+
+// ChannelDeleteConfirm asks before a channel is deleted.
+templ ChannelDeleteConfirm(page Page, v DeleteConfirmView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/monitor_detail.css"}, nil), "notifications") {
+		<div class="monitor-detail">
+			<p class="crumb"><a href="/notifications">Notifications</a></p>
+			<h1>Delete { v.Name }?</h1>
+			<p>Nothing is sent through this channel any more, and its delivery history is removed. Profiles that used it keep their other channels.</p>
+			<div class="detail-actions">
+				<form method="post" action={ templ.SafeURL("/notifications/channels/" + v.ID + "/delete") }>
+					@CSRFField(page)
+					<input type="hidden" name="confirm" value="1"/>
+					<button class="detail-button detail-button-danger" type="submit">Delete channel</button>
+				</form>
+				<a class="detail-button" href="/notifications">Cancel</a>
+			</div>
+		</div>
+	}
+}

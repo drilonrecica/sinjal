@@ -44,6 +44,10 @@ const (
 	MaintenanceUpdated = "maintenance.updated"
 	MaintenanceDeleted = "maintenance.deleted"
 
+	ChannelCreated = "notification.channel_created"
+	ChannelUpdated = "notification.channel_updated"
+	ChannelDeleted = "notification.channel_deleted"
+
 	IncidentNoted = "incident.noted"
 )
 
