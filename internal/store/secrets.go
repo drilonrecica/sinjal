@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/monitor"
 	"github.com/drilonrecica/sinjal/internal/vault"
 )
 
@@ -18,18 +19,37 @@ func secretContext(monitorID, key string) vault.Context {
 
 // SetSecret stores (or replaces) one encrypted secret of a monitor, such as
 // an auth header value. Secrets are kept apart from the monitor row so list
-// queries never load them.
+// queries never load them. Names follow the convention in internal/monitor
+// (auth.basic, auth.bearer, header.<Name>); a monitor uses basic or bearer
+// auth, not both.
 func SetSecret(ctx context.Context, d *db.DB, key *vault.Key, monitorID, name string, value []byte, now time.Time) error {
-	if name == "" {
-		return &InputError{"name", "Enter a secret name."}
+	if !monitor.IsSecretName(name) {
+		return &InputError{"name", "Use auth.basic, auth.bearer or header.<Header-Name>."}
 	}
+	other := map[string]string{monitor.SecretBasicAuth: monitor.SecretBearerToken, monitor.SecretBearerToken: monitor.SecretBasicAuth}[name]
 	enc := key.Seal(secretContext(monitorID, name), value)
 	return db.Retry(ctx, func() error {
-		_, err := d.Writer.ExecContext(ctx, `INSERT INTO monitor_secrets (monitor_id, key, value_enc, updated_at)
+		tx, err := d.Writer.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if other != "" {
+			var n int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM monitor_secrets WHERE monitor_id = ? AND key = ?`, monitorID, other).Scan(&n); err != nil {
+				return err
+			}
+			if n > 0 {
+				return &InputError{"name", "Remove the other authentication method first."}
+			}
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO monitor_secrets (monitor_id, key, value_enc, updated_at)
 			VALUES (?, ?, ?, ?)
 			ON CONFLICT (monitor_id, key) DO UPDATE SET value_enc = excluded.value_enc, updated_at = excluded.updated_at`,
-			monitorID, name, enc, formatTime(now))
-		return err
+			monitorID, name, enc, formatTime(now)); err != nil {
+			return err
+		}
+		return tx.Commit()
 	})
 }
 

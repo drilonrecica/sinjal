@@ -112,28 +112,13 @@ func (m *HTTPMonitor) applyDefaults() {
 	}
 }
 
-func (m *HTTPMonitor) validate() error {
-	if m.Name == "" {
-		return &InputError{"name", "Enter a name."}
-	}
-	if len([]rune(m.Name)) > MaxNameLen {
-		return &InputError{"name", "Use at most 100 characters."}
-	}
-	if m.Config.URL == "" {
-		return &InputError{"url", "Enter a URL."}
-	}
-	return nil
-}
-
 // CreateHTTPMonitor inserts the monitor, its HTTP config and its tags in one
 // transaction and returns the new id. The initial state is pending (no check
-// has run), or paused when created disabled. Validation of the status
-// expression and URL policy belongs to the caller (docs/38).
+// has run), or paused when created disabled. Invalid input is a FieldErrors
+// covering every rule of docs/38, and nothing is written.
 func CreateHTTPMonitor(ctx context.Context, d *db.DB, in HTTPMonitor, now time.Time) (string, error) {
 	in.applyDefaults()
-	if err := in.validate(); err != nil {
-		return "", err
-	}
+	errs := in.validate("")
 	id := ids.New()
 	ts := formatTime(now)
 	state := "pending"
@@ -146,6 +131,9 @@ func CreateHTTPMonitor(ctx context.Context, d *db.DB, in HTTPMonitor, now time.T
 			return err
 		}
 		defer tx.Rollback()
+		if err := checkRefs(ctx, tx, "", &in, errs); err != nil {
+			return err
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO monitors
 			(id, name, type, enabled, current_state, current_state_since, interval_seconds, timeout_ms,
 			 failure_threshold, retry_delay_ms, success_threshold, parent_monitor_id, notification_profile_id,
@@ -172,18 +160,20 @@ func CreateHTTPMonitor(ctx context.Context, d *db.DB, in HTTPMonitor, now time.T
 
 // UpdateHTTPMonitor replaces the editable fields, config and tags of an
 // HTTP monitor. State, enabled-ness and check history are untouched
-// (pausing and resuming are separate operations).
+// (pausing and resuming are separate operations). Invalid input is a
+// FieldErrors and nothing is written.
 func UpdateHTTPMonitor(ctx context.Context, d *db.DB, id string, in HTTPMonitor, now time.Time) error {
 	in.applyDefaults()
-	if err := in.validate(); err != nil {
-		return err
-	}
+	errs := in.validate(id)
 	return db.Retry(ctx, func() error {
 		tx, err := d.Writer.BeginTx(ctx, nil)
 		if err != nil {
 			return err
 		}
 		defer tx.Rollback()
+		if err := checkRefs(ctx, tx, id, &in, errs); err != nil {
+			return err
+		}
 		res, err := tx.ExecContext(ctx, `UPDATE monitors SET name = ?, interval_seconds = ?, timeout_ms = ?,
 			failure_threshold = ?, retry_delay_ms = ?, success_threshold = ?, parent_monitor_id = ?,
 			notification_profile_id = ?, updated_at = ? WHERE id = ? AND type = 'http'`,

@@ -107,7 +107,7 @@ func TestCreateDisabledMonitorIsPaused(t *testing.T) {
 func TestCreateValidatesAndWritesNothingOnFailure(t *testing.T) {
 	ctx := context.Background()
 	d := testDB(t)
-	var ie *InputError
+	var fe FieldErrors
 	for name, c := range map[string]struct {
 		mod   func(*HTTPMonitor)
 		field string
@@ -120,8 +120,8 @@ func TestCreateValidatesAndWritesNothingOnFailure(t *testing.T) {
 	} {
 		in := sample("x")
 		c.mod(&in)
-		if _, err := CreateHTTPMonitor(ctx, d, in, now); !errors.As(err, &ie) || ie.Field != c.field {
-			t.Errorf("%s: error = %v, want %s InputError", name, err, c.field)
+		if _, err := CreateHTTPMonitor(ctx, d, in, now); !errors.As(err, &fe) || fe[c.field] == "" {
+			t.Errorf("%s: error = %v, want a %s field error", name, err, c.field)
 		}
 	}
 	if n := count(t, d, `SELECT (SELECT COUNT(*) FROM monitors) + (SELECT COUNT(*) FROM http_monitor_config) + (SELECT COUNT(*) FROM tags)`); n != 0 {
@@ -154,7 +154,7 @@ func TestUpdateHTTPMonitor(t *testing.T) {
 
 	later := now.Add(time.Hour)
 	up := sample("web2")
-	up.IntervalSeconds, up.Config.ExpectedStatus, up.Config.Headers = 60, "200", `{"X":"y"}`
+	up.IntervalSeconds, up.Config.ExpectedStatus, up.Config.Headers = 60, "200", `[{"name":"X","value":"y"}]`
 	up.Tags = []string{"B", "c"} // "B" is the existing "b"
 	if err := UpdateHTTPMonitor(ctx, d, id, up, later); err != nil {
 		t.Fatal(err)
@@ -170,7 +170,7 @@ func TestUpdateHTTPMonitor(t *testing.T) {
 		t.Error("an edit must keep check results")
 	}
 	c, _ := GetHTTPConfig(ctx, d.Reader, id)
-	if c.ExpectedStatus != "200" || c.Headers != `{"X":"y"}` {
+	if c.ExpectedStatus != "200" || c.Headers != `[{"name":"X","value":"y"}]` {
 		t.Errorf("config = %+v", c)
 	}
 	tags, _ := ListTags(ctx, d.Reader)
@@ -189,7 +189,7 @@ func TestDeleteMonitorCascades(t *testing.T) {
 	in := sample("web")
 	in.Tags = []string{"t"}
 	id, _ := CreateHTTPMonitor(ctx, d, in, now)
-	if err := SetSecret(ctx, d, k, id, "auth", []byte("s3cret"), now); err != nil {
+	if err := SetSecret(ctx, d, k, id, "auth.bearer", []byte("s3cret"), now); err != nil {
 		t.Fatal(err)
 	}
 	if err := DeleteMonitor(ctx, d, id); err != nil {
@@ -216,7 +216,7 @@ func TestListAndGetNeverTouchSecrets(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := SetSecret(ctx, d, k, id, "auth", []byte("s3cret"), now); err != nil {
+		if err := SetSecret(ctx, d, k, id, "auth.bearer", []byte("s3cret"), now); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -277,13 +277,13 @@ func TestSecrets(t *testing.T) {
 	a, _ := CreateHTTPMonitor(ctx, d, sample("a"), now)
 	b, _ := CreateHTTPMonitor(ctx, d, sample("b"), now)
 
-	if err := SetSecret(ctx, d, k, a, "auth", []byte("hunter2"), now); err != nil {
+	if err := SetSecret(ctx, d, k, a, "auth.bearer", []byte("hunter2"), now); err != nil {
 		t.Fatal(err)
 	}
-	if err := SetSecret(ctx, d, k, a, "auth", []byte("hunter3"), now.Add(time.Minute)); err != nil {
+	if err := SetSecret(ctx, d, k, a, "auth.bearer", []byte("hunter3"), now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	got, err := GetSecret(ctx, d.Reader, k, a, "auth")
+	got, err := GetSecret(ctx, d.Reader, k, a, "auth.bearer")
 	if err != nil || string(got) != "hunter3" {
 		t.Fatalf("GetSecret = %q, %v", got, err)
 	}
@@ -295,15 +295,15 @@ func TestSecrets(t *testing.T) {
 		t.Error("the secret must be stored as an encrypted v1 envelope")
 	}
 	names, _ := SecretNames(ctx, d.Reader, a)
-	if !reflect.DeepEqual(names, []string{"auth"}) {
+	if !reflect.DeepEqual(names, []string{"auth.bearer"}) {
 		t.Errorf("names = %v", names)
 	}
 
 	// An envelope copied to another monitor or name must not open.
-	if _, err := d.Writer.Exec(`INSERT INTO monitor_secrets (monitor_id, key, value_enc, updated_at) VALUES (?, 'auth', ?, ?)`, b, raw, formatTime(now)); err != nil {
+	if _, err := d.Writer.Exec(`INSERT INTO monitor_secrets (monitor_id, key, value_enc, updated_at) VALUES (?, 'auth.bearer', ?, ?)`, b, raw, formatTime(now)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := GetSecret(ctx, d.Reader, k, b, "auth"); !errors.Is(err, vault.ErrDecrypt) {
+	if _, err := GetSecret(ctx, d.Reader, k, b, "auth.bearer"); !errors.Is(err, vault.ErrDecrypt) {
 		t.Errorf("a copied envelope opened: %v", err)
 	}
 	if _, err := GetSecret(ctx, d.Reader, k, a, "missing"); !errors.Is(err, ErrNotFound) {
@@ -312,13 +312,13 @@ func TestSecrets(t *testing.T) {
 	if err := SetSecret(ctx, d, k, a, "", []byte("x"), now); err == nil {
 		t.Error("an empty secret name must be rejected")
 	}
-	if err := DeleteSecret(ctx, d, a, "auth"); err != nil {
+	if err := DeleteSecret(ctx, d, a, "auth.bearer"); err != nil {
 		t.Fatal(err)
 	}
-	if err := DeleteSecret(ctx, d, a, "auth"); err != nil {
+	if err := DeleteSecret(ctx, d, a, "auth.bearer"); err != nil {
 		t.Errorf("deleting a missing secret = %v", err)
 	}
-	if _, err := GetSecret(ctx, d.Reader, k, a, "auth"); !errors.Is(err, ErrNotFound) {
+	if _, err := GetSecret(ctx, d.Reader, k, a, "auth.bearer"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("deleted secret = %v", err)
 	}
 }
