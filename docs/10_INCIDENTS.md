@@ -27,6 +27,20 @@ Stored states: UP, PENDING, DOWN, PAUSED. FLAPPING is an overlay on top of these
 
 Warnings (v1: TLS certificate expiring) are indicators alongside UP. They do not enter this state machine, do not open incidents, and do not affect uptime.
 
+### Thresholds
+
+The diagram shows the defaults (failure threshold 2, success threshold 1). In general, with failure threshold F and success threshold S:
+
+- UP or PENDING + success → UP. One success is enough; S only applies to leaving DOWN.
+- UP or PENDING + failure → PENDING and one confirmation retry after the retry delay, until F consecutive failures are reached → DOWN. With F = 1 the first failure is DOWN and there is no retry.
+- DOWN + failure → DOWN, at the normal interval. No retries while DOWN.
+- DOWN + success → UP once S consecutive successes are reached; a failure in between starts the count again.
+- PAUSED: results are ignored.
+
+A monitor therefore gets at most F − 1 confirmation retries in a row. A new or resumed monitor is PENDING with nothing counted and follows the same rules as UP.
+
+The decision is one pure function, `incident.Transition` (`internal/incident`).
+
 ## Opening incident
 
 An incident opens only when the failure threshold is met.
