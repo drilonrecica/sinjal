@@ -157,6 +157,10 @@ The engine gives the worker pool one function. For each job it:
 - both do nothing when the monitor is already in that state, and the two steps of each are serialised, so concurrent calls cannot leave a monitor pending but unscheduled
 - a pause or resume that changed the monitor is announced as `monitor.updated` (`32_SSE_EVENTS.md`), like every stored check result
 
+## Create and edit
+
+After the monitor pages have written a new or edited monitor (and its secrets), they call `Engine.Schedule(id)`. Under the same mutex as pause and resume it reads the row: an enabled monitor that is not paused is `Set` with an immediate first check, so an edit applies at once; a disabled, paused or missing monitor is `Remove`d. Reading the row under the mutex is what keeps an edit racing a pause from scheduling a paused monitor.
+
 ## Clock behavior
 
 Persist UTC wall-clock timestamps.

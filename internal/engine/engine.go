@@ -156,6 +156,30 @@ func (e *Engine) Resume(ctx context.Context, id string) error {
 	return nil
 }
 
+// Schedule brings the schedule of a monitor in line with its row after it
+// was created or edited: an enabled monitor that is not paused is checked
+// at once and then every interval (docs/07: an edit applies promptly);
+// anything else, including a monitor that no longer exists, is taken off
+// the schedule. The row is read under the pause/resume mutex, so an edit
+// racing a pause cannot leave a paused monitor scheduled.
+func (e *Engine) Schedule(ctx context.Context, id string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	m, err := store.GetMonitor(ctx, e.db.Reader, id)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		e.sch.Remove(id)
+		return nil
+	case err != nil:
+		return err
+	case !m.Enabled || m.State == string(incident.Paused):
+		e.sch.Remove(id)
+	default:
+		e.sch.Set(id, time.Duration(m.IntervalSeconds)*time.Second, 0)
+	}
+	return nil
+}
+
 // check runs one job on a worker and hands its result to the processor.
 func (e *Engine) check(ctx context.Context, j scheduler.Job) {
 	res, ok := e.run(ctx, j.MonitorID)

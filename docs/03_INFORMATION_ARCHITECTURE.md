@@ -92,6 +92,8 @@ A normal HTTP monitor should require only:
 - URL
 - interval if overriding default
 
+Built (M2-17, `/monitors/new` and `/monitors/{id}/edit`, admins only): one page, no JavaScript. Basics (type, only HTTP until M4; name; tags; "start checking now" on create), Request (URL, method, POST body, redirects, plain headers as `Name: value` lines, authentication, secret headers), Assertions (status, contains / does not contain, JSON rows: path, check, expected value), Retry & timing (in seconds), Dependencies (parent), Notifications (a placeholder until M5), and Advanced in a collapsed `<details>` that opens when one of its fields has an error. Everything but name and URL has a default. A failed save lists every problem at the top, linked to its field, and marks each field. Secrets are write-only (`13_AUTH_SECURITY.md`). Pausing is not on the form: a new monitor can start paused, an existing one is paused from its page.
+
 ## Incidents
 
 Group events by incident.

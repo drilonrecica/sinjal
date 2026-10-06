@@ -13,6 +13,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/assets"
 	"github.com/drilonrecica/sinjal/internal/auth"
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/engine"
 	"github.com/drilonrecica/sinjal/internal/vault"
 	"github.com/drilonrecica/sinjal/internal/web/sse"
 )
@@ -24,6 +25,8 @@ type appEnv struct {
 	sessions *auth.Sessions
 	csrf     *CSRF
 	events   *sse.Hub
+	engine   *engine.Engine
+	key      *vault.Key
 	logs     *lockedBuffer
 }
 
@@ -52,8 +55,18 @@ func newAppEnvAt(t *testing.T, baseURL string, trusted ...netip.Prefix) *appEnv 
 		sessions: auth.NewSessions(d, logger),
 		csrf:     NewCSRF(testCSRFKey, logger),
 		events:   sse.NewHub(logger),
+		key:      key,
 		logs:     logs,
 	}
+	// A running engine with nothing to check: the monitor pages schedule
+	// what they create. Monitors added straight to the store are not
+	// checked, so tests make no outside requests.
+	e.engine = engine.New(d, key, 2, "Sinjal/test", nil, logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := e.engine.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cancel(); e.engine.Wait() })
 	r := NewRouter(logger, trusted)
 	Routes(r, App{
 		Logger:   logger,
@@ -66,6 +79,7 @@ func newAppEnvAt(t *testing.T, baseURL string, trusted ...netip.Prefix) *appEnv 
 		CSRFKey:  testCSRFKey,
 		Vault:    key,
 		Passkeys: auth.NewPasskeys(d, baseURL, logger),
+		Engine:   e.engine,
 	})
 	e.h = r
 	return e

@@ -299,3 +299,12 @@ func checkRefs(ctx context.Context, x execer, id string, m *HTTPMonitor, errs Fi
 // maxParentDepth bounds the parent walk. Real dependency trees are a few
 // levels deep; a longer chain is treated as a cycle.
 const maxParentDepth = 64
+
+// CheckHTTPMonitor runs every rule CreateHTTPMonitor and UpdateHTTPMonitor
+// run, against the current database, and writes nothing. A form uses it to
+// show all problems at once when some of its input could not even be
+// parsed. id is "" for a new monitor. It returns nil when in is valid.
+func CheckHTTPMonitor(ctx context.Context, q *sql.DB, id string, in HTTPMonitor) error {
+	in.applyDefaults()
+	return checkRefs(ctx, q, id, &in, in.validate(id))
+}

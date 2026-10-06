@@ -669,3 +669,54 @@ func TestStartDelay(t *testing.T) {
 		t.Fatalf("startDelay(500, 1000) = %v", got)
 	}
 }
+
+// Created and edited monitors join the schedule through Schedule; disabled,
+// paused and deleted ones leave it.
+func TestSchedule(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	tg := newTarget(t)
+	r := e.start()
+	ctx := context.Background()
+
+	// Created after the start: checked at once.
+	id := e.monitor("api", tg.URL, nil)
+	if err := r.Schedule(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the new monitor to be checked", func() bool { return e.get(id).State == "up" })
+	eventually(t, "one scheduled monitor", func() bool { return r.sch.Len() == 1 })
+
+	// An edit checks again at once, long before the 30 s interval.
+	hits := tg.hits.Load()
+	if err := r.Schedule(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "a check after the edit", func() bool { return tg.hits.Load() > hits })
+
+	// An edit of a paused monitor does not schedule it again.
+	if err := r.Pause(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Schedule(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the paused monitor off the schedule", func() bool { return r.sch.Len() == 0 })
+
+	// Created disabled: never scheduled.
+	off := e.monitor("off", tg.URL, func(m *store.HTTPMonitor) { m.Enabled = false })
+	if err := r.Schedule(ctx, off); err != nil {
+		t.Fatal(err)
+	}
+	// A monitor that no longer exists is removed, not an error.
+	if err := r.Resume(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DeleteMonitor(ctx, e.d, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Schedule(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "nothing scheduled", func() bool { return r.sch.Len() == 0 })
+}

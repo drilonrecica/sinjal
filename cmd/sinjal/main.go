@@ -129,6 +129,10 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	// Live updates: the engine announces changed monitors, browsers listen
 	// on GET /events.
 	events := sse.NewHub(logging.Sub(logger, "sse"))
+	// The monitor pages schedule what they change, so the engine exists
+	// before the routes; it starts once the listener is open.
+	monitoring := engine.New(database, masterKey, cfg.Workers, "Sinjal/"+version,
+		func(monitorID string) { events.Publish(sse.MonitorUpdated, monitorID) }, logger)
 	router := web.NewRouter(logger, cfg.TrustedProxies)
 	web.Routes(router, web.App{
 		Logger:   logger,
@@ -141,13 +145,12 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		CSRFKey:  masterKey.Derive(web.CSRFKeyLabel),
 		Vault:    masterKey,
 		Passkeys: passkeys,
+		Engine:   monitoring,
 	})
 
 	// Monitoring starts once the port is known to be free. Checks stop with
 	// ctx: active ones are cancelled and the results already finished are
 	// stored before the database closes (docs/07 "Shutdown").
-	monitoring := engine.New(database, masterKey, cfg.Workers, "Sinjal/"+version,
-		func(monitorID string) { events.Publish(sse.MonitorUpdated, monitorID) }, logger)
 	if err := monitoring.Start(ctx); err != nil {
 		ln.Close()
 		return fatalf(stderr, "starting the monitors: %v", err)

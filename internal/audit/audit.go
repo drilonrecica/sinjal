@@ -13,8 +13,8 @@ import (
 	"github.com/drilonrecica/sinjal/internal/db"
 )
 
-// Event types. Later milestones add theirs next to these (monitor create
-// and delete, notification changes, backup restore).
+// Event types. Later milestones add theirs next to these (notification
+// changes, backup restore).
 const (
 	SetupAdminCreated = "setup.admin_created"
 	AdminResetCLI     = "admin_reset_cli"
@@ -33,6 +33,8 @@ const (
 	ViewerCreated  = "user.viewer_created"
 	ViewerDisabled = "user.viewer_disabled"
 	ViewerEnabled  = "user.viewer_enabled"
+
+	MonitorCreated = "monitor.created"
 )
 
 // Event is one audit_events row to write. Empty strings are stored as NULL.

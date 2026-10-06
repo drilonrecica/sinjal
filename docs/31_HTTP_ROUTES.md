@@ -141,3 +141,7 @@ Browser state-changing routes require CSRF validation.
 Heartbeat token endpoints are machine endpoints and use token authentication rather than browser CSRF semantics.
 
 `web.Routes` (`internal/web/routes.go`) is the single route table. Browser routes are mounted inside its session group (`LoadSession` + CSRF); machine endpoints, health checks and static assets are mounted outside it. Details in `13_AUTH_SECURITY.md` "CSRF". Inside the session group, pages sit behind `RequireAuth` and every state-changing app route behind `RequireAdmin` ("Authorization" in `13_AUTH_SECURITY.md`); a route test enforces this.
+
+## Implemented (M2)
+
+- `GET /monitors/new`, `POST /monitors`, `GET /monitors/{id}/edit`, `POST /monitors/{id}` (M2-17): admin only. A valid post saves, schedules (`Engine.Schedule`) and announces the monitor, then redirects (303) to the list; an invalid one is answered 422 with the form, every error at once and the typed values kept (secrets excepted). Unknown id: 404.

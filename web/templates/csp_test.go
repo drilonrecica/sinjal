@@ -59,6 +59,8 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"live":            Live(),
 		"monitorList":     MonitorList(page, MonitorListView{Admin: true, Monitors: []MonitorView{testMonitor}}),
 		"monitorListNone": MonitorList(page, MonitorListView{Admin: true}),
+		"monitorForm":     MonitorFormPage(page, testMonitorForm),
+		"monitorFormNew":  MonitorFormPage(page, MonitorForm{Enabled: true, Assertions: []AssertionField{{}}}),
 		"settingsOff":     SettingsAuth(page, SettingsAuthView{PasskeysUnavailable: "SINJAL_BASE_URL is not set."}),
 		"totpSetup":       TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}

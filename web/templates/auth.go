@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/a-h/templ"
@@ -105,9 +106,10 @@ type TOTPSetupView struct {
 
 // fieldAttrs returns the accessibility attributes of an input: hint ids
 // plus the error message id and aria-invalid when the field has an error.
+// Empty hint ids are skipped.
 func fieldAttrs(name string, errs map[string]string, hints ...string) templ.Attributes {
 	attrs := templ.Attributes{}
-	ids := hints
+	ids := slices.DeleteFunc(slices.Clone(hints), func(id string) bool { return id == "" })
 	if _, bad := errs[name]; bad {
 		attrs["aria-invalid"] = "true"
 		ids = append(ids, name+"-error")

@@ -38,6 +38,7 @@ func TestEveryInputHasALabel(t *testing.T) {
 		"settings":  renderString(t, SettingsAuth(signedIn, SettingsAuthView{MinPassword: 12})),
 		"totpSetup": renderString(t, TOTPSetup(signedIn, TOTPSetupView{Pending: "p"})),
 		"account":   renderString(t, AccountPassword(signedIn, PasswordForm{}, 12)),
+		"monitor":   renderString(t, MonitorFormPage(signedIn, testMonitorForm)),
 	}
 	for name, html := range views {
 		labelled := map[string]bool{}
@@ -94,5 +95,45 @@ func TestSettingsNavigation(t *testing.T) {
 	html = renderString(t, AccountPassword(viewer, PasswordForm{}, 12))
 	if strings.Contains(html, "/settings/system") || strings.Contains(html, "/settings/authentication") {
 		t.Error("a viewer's navigation shows admin pages")
+	}
+}
+
+// testMonitorForm exercises every optional part of the monitor form.
+var testMonitorForm = MonitorForm{
+	ID: "m1", Name: "API <b>", URL: "https://example.com", Method: "POST", Auth: "basic", HasBasic: true,
+	SecretHeaders: []string{"X-Api-Key"}, Parents: []Option{{"m2", "DB"}}, Parent: "m2",
+	Assertions: []AssertionField{{Path: "$.a", Op: "equals", Value: `"ok"`}, {}},
+	Errors:     map[string]string{"name": "Enter a name.", "proxy_url": "bad", "secret_headers": "bad", "form": "x"},
+}
+
+// The monitor form: an error summary that links to the fields in page
+// order, Advanced opened by its own errors, secrets never prefilled.
+func TestMonitorFormPage(t *testing.T) {
+	page := NewPage("t", "", "")
+	html := renderString(t, MonitorFormPage(page, testMonitorForm))
+	for _, want := range []string{
+		`<h2 id="summary-title">Fix 3 problems to save</h2>`,
+		`<a href="#name">Name</a>: Enter a name.`,
+		`<details class="form-section form-advanced" open>`,
+		`aria-describedby="basic_user-keep"`,
+		`id="sh_value.X-Api-Key"`,
+		`<option value="m2" selected>DB</option>`,
+		`API &lt;b&gt;`,
+		`action="/monitors/m1"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("form lacks %q", want)
+		}
+	}
+	if strings.Index(html, `href="#name"`) > strings.Index(html, `href="#proxy_url"`) {
+		t.Error("summary is not in page order")
+	}
+	for _, in := range inputRe.FindAllString(html, -1) {
+		if strings.Contains(in, `type="password"`) && strings.Contains(in, "value=") {
+			t.Errorf("a secret input has a value: %s", in)
+		}
+	}
+	if html := renderString(t, MonitorFormPage(page, MonitorForm{})); strings.Contains(html, "summary-title") || strings.Contains(html, "form-advanced\" open") {
+		t.Error("a clean form shows errors or an open Advanced section")
 	}
 }

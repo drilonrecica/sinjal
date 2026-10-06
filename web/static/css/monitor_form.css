@@ -1,0 +1,178 @@
+/* Create/edit monitor: one readable column of sections. Builds on the form
+ * primitives in auth.css (field, hint, error, alert, submit). */
+
+.monitor-form-page {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 44rem;
+}
+
+.crumb {
+  font-size: var(--text-sm);
+}
+
+.crumb a {
+  color: var(--text-muted);
+}
+
+.monitor-form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.form-section {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.form-section legend,
+.form-advanced summary {
+  padding: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+/* A legend sits on the border; the padding above keeps it clear. */
+.form-section legend {
+  float: left;
+  width: 100%;
+  margin-bottom: var(--space-1);
+}
+
+.form-section legend + * {
+  clear: left;
+}
+
+.form-advanced summary {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.form-advanced-body {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.monitor-form .auth-field select,
+.monitor-form .auth-field textarea {
+  min-height: 2.75rem; /* touch target */
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.monitor-form textarea {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  resize: vertical;
+}
+
+.monitor-form .auth-field select:focus-visible,
+.monitor-form .auth-field textarea:focus-visible {
+  border-color: var(--accent);
+}
+
+.monitor-form [aria-invalid="true"] {
+  border-color: var(--status-down);
+}
+
+#url,
+#proxy_url,
+.assertion-row input {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* Two related inputs side by side where there is room. */
+.form-pair,
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  align-items: start;
+}
+
+.form-group {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.form-group-title {
+  font-weight: 600;
+}
+
+.secret-header {
+  align-items: end;
+}
+
+.assertion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1.5fr);
+  gap: var(--space-3);
+}
+
+.form-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+}
+
+.form-check input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.form-check label {
+  font-weight: 600;
+}
+
+.form-check .auth-hint {
+  grid-column: 2;
+}
+
+.form-summary {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--status-down);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+}
+
+.form-summary h2 {
+  font-size: 1rem;
+}
+
+.form-summary ul {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 48rem) {
+  .assertion-row {
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px dashed var(--border);
+  }
+}

@@ -12,23 +12,31 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/engine"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/store"
+	"github.com/drilonrecica/sinjal/internal/vault"
+	"github.com/drilonrecica/sinjal/internal/web/sse"
 	"github.com/drilonrecica/sinjal/web/templates"
 )
 
-// Monitors serves the monitor fragments the live pages refresh
-// (docs/33_FRONTEND_COMPONENTS.md). Fragments are plain HTML with no layout;
-// htmx swaps them in when an SSE event names their monitor.
+// Monitors serves the monitor pages, their forms and the fragments the
+// live pages refresh (docs/33_FRONTEND_COMPONENTS.md). Fragments are plain
+// HTML with no layout; htmx swaps them in when an SSE event names their
+// monitor. Changes go to the store, then to the engine's schedule, then out
+// as events.
 type Monitors struct {
-	db  *db.DB
-	log *slog.Logger
-	now func() time.Time
+	db     *db.DB
+	key    *vault.Key
+	engine *engine.Engine
+	events *sse.Hub
+	log    *slog.Logger
+	now    func() time.Time
 }
 
-// NewMonitors returns the monitor fragment handler.
-func NewMonitors(d *db.DB, logger *slog.Logger) *Monitors {
-	return &Monitors{db: d, log: logging.Sub(logger, "http"), now: time.Now}
+// NewMonitors returns the monitor handler.
+func NewMonitors(d *db.DB, key *vault.Key, eng *engine.Engine, events *sse.Hub, logger *slog.Logger) *Monitors {
+	return &Monitors{db: d, key: key, engine: eng, events: events, log: logging.Sub(logger, "http"), now: time.Now}
 }
 
 // RegisterMonitors mounts the monitor list and its live fragments inside

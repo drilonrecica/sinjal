@@ -85,7 +85,9 @@ Events sent today:
 | Event | Sent when | Sender |
 |---|---|---|
 | `monitor.updated` | a check result has been stored (after the commit, once per monitor per batch), a monitor was paused or resumed | `internal/engine`, result processor |
-| `monitor.created`, `monitor.deleted` | a monitor was created or deleted | the monitor handlers (M2-17, M2-18) |
+| `monitor.updated` | a monitor was edited | the monitor handlers (M2-17) |
+| `monitor.created` | a monitor was created | the monitor handlers (M2-17) |
+| `monitor.deleted` | a monitor was deleted | the monitor handlers (M2-18) |
 
 The other names in the list above arrive with their features.
 
