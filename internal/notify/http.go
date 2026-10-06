@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -59,6 +60,12 @@ func transportError(ctx context.Context, err error) error {
 	var ue *url.Error
 	if errors.As(err, &ue) {
 		err = ue.Err
+	}
+	// "dial tcp 10.0.0.5:443: connect: connection refused" -> the reason
+	// alone: the address is the owner's own and adds nothing.
+	var oe *net.OpError
+	if errors.As(err, &oe) && oe.Err != nil {
+		err = oe.Err
 	}
 	return errors.New(oneLine(err.Error(), maxReasonRunes))
 }

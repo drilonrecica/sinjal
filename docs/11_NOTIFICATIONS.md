@@ -46,6 +46,13 @@ Secrets are write-only in the UI: an input is never filled in, a stored one is a
 - Other failures read `discord: 404 Not Found: Unknown Webhook` (status plus Discord's `message`, one line, an HTML error page is never quoted). The webhook URL carries a token, so no error includes it.
 - One delivery is bounded at 15 seconds per call; redirects are not followed.
 
+### Webhook delivery
+
+`notify.SendWebhook` POSTs the stable JSON payload of docs/36 (`Message.Webhook()`) with `Content-Type: application/json`, `User-Agent: Sinjal` and, when configured, the one extra header (name and value as stored; the value is the secret).
+- Any 2xx is success. Anything else is a failure, a 3xx included: redirects are never followed, so neither the payload nor the configured header can be forwarded to a host the owner did not choose.
+- An error is `webhook: <status> <text>` and nothing more. The endpoint's answer is never quoted (it can be an internal diagnostic page or echo a header), and neither the URL (it may carry a token) nor the header value appears anywhere. Connection failures give the reason only (`webhook: connection refused`, `webhook: timed out`, a certificate error), without the address.
+- One delivery is bounded at 15 seconds (or the caller's shorter context), TLS 1.2+ with the system roots for `https`, plain `http` allowed because the URL is the owner's choice. Retries and the schedule belong to the dispatcher (M5-08).
+
 ## Profiles
 
 Reusable profile example:
