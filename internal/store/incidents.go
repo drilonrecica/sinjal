@@ -39,7 +39,7 @@ func OpenIncident(ctx context.Context, tx *sql.Tx, in NewIncident) (id string, o
 		return "", false, err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		err := tx.QueryRowContext(ctx, `SELECT id FROM incidents WHERE monitor_id = ? AND ended_at IS NULL`, in.MonitorID).Scan(&id)
+		id, err := ActiveIncidentID(ctx, tx, in.MonitorID)
 		return id, false, err
 	}
 	if err := AddIncidentEvent(ctx, tx, id, incident.EventDetected, in.Detected, in.StartedAt); err != nil {
@@ -76,5 +76,59 @@ func CloseIncident(ctx context.Context, tx *sql.Tx, monitorID string, at time.Ti
 func AddIncidentEvent(ctx context.Context, tx *sql.Tx, incidentID, eventType, message string, at time.Time) error {
 	_, err := tx.ExecContext(ctx, `INSERT INTO incident_events (incident_id, event_type, message, created_at)
 		VALUES (?, ?, ?, ?)`, incidentID, eventType, nullStr(message), formatTime(at))
+	return err
+}
+
+// ActiveIncidentID returns the id of a monitor's active incident, or "" when
+// it has none.
+func ActiveIncidentID(ctx context.Context, tx *sql.Tx, monitorID string) (string, error) {
+	var id string
+	err := tx.QueryRowContext(ctx, `SELECT id FROM incidents WHERE monitor_id = ? AND ended_at IS NULL`, monitorID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
+}
+
+// RecentTransitions returns the times of a monitor's latest confirmed
+// state transitions, newest first: an incident's start (UP to DOWN) and its
+// end (DOWN to UP), unless a pause ended it, which is no recovery. It reads
+// the monitor's last incident.FlapTransitions incidents, which hold at
+// least that many transitions if the monitor has had them. This is the
+// whole flapping window: nothing else remembers transitions, so it is the
+// same before and after a restart (docs/10 "Flapping").
+func RecentTransitions(ctx context.Context, tx *sql.Tx, monitorID string) ([]time.Time, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT started_at, ended_at,
+		EXISTS (SELECT 1 FROM incident_events e WHERE e.incident_id = i.id AND e.event_type = ?)
+		FROM incidents i WHERE monitor_id = ? ORDER BY started_at DESC LIMIT ?`,
+		incident.EventPaused, monitorID, incident.FlapTransitions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []time.Time
+	for rows.Next() {
+		var started string
+		var ended sql.NullString
+		var paused bool
+		if err := rows.Scan(&started, &ended, &paused); err != nil {
+			return nil, err
+		}
+		if ended.Valid && !paused {
+			out = append(out, parseTime(ended.String))
+		}
+		out = append(out, parseTime(started))
+	}
+	return out, rows.Err()
+}
+
+// SetFlapping sets the FLAPPING overlay of a monitor to since, or clears it
+// when since is nil.
+func SetFlapping(ctx context.Context, tx *sql.Tx, monitorID string, since *time.Time) error {
+	var v any
+	if since != nil {
+		v = formatTime(*since)
+	}
+	_, err := tx.ExecContext(ctx, `UPDATE monitors SET flapping_since = ? WHERE id = ?`, v, monitorID)
 	return err
 }

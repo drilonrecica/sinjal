@@ -227,6 +227,9 @@ type monitorWork struct {
 	from       incident.State
 	flapping   bool              // the FLAPPING overlay is set
 	intents    []incident.Intent // decided in this batch, in order
+	// lastTransition is when the monitor last went down or recovered. It
+	// is only known, and only needed, while the monitor is flapping.
+	lastTransition time.Time
 }
 
 // write stores a batch in one transaction and then applies its effects.
@@ -307,15 +310,24 @@ func (p *Processor) write(ctx context.Context, batch []Result) error {
 
 // apply stores one result and what follows from it: the monitor's new
 // state and, when the state machine confirms an outage or its end, the
-// incident and the intent to notify about it (docs/10_INCIDENTS.md). A
-// monitor that stays down opens nothing, which is why a restart during an
-// outage can neither duplicate its incident nor announce it again.
+// incident, the FLAPPING overlay and the intents to notify
+// (docs/10_INCIDENTS.md). A monitor that stays down opens nothing, which is
+// why a restart during an outage can neither duplicate its incident nor
+// announce it again.
 func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	if err := store.InsertCheckResult(ctx, tx, store.CheckResult{
 		MonitorID: r.MonitorID, CheckedAt: r.CheckedAt, Duration: r.Duration, Success: r.Success,
 		ProtocolStatus: r.Status, ErrorKind: r.Kind, ErrorMessage: r.Message, Snippet: r.Snippet, Metadata: r.Metadata,
 	}); err != nil {
 		return err
+	}
+	// Flapping ends FlapWindow after the last transition. That moment has
+	// passed unnoticed, so it is settled first, for the state the monitor
+	// was in, and this result is then an ordinary one.
+	if w.flapping && incident.FlapEnded(w.lastTransition, stored(r.CheckedAt)) {
+		if err := w.endFlapping(ctx, tx, r); err != nil {
+			return err
+		}
 	}
 	out := incident.Transition(w.state, w.counters, r.Success, w.thresholds)
 	changed := out.State != w.state
@@ -335,7 +347,7 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 			FailureKind: w.first.kind, Detected: w.first.message, Summary: r.Message,
 		})
 		if err == nil && opened {
-			err = w.intend(ctx, tx, incident.IntentDown, r, id)
+			err = w.transition(ctx, tx, incident.IntentDown, r, id, w.first.at)
 		}
 		if err != nil {
 			return err
@@ -343,7 +355,7 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	case changed && w.state == incident.Down:
 		id, closed, err := store.CloseIncident(ctx, tx, r.MonitorID, r.CheckedAt, incident.EventRecovered)
 		if err == nil && closed {
-			err = w.intend(ctx, tx, incident.IntentRecovery, r, id)
+			err = w.transition(ctx, tx, incident.IntentRecovery, r, id, r.CheckedAt)
 		}
 		if err != nil {
 			return err
@@ -354,6 +366,54 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	}
 	w.state, w.counters, w.retry = out.State, out.Counters, out.Retry
 	return nil
+}
+
+// stored is t as the database keeps it: in whole seconds. Flapping is
+// decided on these values, so that it does not depend on whether a time
+// was still in memory or has been read back after a restart.
+func stored(t time.Time) time.Time { return t.Truncate(time.Second) }
+
+// transition follows an incident that result r opened or closed: the
+// transition counts towards flapping at the given time (an opening at the
+// incident's start, as a restart will read it back), the overlay is set if
+// it is the one too many, and the intent of the given kind is decided,
+// which the overlay then suppresses.
+func (w *monitorWork) transition(ctx context.Context, tx *sql.Tx, kind incident.IntentKind, r *Result, incidentID string, at time.Time) error {
+	w.lastTransition = stored(at)
+	if !w.flapping {
+		recent, err := store.RecentTransitions(ctx, tx, r.MonitorID)
+		if err != nil {
+			return err
+		}
+		if incident.FlapStarts(recent, stored(r.CheckedAt)) {
+			if err := store.SetFlapping(ctx, tx, r.MonitorID, &r.CheckedAt); err != nil {
+				return err
+			}
+			w.flapping = true
+			if err := w.intend(ctx, tx, incident.IntentFlapping, r, incidentID); err != nil {
+				return err
+			}
+		}
+	}
+	return w.intend(ctx, tx, kind, r, incidentID)
+}
+
+// endFlapping clears the overlay and decides the one notification that
+// ends it: DOWN, about the active incident, if the monitor is down, and
+// STABLE otherwise.
+func (w *monitorWork) endFlapping(ctx context.Context, tx *sql.Tx, r *Result) error {
+	if err := store.SetFlapping(ctx, tx, r.MonitorID, nil); err != nil {
+		return err
+	}
+	w.flapping = false
+	if w.state != incident.Down {
+		return w.intend(ctx, tx, incident.IntentStable, r, "")
+	}
+	id, err := store.ActiveIncidentID(ctx, tx, r.MonitorID)
+	if err != nil {
+		return err
+	}
+	return w.intend(ctx, tx, incident.IntentDown, r, id)
 }
 
 // intend decides a notification intent for the monitor at the time of
@@ -396,6 +456,15 @@ func (p *Processor) load(ctx context.Context, tx *sql.Tx, id string) (*monitorWo
 	}
 	if prev, ok := p.counters[id]; ok && prev.state == w.state && prev.since == w.since {
 		w.tracked = prev
+	}
+	if w.flapping && !w.skip {
+		recent, err := store.RecentTransitions(ctx, tx, id)
+		if err != nil {
+			return nil, err
+		}
+		if len(recent) > 0 {
+			w.lastTransition = recent[0]
+		}
 	}
 	return w, nil
 }

@@ -91,13 +91,18 @@ func TestIntentsSuppressedWhileFlapping(t *testing.T) {
 	d, _ := testDB(t)
 	h := newHarness(t, d).run()
 	id := newMonitor(t, d, "web", nil)
+	// Flapping since a recovery at base.
+	if _, err := d.Writer.Exec(`INSERT INTO incidents (id, monitor_id, started_at, ended_at, created_at) VALUES ('earlier', ?, ?, ?, ?)`,
+		id, store.FormatTime(at(-5)), store.FormatTime(base), store.FormatTime(at(-5))); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := d.Writer.Exec(`UPDATE monitors SET flapping_since = ? WHERE id = ?`, store.FormatTime(base), id); err != nil {
 		t.Fatal(err)
 	}
 
 	h.feed(fail(id, 1), fail(id, 2), ok(id, 3))
 	same(t, "intents", h.intentList(), []string{"down 2 flapping", "recovery 3 flapping"})
-	same(t, "incidents", incidents(t, d, id), []string{"1 3 http_status status 503, expected 200-399"})
+	same(t, "incidents", incidents(t, d, id), []string{"-5 0 - -", "1 3 http_status status 503, expected 200-399"})
 	same(t, "events", events(t, d, id), []string{
 		"detected 1 status 503, expected 200-399",
 		"declared_down 2 status 503, expected 200-399",

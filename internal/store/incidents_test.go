@@ -138,3 +138,105 @@ func TestPauseClosesTheActiveIncident(t *testing.T) {
 		t.Fatalf("%d events, want 3", n)
 	}
 }
+
+// RecentTransitions is the flapping window: starts and recoveries of the
+// last four incidents, newest first, without the ends a pause made.
+func TestRecentTransitions(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	m := create(t, d, sample("api"))
+	other := create(t, d, sample("other"))
+	min := func(n int) time.Time { return now.Add(time.Duration(n) * time.Minute) }
+	open := func(monitor string, at time.Time) {
+		t.Helper()
+		inTx(t, d, func(tx *sql.Tx) {
+			if _, opened, err := OpenIncident(ctx, tx, NewIncident{MonitorID: monitor, StartedAt: at, DeclaredAt: at.Add(5 * time.Second)}); err != nil || !opened {
+				t.Fatalf("OpenIncident = %v, %v", opened, err)
+			}
+		})
+	}
+	closeAt := func(monitor string, at time.Time, eventType string) {
+		t.Helper()
+		inTx(t, d, func(tx *sql.Tx) {
+			if _, ok, err := CloseIncident(ctx, tx, monitor, at, eventType); err != nil || !ok {
+				t.Fatalf("CloseIncident = %v, %v", ok, err)
+			}
+		})
+	}
+	read := func(monitor string) (out []time.Time, active string) {
+		t.Helper()
+		inTx(t, d, func(tx *sql.Tx) {
+			var err error
+			if out, err = RecentTransitions(ctx, tx, monitor); err != nil {
+				t.Fatal(err)
+			}
+			if active, err = ActiveIncidentID(ctx, tx, monitor); err != nil {
+				t.Fatal(err)
+			}
+		})
+		return out, active
+	}
+
+	if got, active := read(m); len(got) != 0 || active != "" {
+		t.Fatalf("a monitor without incidents: %v, active %q", got, active)
+	}
+	open(m, min(0))
+	closeAt(m, min(1), incident.EventRecovered)
+	open(m, min(2))
+	closeAt(m, min(3), incident.EventPaused) // no recovery
+	open(m, min(4))
+	closeAt(m, min(5), incident.EventRecovered)
+	open(other, min(4))
+	closeAt(other, min(6), incident.EventRecovered)
+	open(m, min(7))
+	got, active := read(m)
+	want := []time.Time{min(7), min(5), min(4), min(2), min(1), min(0)}
+	if !reflect.DeepEqual(got, want) || len(active) != 32 {
+		t.Fatalf("transitions = %v\nwant %v (active %q)", got, want, active)
+	}
+
+	// Only the last four incidents are read: the oldest drops out.
+	closeAt(m, min(8), incident.EventRecovered)
+	open(m, min(9))
+	got, _ = read(m)
+	want = []time.Time{min(9), min(8), min(7), min(5), min(4), min(2)}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("transitions = %v\nwant %v", got, want)
+	}
+	if n := count(t, d, `SELECT COUNT(*) FROM incidents WHERE monitor_id = ?`, m); n <= incident.FlapTransitions {
+		t.Fatalf("%d incidents: the limit was not exercised", n)
+	}
+}
+
+func TestSetFlapping(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	m, other := create(t, d, sample("api")), create(t, d, sample("other"))
+	since := now.Add(time.Hour)
+	inTx(t, d, func(tx *sql.Tx) {
+		if err := SetFlapping(ctx, tx, m, &since); err != nil {
+			t.Fatal(err)
+		}
+	})
+	got, _ := GetMonitor(ctx, d.Reader, m)
+	if got.FlappingSince == nil || !got.FlappingSince.Equal(since) || got.State != "pending" {
+		t.Fatalf("after SetFlapping: %+v", got)
+	}
+	if o, _ := GetMonitor(ctx, d.Reader, other); o.FlappingSince != nil {
+		t.Fatal("another monitor was marked flapping")
+	}
+	inTx(t, d, func(tx *sql.Tx) {
+		if cs, err := GetCheckState(ctx, tx, m); err != nil || !cs.Flapping {
+			t.Fatalf("GetCheckState = %+v, %v", cs, err)
+		}
+		if err := SetFlapping(ctx, tx, m, nil); err != nil {
+			t.Fatal(err)
+		}
+		if cs, err := GetCheckState(ctx, tx, m); err != nil || cs.Flapping {
+			t.Fatalf("GetCheckState after clearing = %+v, %v", cs, err)
+		}
+	})
+	if got, _ := GetMonitor(ctx, d.Reader, m); got.FlappingSince != nil {
+		t.Fatalf("after clearing: %+v", got.FlappingSince)
+	}
+}

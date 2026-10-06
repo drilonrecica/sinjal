@@ -53,6 +53,7 @@ Implementation (`internal/results`, SQL in `internal/store/results.go`):
 - when the state becomes DOWN the incident and its `detected` and `declared_down` events are inserted; when it leaves DOWN the incident is closed with a `recovered` event (`10_INCIDENTS.md`). Results that do not change the state cost no extra statement
 - `tls_not_after` is replaced when the check saw a certificate, cleared when a check succeeded without one, and kept on a failed check that saw none
 - opening or closing an incident also decides the notification intent (`down`, `recovery`) and whether it is suppressed; a suppressed one is recorded as an incident event in the same transaction (`10_INCIDENTS.md` "Notification intents")
+- an incident opening or closing is also a flapping transition: the monitor's last incidents are read and `flapping_since` is set when it is the fourth within 10 minutes; a flapping monitor's overlay is cleared by the first result 10 minutes after its last transition (`10_INCIDENTS.md` "Flapping")
 - only after the commit: the confirmation retry is requested from the scheduler, the monitor is announced for SSE (`monitor.updated`, once per monitor per batch; `32_SSE_EVENTS.md`) and the batch's intents are logged and handed on
 - a result for a monitor that has been deleted or paused in the meantime (a check that was already running) is discarded and counted, not stored
 

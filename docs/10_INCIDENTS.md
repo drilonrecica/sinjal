@@ -107,6 +107,17 @@ Restart:
 
 Avoid hidden adaptive retry algorithms.
 
+Implementation (`incident.FlapStarts`, `incident.FlapEnded`, `store.RecentTransitions`, applied by the result processor in the batch transaction):
+
+- nothing about flapping lives in memory. When an incident opens or a check closes one, the processor reads the monitor's last 4 incidents and counts their transitions; that read is the window, before and after a restart alike
+- a transition's time is what the incident stores: an opening counts at `started_at` (the first failure, not the confirming check), a recovery at `ended_at`. Times are compared in whole seconds, as stored
+- an incident ended by a pause has no recovery: its end is not a transition (its start is)
+- a transition counts while it is less than 10 minutes old, so four transitions need to fit into 9 min 59 s; the overlay ends once the last transition is 10 minutes old
+- entry: the transition that is the fourth sets `flapping_since` to its check's time and decides one `flapping` intent; its own `down` or `recovery` intent is already suppressed
+- exit is settled before the state machine sees the result, for the state the monitor was in: `flapping_since` is cleared and one intent is decided, `down` for the active incident if the monitor is DOWN, `stable` otherwise. The result is then an ordinary one: if it is itself a transition, its intent is delivered and it is the first of a new window. A monitor that was DOWN through the end of flapping and recovers with that result therefore gets `down` followed by `recovery`
+- for a flapping monitor the last transition is read once per batch; other monitors cost nothing extra per result
+- an overlay with no transition behind it (a row edited by hand) ends at the next result
+
 ## Maintenance
 
 During maintenance:

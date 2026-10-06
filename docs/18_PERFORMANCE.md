@@ -74,4 +74,10 @@ Development machine: Intel Core i5-7500 (4 cores), Linux, Go 1.27, `go test -ben
 | 4 raw insert | `store.BenchmarkInsertCheckResult` (128 rows per transaction) | 16.6 µs per row (about 60,000 rows/s), 14 allocations |
 | 8 SSE fan-out | `sse.BenchmarkPublish` (one event, 8 clients) | 0.9 µs, 4 allocations (M2-14) |
 
+### M3 (M3-02 to M3-04)
+
+| Scenario | Benchmark | Result |
+|---|---|---|
+| 3 result batching | `results.BenchmarkProcessorBatch`, now with incidents, intents and flapping in the transaction | 89–90 µs per result (86–87 µs at M2), 75 allocations (73). The difference is the `flapping_since` column read with the monitor's state; incident, intent and flapping statements run only when the state changes |
+
 Every result is written by the one processor goroutine in batched transactions; no worker writes to SQLite and no goroutine exists per monitor. Scenarios 5–7 (rollups, dashboard query, incident transaction) are measured with their features (M3, M6).
