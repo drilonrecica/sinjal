@@ -7,18 +7,26 @@ import (
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/incident"
 )
 
 // PauseMonitor pauses a monitor at now (docs/10 "Pausing"): the state
-// becomes paused, the FLAPPING overlay is cleared and a pause interval is
-// opened, which uptime excludes. It reports false, and changes nothing, when
-// the monitor is already paused.
+// becomes paused, the FLAPPING overlay is cleared, a pause interval is
+// opened, which uptime excludes, and the active incident, if there is one,
+// ends with a paused event. It reports false, and changes nothing, when the
+// monitor is already paused.
 func PauseMonitor(ctx context.Context, d *db.DB, id string, now time.Time) (bool, error) {
 	ts := formatTime(now)
-	return setPaused(ctx, d, id, `UPDATE monitors SET enabled = 0, current_state = 'paused',
+	return setPaused(ctx, d, id, ts, `UPDATE monitors SET enabled = 0, current_state = 'paused',
 		current_state_since = ?, flapping_since = NULL, updated_at = ?
 		WHERE id = ? AND current_state != 'paused'`,
-		`INSERT INTO monitor_pauses (monitor_id, paused_at) VALUES (?, ?)`, ts)
+		func(tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO monitor_pauses (monitor_id, paused_at) VALUES (?, ?)`, id, ts); err != nil {
+				return err
+			}
+			_, _, err := CloseIncident(ctx, tx, id, now, incident.EventPaused)
+			return err
+		})
 }
 
 // ResumeMonitor resumes a paused monitor at now: the open pause interval is
@@ -27,16 +35,18 @@ func PauseMonitor(ctx context.Context, d *db.DB, id string, now time.Time) (bool
 // changes nothing, when the monitor is not paused.
 func ResumeMonitor(ctx context.Context, d *db.DB, id string, now time.Time) (bool, error) {
 	ts := formatTime(now)
-	return setPaused(ctx, d, id, `UPDATE monitors SET enabled = 1, current_state = 'pending',
+	return setPaused(ctx, d, id, ts, `UPDATE monitors SET enabled = 1, current_state = 'pending',
 		current_state_since = ?, updated_at = ?
 		WHERE id = ? AND current_state = 'paused'`,
-		`UPDATE monitor_pauses SET resumed_at = ?2 WHERE monitor_id = ?1 AND resumed_at IS NULL`, ts)
+		func(tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `UPDATE monitor_pauses SET resumed_at = ? WHERE monitor_id = ? AND resumed_at IS NULL`, ts, id)
+			return err
+		})
 }
 
-// setPaused runs a guarded state change and, when it applied, the matching
-// change to monitor_pauses (arguments: monitor id, timestamp), in one
-// transaction.
-func setPaused(ctx context.Context, d *db.DB, id, update, interval, ts string) (bool, error) {
+// setPaused runs a guarded state change (arguments: timestamp twice,
+// monitor id) and, when it applied, what belongs to it, in one transaction.
+func setPaused(ctx context.Context, d *db.DB, id, ts, update string, then func(tx *sql.Tx) error) (bool, error) {
 	changed := false
 	err := db.Retry(ctx, func() error {
 		changed = false
@@ -57,7 +67,7 @@ func setPaused(ctx context.Context, d *db.DB, id, update, interval, ts string) (
 			}
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, interval, id, ts); err != nil {
+		if err := then(tx); err != nil {
 			return err
 		}
 		changed = true

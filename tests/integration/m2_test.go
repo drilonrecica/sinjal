@@ -40,6 +40,16 @@ func monitorRow(t *testing.T, d *db.DB, id string) store.Monitor {
 	return m
 }
 
+// queryString returns the single text value a query selects.
+func queryString(t *testing.T, d *db.DB, query string, args ...any) string {
+	t.Helper()
+	var s string
+	if err := d.Reader.QueryRow(query, args...).Scan(&s); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
 // waitFor polls until cond holds.
 func waitFor(t *testing.T, s *server, what string, cond func() bool) {
 	t.Helper()
@@ -89,6 +99,14 @@ func TestRestartKeepsMonitorState(t *testing.T) {
 	if results != 2 || down.LastFailureAt == nil || down.LastSuccessAt != nil {
 		t.Fatalf("after run 1: %d results, %+v", results, down)
 	}
+	// The outage is one active incident, from the first failed check.
+	var incidentID, startedAt string
+	if err := d.Reader.QueryRow(`SELECT id, started_at FROM incidents WHERE monitor_id = ? AND ended_at IS NULL`, id).Scan(&incidentID, &startedAt); err != nil {
+		t.Fatalf("no active incident after run 1: %v", err)
+	}
+	if first := queryString(t, d, `SELECT MIN(checked_at) FROM check_results WHERE monitor_id = ?`, id); startedAt != first {
+		t.Fatalf("the incident starts at %s, the first failure was at %s", startedAt, first)
+	}
 
 	// Run 2: still failing. A fresh check runs promptly; the outage keeps
 	// its start.
@@ -104,6 +122,13 @@ func TestRestartKeepsMonitorState(t *testing.T) {
 	if m := monitorRow(t, d, id); m.State != "down" || !m.StateSince.Equal(down.StateSince) {
 		t.Fatalf("after run 2: state %s since %v, want down since %v", m.State, m.StateSince, down.StateSince)
 	}
+	// Scenario 8: the restart neither duplicated nor closed the incident.
+	if n := count(t, d, `SELECT COUNT(*) FROM incidents WHERE monitor_id = ?`, id); n != 1 {
+		t.Fatalf("%d incidents after the restart, want 1", n)
+	}
+	if n := count(t, d, `SELECT COUNT(*) FROM incidents WHERE id = ? AND ended_at IS NULL AND started_at = ?`, incidentID, startedAt); n != 1 {
+		t.Fatal("the incident did not survive the restart unchanged")
+	}
 
 	// Run 3: the target is back.
 	failing.Store(false)
@@ -112,6 +137,16 @@ func TestRestartKeepsMonitorState(t *testing.T) {
 	stop(s)
 	if m := monitorRow(t, d, id); m.LastSuccessAt == nil || m.StateSince.Before(down.StateSince) {
 		t.Fatalf("after run 3: %+v", m)
+	}
+	// The recovery closed that same incident; its timeline is complete.
+	if n := count(t, d, `SELECT COUNT(*) FROM incidents WHERE monitor_id = ?`, id); n != 1 {
+		t.Fatalf("%d incidents after the recovery, want 1", n)
+	}
+	if n := count(t, d, `SELECT COUNT(*) FROM incidents WHERE id = ? AND ended_at >= started_at`, incidentID); n != 1 {
+		t.Fatal("the incident was not closed by the recovery")
+	}
+	if got := queryString(t, d, `SELECT group_concat(event_type, ' ') FROM (SELECT event_type FROM incident_events WHERE incident_id = ? ORDER BY id)`, incidentID); got != "detected declared_down recovered" {
+		t.Fatalf("incident events: %s", got)
 	}
 	if !hasMsg(s.records(), "monitoring started") {
 		t.Errorf("no \"monitoring started\" log line\n%s", s.logs)

@@ -164,6 +164,9 @@ Keep a small timeline:
 - notification_failed
 - manual_note
 - recovered
+- paused (pausing the monitor closed the incident)
+
+Each event has a time and an optional message; `recovered` and `paused` carry the outage's duration.
 
 `manual_note` events carry a `published` flag; only published notes appear on status pages.
 

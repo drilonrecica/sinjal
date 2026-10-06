@@ -50,11 +50,12 @@ Implementation (`internal/results`, SQL in `internal/store/results.go`):
 - workers call `Processor.Add`; a buffered channel of 256 results feeds one goroutine
 - a batch is written when it holds 128 results or 200 ms after its first result, whichever comes first; nothing wakes up while no result is waiting
 - one transaction per batch. For each result, in arrival order: read the monitor's state and thresholds, insert the `check_results` row, apply the state machine (`10_INCIDENTS.md`), update the monitor row (`current_state`, `current_state_since` when the state changed, `last_check_at`, `last_success_at` or `last_failure_at`, `tls_not_after`)
+- when the state becomes DOWN the incident and its `detected` and `declared_down` events are inserted; when it leaves DOWN the incident is closed with a `recovered` event (`10_INCIDENTS.md`). Results that do not change the state cost no extra statement
 - `tls_not_after` is replaced when the check saw a certificate, cleared when a check succeeded without one, and kept on a failed check that saw none
 - only after the commit: the confirmation retry is requested from the scheduler and the monitor is announced for SSE (`monitor.updated`, once per monitor per batch; `32_SSE_EVENTS.md`)
 - a result for a monitor that has been deleted or paused in the meantime (a check that was already running) is discarded and counted, not stored
 
-Opening and closing incidents and notification intents join this transaction in later milestones.
+Notification intents join this transaction with M3-03.
 
 ## Busy handling
 

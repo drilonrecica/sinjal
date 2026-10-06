@@ -1,7 +1,7 @@
 // Package results is the single write path for check results
 // (docs/09_DATABASE.md): workers hand results to one goroutine, which
-// stores them in batched transactions, applies the state machine and
-// updates the monitor rows.
+// stores them in batched transactions, applies the state machine, updates
+// the monitor rows and opens and closes incidents.
 package results
 
 import (
@@ -61,11 +61,20 @@ type Stats struct {
 	Warning string
 }
 
+// failure is what an incident keeps of a failed check.
+type failure struct {
+	at            time.Time
+	kind, message string
+}
+
 // tracked is a monitor's counters and the state they were counted in.
 type tracked struct {
 	state    incident.State
 	since    string
 	counters incident.Counters
+	// first is the failure that began the failures being counted: an
+	// incident starts there, not at the check that confirms it.
+	first failure
 }
 
 // Processor stores results and decides state changes.
@@ -242,24 +251,9 @@ func (p *Processor) write(ctx context.Context, batch []Result) error {
 				discarded++
 				continue
 			}
-			if err := store.InsertCheckResult(ctx, tx, store.CheckResult{
-				MonitorID: r.MonitorID, CheckedAt: r.CheckedAt, Duration: r.Duration, Success: r.Success,
-				ProtocolStatus: r.Status, ErrorKind: r.Kind, ErrorMessage: r.Message, Snippet: r.Snippet, Metadata: r.Metadata,
-			}); err != nil {
+			if err := apply(ctx, tx, w, r); err != nil {
 				return err
 			}
-			out := incident.Transition(w.state, w.counters, r.Success, w.thresholds)
-			changed := out.State != w.state
-			if err := store.ApplyCheck(ctx, tx, r.MonitorID, store.CheckUpdate{
-				State: string(out.State), StateChanged: changed, CheckedAt: r.CheckedAt,
-				Success: r.Success, TLSNotAfter: r.TLSNotAfter,
-			}); err != nil {
-				return err
-			}
-			if changed {
-				w.since = store.FormatTime(r.CheckedAt)
-			}
-			w.state, w.counters, w.retry = out.State, out.Counters, out.Retry
 			stored++
 		}
 		return tx.Commit()
@@ -297,6 +291,48 @@ func (p *Processor) write(ctx context.Context, batch []Result) error {
 	return nil
 }
 
+// apply stores one result and what follows from it: the monitor's new
+// state and, when the state machine confirms an outage or its end, the
+// incident (docs/10_INCIDENTS.md). A monitor that stays down opens nothing,
+// which is why a restart during an outage cannot duplicate its incident.
+func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
+	if err := store.InsertCheckResult(ctx, tx, store.CheckResult{
+		MonitorID: r.MonitorID, CheckedAt: r.CheckedAt, Duration: r.Duration, Success: r.Success,
+		ProtocolStatus: r.Status, ErrorKind: r.Kind, ErrorMessage: r.Message, Snippet: r.Snippet, Metadata: r.Metadata,
+	}); err != nil {
+		return err
+	}
+	out := incident.Transition(w.state, w.counters, r.Success, w.thresholds)
+	changed := out.State != w.state
+	if err := store.ApplyCheck(ctx, tx, r.MonitorID, store.CheckUpdate{
+		State: string(out.State), StateChanged: changed, CheckedAt: r.CheckedAt,
+		Success: r.Success, TLSNotAfter: r.TLSNotAfter,
+	}); err != nil {
+		return err
+	}
+	if !r.Success && w.state != incident.Down && w.counters.Failures == 0 {
+		w.first = failure{at: r.CheckedAt, kind: r.Kind, message: r.Message}
+	}
+	switch {
+	case changed && out.State == incident.Down:
+		if _, _, err := store.OpenIncident(ctx, tx, store.NewIncident{
+			MonitorID: r.MonitorID, StartedAt: w.first.at, DeclaredAt: r.CheckedAt,
+			FailureKind: w.first.kind, Detected: w.first.message, Summary: r.Message,
+		}); err != nil {
+			return err
+		}
+	case changed && w.state == incident.Down:
+		if _, _, err := store.CloseIncident(ctx, tx, r.MonitorID, r.CheckedAt, incident.EventRecovered); err != nil {
+			return err
+		}
+	}
+	if changed {
+		w.since = store.FormatTime(r.CheckedAt)
+	}
+	w.state, w.counters, w.retry = out.State, out.Counters, out.Retry
+	return nil
+}
+
 // load starts a monitor's work for this batch from its row and from the
 // counters kept in memory. The counters only apply if the row is still in
 // the state, since the same moment, that they were counted in: a pause and
@@ -318,7 +354,7 @@ func (p *Processor) load(ctx context.Context, tx *sql.Tx, id string) (*monitorWo
 		from:       incident.State(cs.State),
 	}
 	if prev, ok := p.counters[id]; ok && prev.state == w.state && prev.since == w.since {
-		w.counters = prev.counters
+		w.tracked = prev
 	}
 	return w, nil
 }

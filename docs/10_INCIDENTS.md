@@ -51,6 +51,14 @@ Store:
 - diagnostic summary
 - notification state
 
+Implementation (`results.Processor`, SQL in `internal/store/incidents.go`), in the transaction that stores the check result and changes the state:
+
+- the incident is written when the state becomes DOWN. `started_at` is the first failure of the run of failures that reached the threshold (with a threshold of 1, the failing check itself); `created_at` is the check that met the threshold
+- `initial_failure_kind` is the kind of that first failure; `summary` is the message of the failure that confirmed the outage
+- two events: `detected` at the first failure with its message, `declared_down` at the confirming check with its message
+- the first failure is remembered in memory with the failure count. After a restart while PENDING the count starts again (`09_DATABASE.md`), so an outage confirmed after it starts at the first failure after the restart
+- a monitor that stays DOWN writes nothing. Should a monitor become DOWN while it already has an active incident (rows edited by hand), that incident is kept and nothing is added: the partial unique index allows one active incident per monitor, and a batch that cannot be written would hold up every monitor
+
 ## Recovery
 
 Default recovery threshold: one success.
@@ -60,6 +68,8 @@ On recovery:
 - calculate duration
 - persist recovery event
 - notify according to profile
+
+Implementation: when the state goes from DOWN to UP, in the same transaction, `ended_at` is set to the time of the check that met the success threshold and a `recovered` event is added whose message is the duration (`down for 4m17s`, from the stored times, whole seconds). The duration itself is not stored: it is `ended_at − started_at`.
 
 ## Flapping
 
@@ -123,7 +133,7 @@ Implementation (`store.PauseMonitor`, `store.ResumeMonitor`, called through the 
 - resume, in one transaction: `enabled = 1`, `current_state = 'pending'`, `current_state_since` = resume time, the open pause row closed. A monitor that was created disabled has no pause row; resuming it only changes the monitor
 - pausing a paused monitor, or resuming one that is not paused, changes nothing: the pause interval keeps its start
 - `enabled` and the paused state always change together; startup schedules the enabled monitors
-- closing the active incident joins the pause transaction with incidents (M3)
+- the pause transaction also ends the active incident at the pause time, with a `paused` event carrying the duration. No `recovered` event is written. After a resume a new outage is a new incident
 
 ## Uptime
 
@@ -167,6 +177,10 @@ Active incident survives restart.
 Do not:
 - create a duplicate incident
 - send duplicate initial DOWN notification solely because the process restarted
+
+Incidents are opened and closed only by a change of the stored state, never by a check result as such. After a restart the monitor is still DOWN in its row, further failures change nothing, and the recovery closes the incident that was open before the restart.
+
+Upgrade: migration 004 opens an incident for every monitor that is DOWN at that moment, starting at `current_state_since`, so a DOWN monitor always has its active incident.
 
 ## Manual notes
 
