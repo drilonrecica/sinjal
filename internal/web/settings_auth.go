@@ -24,14 +24,15 @@ const settingsAuthPath = "/settings/authentication"
 // rotates the current one (docs/13 "Sessions").
 type SettingsAuth struct {
 	auth     *auth.Authenticator
+	passkeys *auth.Passkeys
 	sessions *auth.Sessions
 	log      *slog.Logger
 	now      func() time.Time
 }
 
 // NewSettingsAuth returns the Settings → Authentication handler.
-func NewSettingsAuth(a *auth.Authenticator, sessions *auth.Sessions, logger *slog.Logger) *SettingsAuth {
-	return &SettingsAuth{auth: a, sessions: sessions, log: logging.Sub(logger, "auth"), now: time.Now}
+func NewSettingsAuth(a *auth.Authenticator, passkeys *auth.Passkeys, sessions *auth.Sessions, logger *slog.Logger) *SettingsAuth {
+	return &SettingsAuth{auth: a, passkeys: passkeys, sessions: sessions, log: logging.Sub(logger, "auth"), now: time.Now}
 }
 
 // RegisterSettingsAuth mounts the pages inside RequireAdmin. Everything that
@@ -45,6 +46,7 @@ func RegisterSettingsAuth(r chi.Router, h *SettingsAuth, recent func(http.Handle
 		r.Head(settingsAuthPath+"/totp", h.totpSetup)
 		r.Post(settingsAuthPath+"/totp", h.totpEnable)
 		r.Post(settingsAuthPath+"/totp/disable", h.totpDisable)
+		r.Post(settingsAuthPath+"/passkeys/{id}/delete", h.passkeyDelete)
 	})
 }
 
@@ -55,8 +57,36 @@ func (h *SettingsAuth) page(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "reading TOTP state", err)
 		return
 	}
-	render(w, r, h.log, http.StatusOK, templates.SettingsAuth(pageFor(r, "Authentication — Sinjal"),
-		templates.SettingsAuthView{TOTPEnabled: enabled}))
+	keys, err := h.passkeys.List(r.Context(), cs.User.ID)
+	if err != nil {
+		h.fail(w, "listing passkeys", err)
+		return
+	}
+	view := templates.SettingsAuthView{TOTPEnabled: enabled, PasskeysUnavailable: h.passkeys.Unavailable()}
+	for _, k := range keys {
+		used := "Never used"
+		if !k.LastUsedAt.IsZero() {
+			used = "Last used " + k.LastUsedAt.Format(time.DateOnly)
+		}
+		view.Passkeys = append(view.Passkeys, templates.PasskeyView{ID: k.ID, Label: k.Label, Added: k.CreatedAt.Format(time.DateOnly), LastUsed: used})
+	}
+	render(w, r, h.log, http.StatusOK, templates.SettingsAuth(pageFor(r, "Authentication — Sinjal"), view))
+}
+
+// passkeyDelete revokes one of the signed-in admin's passkeys.
+func (h *SettingsAuth) passkeyDelete(w http.ResponseWriter, r *http.Request) {
+	cs, _ := SessionFromContext(r.Context())
+	now := h.now()
+	err := h.passkeys.Delete(r.Context(), cs.User.ID, chi.URLParam(r, "id"), cs.Session.ID, proxy.ClientIP(r).String(), now)
+	switch {
+	case errors.Is(err, auth.ErrPasskeyNotFound):
+		http.NotFound(w, r)
+	case err != nil:
+		h.fail(w, "removing a passkey", err)
+	default:
+		h.log.Info("passkey removed", "user_id", cs.User.ID)
+		h.credentialChanged(w, r, now)
+	}
 }
 
 // totpSetup shows a new secret. Each load makes a new one; nothing is

@@ -2,7 +2,7 @@ package templates
 
 // Login is the sign-in form. The password is never echoed back.
 templ Login(page Page, f LoginForm) {
-	@authFrame(page) {
+	@authFrame(page.withAssets(nil, passkeyScripts(f.Passkey))) {
 		<h1>Sign in</h1>
 		if f.Error != "" {
 			<p class="auth-alert" role="alert">{ f.Error }</p>
@@ -22,6 +22,9 @@ templ Login(page Page, f LoginForm) {
 			</div>
 			<button class="auth-submit" type="submit">Sign in</button>
 		</form>
+		if f.Passkey {
+			@passkeyButton("get", "/login/passkey/begin", "/login/passkey/finish", f.Next, "auth-secondary", "Sign in with a passkey")
+		}
 	}
 }
 

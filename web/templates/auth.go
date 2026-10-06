@@ -18,9 +18,10 @@ type SetupForm struct {
 // LoginForm is the state of the sign-in form. Next is the same-origin path
 // to return to; Error is the single generic failure message.
 type LoginForm struct {
-	Login string
-	Next  string
-	Error string
+	Login   string
+	Next    string
+	Error   string
+	Passkey bool // offer "Sign in with a passkey"
 }
 
 // LoginTOTPForm is the second sign-in step for accounts with TOTP.
@@ -35,15 +36,35 @@ type LoginTOTPForm struct {
 // (and offered to password managers); it is not editable. TOTP adds the
 // code field for accounts that have it enabled.
 type ReauthForm struct {
-	Login string
-	Next  string
-	Error string
-	TOTP  bool
+	Login   string
+	Next    string
+	Error   string
+	TOTP    bool
+	Passkey bool // the user has a passkey to confirm with instead
 }
 
 // SettingsAuthView is Settings → Authentication for the signed-in admin.
 type SettingsAuthView struct {
-	TOTPEnabled bool
+	TOTPEnabled         bool
+	Passkeys            []PasskeyView
+	PasskeysUnavailable string // why passkeys cannot be added; "" when they can
+}
+
+// PasskeyView is one row of the passkey list. Dates are preformatted.
+type PasskeyView struct {
+	ID       string
+	Label    string
+	Added    string
+	LastUsed string
+}
+
+// passkeyScripts is the script list of a page that may show a passkey
+// button.
+func passkeyScripts(on bool) []string {
+	if on {
+		return []string{"js/passkey.js"}
+	}
+	return nil
 }
 
 // TOTPSetupView is the TOTP enrolment page. It shows a new secret, so it is

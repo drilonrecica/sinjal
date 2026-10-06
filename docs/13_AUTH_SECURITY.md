@@ -141,7 +141,7 @@ At minimum:
 - `web.RequireRecentAuth(logger, now)` is mounted inside `RequireAuth` on sensitive routes. A stale page request gets 303 to `/reauth?next=<path>`. A stale POST cannot be replayed, so it returns to the page the form was on: the `Referer` when it is Sinjal's own origin (`Referrer-Policy: same-origin` keeps it), otherwise no `next`. htmx requests get 403 with `HX-Redirect`. Without a session it fails closed (401).
 - `/reauth` (behind `RequireAuth`, open to viewers): a password form for the signed-in user. `auth.Authenticator.Reauthenticate` uses the same verification path as login (dummy hash, one Argon2 per attempt) and audits `auth.reauthenticated` / `auth.reauth_failed`. Failures share the login limiter, keyed by client IP and user ID (10 per 15 minutes, then 429).
 - Success rotates the session (`Sessions.Rotate`): a new token, `reauthenticated_at` = now, and a new 30-day lifetime, since re-authentication proves the same credentials as a login. The old cookie and its CSRF token stop working. Redirect: 303 to `safeNext(next)`.
-- TOTP management (M1-13) is the first production user of `RequireRecentAuth`; password change, session sign-out and passkey management (M1-14…M1-18) follow. When the account has TOTP enabled, `/reauth` asks for the code together with the password and both must be right (the code is checked only after the password, so a wrong password does not use it up).
+- TOTP and passkey management (M1-13, M1-14) are the production users of `RequireRecentAuth`; password change and session sign-out (M1-16…M1-18) follow. The `/reauth` page also offers "Use a passkey instead" when the user has one; a passkey alone is enough, since it verifies the user itself. When the account has TOTP enabled, `/reauth` asks for the code together with the password and both must be right (the code is checked only after the password, so a wrong password does not use it up).
 
 ## Passkeys
 
@@ -153,6 +153,38 @@ Requirements:
 - multiple credentials per admin allowed
 - label credentials
 - revoke credential
+
+### Implementation (M1-14)
+
+Admins only. `github.com/go-webauthn/webauthn` v0.18.2 behind `internal/auth/passkey.go`; ceremonies and state in `internal/web/passkey.go`; browser side in `web/static/js/passkey.js`.
+
+Configuration:
+- The relying party ID is the host of `SINJAL_BASE_URL`; the only accepted origin is its scheme and host (with port). Nothing is derived from request headers.
+- Passkeys are unavailable, and only passkeys, when `SINJAL_BASE_URL` is unset, is an IP address, or is plain `http` on a host other than `localhost` (browsers refuse WebAuthn there). Startup logs the reason once (INFO when unset, WARN otherwise) and Settings → Authentication shows it.
+- Every ceremony first compares the request's origin (trusted-proxy rules) with the configured one. A mismatch, the usual reverse-proxy mistake, answers 400 with a message naming both addresses and pointing at `SINJAL_BASE_URL` and `SINJAL_TRUSTED_PROXIES`, and is logged at WARN.
+- Attestation preference `none`, no metadata service: no outbound calls.
+
+Policy (owner decision, 2026-10-06): a passkey signs in on its own, without username, password or TOTP code. So credentials must be discoverable (resident key required) and every ceremony requires user verification (PIN or biometric). Security keys without a PIN cannot be registered.
+
+Ceremonies (JSON, two requests each):
+- Sign-in: `POST /login/passkey/begin` and `/finish`, public. The user is found from the credential's user handle (the account ID) and must not be disabled. Success creates a session like a password login. The login page shows the button only when passkeys are available and at least one is registered.
+- Re-authentication: `POST /reauth/passkey/begin` and `/finish`, for the signed-in user's own credentials only. Success rotates the session.
+- Registration: `POST /settings/authentication/passkeys/begin` and `/finish`, admin and recent re-authentication. The existing credentials are excluded, so one authenticator is not registered twice; a `UNIQUE` index on the credential ID is the hard rule. Labels are 1–64 characters ("Passkey" when empty); at most 20 passkeys per account.
+- Revoke: `POST /settings/authentication/passkeys/{id}/delete`, admin and recent re-authentication, limited to the caller's own passkeys.
+
+Ceremony state: the challenge and what it was issued for (kind, user, label, return path) are kept in process memory for 5 minutes, in a map bounded to 256 entries (oldest dropped). The browser holds only a random ID in an `HttpOnly`, `SameSite=Strict` cookie (`__Host-sinjal_passkey` over HTTPS). Finishing removes the entry, so a captured answer cannot be replayed, and a ceremony can only be finished as what it was begun as. A restart only means starting a ceremony again. Users and credentials are still read from the database at finish, so `reset-admin --remove-passkeys` takes effect immediately.
+
+Stored per credential (`passkeys`): credential ID, public key, signature counter, transports, the backup-eligible flag from registration, label, `created_at`, `last_used_at`. The backup-eligible flag must be the same on every later assertion.
+
+Signature counter: stored after each use. A counter that does not increase while either side is non-zero means the credential may have been cloned: the ceremony is refused, logged at WARN and audited as a failure. Counters that stay at zero (synced passkeys) are normal.
+
+Failures: every rejected response is the same generic 401 to the client; the reason is logged at INFO. Failed sign-ins count per client IP, failed re-authentications per client IP and user, in the login limiter (10 per 15 minutes, then 429).
+
+Audit events: `auth.passkey_added`, `auth.passkey_removed`; sign-in and re-authentication use the password events with `"factor":"passkey"`.
+
+Sessions: adding or removing a passkey deletes the user's other sessions and rotates the current one.
+
+Tests use a software authenticator (`internal/auth/passkeytest`, ES256, attestation `none`), which is not linked into the binary.
 
 ## TOTP
 

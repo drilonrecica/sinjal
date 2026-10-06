@@ -2,6 +2,17 @@ package templates
 
 import "strconv"
 
+// passkeyButton starts a WebAuthn ceremony from js/passkey.js: kind is
+// "get" or "create", begin and finish are the ceremony's two endpoints.
+// The children come before the button (the label input when adding one).
+templ passkeyButton(kind, begin, finish, next, class, text string) {
+	<div class="passkey" data-passkey={ kind } data-begin={ begin } data-finish={ finish } data-next={ next }>
+		{ children... }
+		<button class={ class } type="button" data-passkey-start>{ text }</button>
+		<p class="auth-alert" role="alert" data-passkey-error hidden></p>
+	</div>
+}
+
 // authFrame is the centred, shell-less frame for pre-login pages.
 templ authFrame(page Page) {
 	@Layout(page.withAssets([]string{"css/auth.css"}, nil)) {

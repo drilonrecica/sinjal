@@ -25,7 +25,7 @@ SINJAL_WORKERS=16
 |---|---|---|
 | `SINJAL_DATA_DIR` | `/data` | made absolute |
 | `SINJAL_LISTEN` | `:8080` | `host:port` or `:port`, numeric port 1–65535 |
-| `SINJAL_BASE_URL` | unset | absolute http/https URL, no credentials/query/fragment; trailing slash trimmed |
+| `SINJAL_BASE_URL` | unset | absolute http/https URL, no credentials/query/fragment; trailing slash trimmed. Passkeys need it: an `https` URL with a host name (or `http://localhost`), see `13_AUTH_SECURITY.md` |
 | `SINJAL_TRUSTED_PROXIES` | none | comma-separated CIDRs or bare IPs; empty trusts no proxy |
 | `SINJAL_LOG_FORMAT` | `text` | `text` or `json` |
 | `SINJAL_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |

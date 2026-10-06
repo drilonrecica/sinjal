@@ -1,10 +1,9 @@
 package templates
 
 // Reauth asks the signed-in user to confirm their password (and TOTP code,
-// when enabled) before a sensitive action. Passkeys (M1-14) add their
-// option here.
+// when enabled), or a passkey, before a sensitive action.
 templ Reauth(page Page, f ReauthForm) {
-	@authFrame(page) {
+	@authFrame(page.withAssets(nil, passkeyScripts(f.Passkey))) {
 		<h1>Confirm it's you</h1>
 		if f.TOTP {
 			<p class="auth-lead">Enter your password and authentication code to continue. Sensitive changes need a recent confirmation.</p>
@@ -29,5 +28,8 @@ templ Reauth(page Page, f ReauthForm) {
 			}
 			<button class="auth-submit" type="submit">Continue</button>
 		</form>
+		if f.Passkey {
+			@passkeyButton("get", "/reauth/passkey/begin", "/reauth/passkey/finish", f.Next, "auth-secondary", "Use a passkey instead")
+		}
 	}
 }

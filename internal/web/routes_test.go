@@ -27,7 +27,17 @@ type appEnv struct {
 
 var testCSRFKey = []byte("0123456789abcdef0123456789abcdef")
 
+// testBaseURL is SINJAL_BASE_URL in tests. httptest requests arrive for
+// example.com; passkey tests set the Host to this one.
+const testBaseURL = "http://localhost"
+
 func newAppEnv(t *testing.T, trusted ...netip.Prefix) *appEnv {
+	t.Helper()
+	return newAppEnvAt(t, testBaseURL, trusted...)
+}
+
+// newAppEnvAt is newAppEnv with SINJAL_BASE_URL set to baseURL.
+func newAppEnvAt(t *testing.T, baseURL string, trusted ...netip.Prefix) *appEnv {
 	t.Helper()
 	logger, logs := quietLogger()
 	d := migratedDB(t)
@@ -51,6 +61,7 @@ func newAppEnv(t *testing.T, trusted ...netip.Prefix) *appEnv {
 		Setup:    NewSetup(d, nil, logger),
 		CSRFKey:  testCSRFKey,
 		Vault:    key,
+		Passkeys: auth.NewPasskeys(d, baseURL, logger),
 	})
 	e.h = r
 	return e

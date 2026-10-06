@@ -82,7 +82,7 @@ func TestAuthTableColumns(t *testing.T) {
 		"users": "id:0 login:1 display_name:0 role:1 password_hash:0 totp_secret_enc:0 totp_last_step:0 disabled:1=0 theme:0 " +
 			"density:1='comfortable' sidebar_collapsed:1=0 created_at:1 updated_at:1",
 		"sessions":     "id:0 token_hash:1 user_id:1 created_at:1 expires_at:1 last_seen_at:1 reauthenticated_at:0 user_agent:0 ip_hint:0",
-		"passkeys":     "id:0 user_id:1 credential_id:1 public_key:1 sign_count:1=0 transports_json:0 label:0 created_at:1 last_used_at:0",
+		"passkeys":     "id:0 user_id:1 credential_id:1 public_key:1 sign_count:1=0 transports_json:0 backup_eligible:1=0 label:0 created_at:1 last_used_at:0",
 		"audit_events": "id:0 user_id:0 event_type:1 object_type:0 object_id:0 metadata_json:0 created_at:1",
 	}
 	for table, spec := range want {

@@ -74,3 +74,22 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Passkey button under a form, and its error line (filled by passkey.js). */
+.passkey {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.auth-secondary {
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-secondary:hover {
+  background: var(--surface-2);
+}

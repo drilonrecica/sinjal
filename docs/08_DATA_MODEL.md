@@ -37,6 +37,7 @@ Policy in `13_AUTH_SECURITY.md`: 30-day absolute expiry, `last_seen_at` written 
 - public key
 - sign count
 - transports optional
+- backup-eligible flag from registration (must not change afterwards)
 - label
 - created_at
 - last_used_at

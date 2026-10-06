@@ -31,6 +31,7 @@ const (
 // re-authentication, which counts failures per IP and user.
 type Login struct {
 	auth     *auth.Authenticator
+	passkeys *auth.Passkeys
 	sessions *auth.Sessions
 	limiter  *ratelimit.Limiter
 	log      *slog.Logger
@@ -38,9 +39,10 @@ type Login struct {
 }
 
 // NewLogin returns the login handler.
-func NewLogin(a *auth.Authenticator, sessions *auth.Sessions, logger *slog.Logger) *Login {
+func NewLogin(a *auth.Authenticator, passkeys *auth.Passkeys, sessions *auth.Sessions, logger *slog.Logger) *Login {
 	return &Login{
 		auth:     a,
+		passkeys: passkeys,
 		sessions: sessions,
 		limiter:  ratelimit.New(loginMaxFailures, loginWindow, loginTrackedKeys),
 		log:      logging.Sub(logger, "auth"),
@@ -192,6 +194,7 @@ func (l *Login) startSession(w http.ResponseWriter, r *http.Request, user auth.U
 }
 
 func (l *Login) render(w http.ResponseWriter, r *http.Request, status int, f templates.LoginForm) {
+	f.Passkey = l.passkeys.Offered(r.Context())
 	render(w, r, l.log, status, templates.Login(pageFor(r, "Sign in — Sinjal"), f))
 }
 

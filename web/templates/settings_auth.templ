@@ -3,7 +3,7 @@ package templates
 // settingsFrame is the app shell around a settings page. Minimal until the
 // settings layout lands (M1-18).
 templ settingsFrame(page Page) {
-	@Shell(page.withAssets([]string{"css/auth.css", "css/settings.css"}, nil), "settings") {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/settings.css"}, []string{"js/passkey.js"}), "settings") {
 		<div class="settings">
 			{ children... }
 		</div>
@@ -27,6 +27,37 @@ templ SettingsAuth(page Page, v SettingsAuthView) {
 			} else {
 				<p><strong>Off.</strong> Add a 6-digit code from an authenticator app (TOTP) as a second step after your password.</p>
 				<p><a href="/settings/authentication/totp">Set up an authenticator app</a></p>
+			}
+		</section>
+		<section class="settings-section" aria-labelledby="passkeys-heading">
+			<h2 id="passkeys-heading">Passkeys</h2>
+			<p>A passkey signs you in with this device's fingerprint, face or PIN, without the password and the authenticator code.</p>
+			if len(v.Passkeys) == 0 {
+				<p><strong>None yet.</strong></p>
+			} else {
+				<ul class="passkey-list" role="list">
+					for _, k := range v.Passkeys {
+						<li>
+							<span class="passkey-label">{ k.Label }</span>
+							<span class="passkey-meta">Added { k.Added } · { k.LastUsed }</span>
+							<form method="post" action={ templ.SafeURL("/settings/authentication/passkeys/" + k.ID + "/delete") }>
+								@CSRFField(page)
+								<button class="settings-button" type="submit" aria-label={ "Remove passkey " + k.Label }>Remove</button>
+							</form>
+						</li>
+					}
+				</ul>
+			}
+			if v.PasskeysUnavailable != "" {
+				<p class="auth-hint">Passkeys cannot be added on this server. { v.PasskeysUnavailable }</p>
+			} else {
+				@passkeyButton("create", "/settings/authentication/passkeys/begin", "/settings/authentication/passkeys/finish", "", "settings-button", "Add a passkey") {
+					<div class="auth-field">
+						<label for="passkey-label">Name for the new passkey</label>
+						<input id="passkey-label" type="text" maxlength="64" autocomplete="off" aria-describedby="passkey-label-hint" data-passkey-label/>
+						<p id="passkey-label-hint" class="auth-hint">Optional. For example the device it is stored on.</p>
+					</div>
+				}
 			}
 		</section>
 	}

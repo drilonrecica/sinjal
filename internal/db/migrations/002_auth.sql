@@ -41,6 +41,7 @@ CREATE TABLE passkeys (
   public_key BLOB NOT NULL,
   sign_count INTEGER NOT NULL DEFAULT 0,
   transports_json TEXT,
+  backup_eligible INTEGER NOT NULL DEFAULT 0, -- BE flag at registration; must match on every assertion
   label TEXT,
   created_at TEXT NOT NULL,
   last_used_at TEXT

@@ -61,3 +61,43 @@
   margin-top: var(--space-2);
   overflow-wrap: anywhere;
 }
+
+.passkey-list {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.passkey-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.passkey-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.passkey-meta {
+  grid-row: 2;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.passkey-list form {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+
+.settings .passkey {
+  justify-items: start;
+  max-width: 22rem;
+}
+
+.settings .passkey .auth-field {
+  width: 100%;
+}

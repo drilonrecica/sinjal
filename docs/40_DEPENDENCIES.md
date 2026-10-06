@@ -50,7 +50,7 @@ Any dependency not on this list, including a replacement for one on it, needs a 
 ### `github.com/go-webauthn/webauthn`: passkeys
 1. Problem: WebAuthn registration/assertion ceremonies (`13_AUTH_SECURITY.md`).
 2. Not stdlib: CBOR/COSE parsing and ceremony verification are security-critical; hand-rolling them is riskier than a maintained library.
-3. Cost: moderate (~1–2 MB).
+3. Cost: moderate. Measured at M1-14: +2.3 MB of stripped binary (12.6 → 14.9 MB).
 4. Transitive: `fxamacker/cbor/v2`, `golang-jwt/jwt/v5`, `google/go-tpm`, `google/uuid`, `go-viper/mapstructure/v2`, `tinylib/msgp`, `go-webauthn/x` (test-only deps are not linked).
 5. Worth it: **approved**. Configure attestation preference `none`; no metadata-service (MDS) fetching, so no outbound calls.
 

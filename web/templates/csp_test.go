@@ -45,11 +45,11 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"shell":       PlaceholderPage(page, Sections[0]),
 		"setup":       Setup(page, SetupForm{Token: "t", Errors: map[string]string{"login": "x", "form": "y"}}, 12),
 		"authMessage": AuthMessage(page, "Heading", "Message"),
-		"login":       Login(page, LoginForm{Login: "a", Next: "/x", Error: "e"}),
+		"login":       Login(page, LoginForm{Login: "a", Next: "/x", Error: "e", Passkey: true}),
 		"loginTOTP":   LoginTOTP(page, LoginTOTPForm{Challenge: "c", Next: "/x", Error: "e"}),
-		"reauth":      Reauth(page, ReauthForm{Login: "a", Next: "/x", Error: "e", TOTP: true}),
-		"settings":    SettingsAuth(page, SettingsAuthView{TOTPEnabled: true}),
-		"settingsOff": SettingsAuth(page, SettingsAuthView{}),
+		"reauth":      Reauth(page, ReauthForm{Login: "a", Next: "/x", Error: "e", TOTP: true, Passkey: true}),
+		"settings":    SettingsAuth(page, SettingsAuthView{TOTPEnabled: true, Passkeys: []PasskeyView{{ID: "p1", Label: "Laptop", Added: "2026-10-06", LastUsed: "Never used"}}}),
+		"settingsOff": SettingsAuth(page, SettingsAuthView{PasskeysUnavailable: "SINJAL_BASE_URL is not set."}),
 		"totpSetup":   TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}
 	for name, c := range pages {

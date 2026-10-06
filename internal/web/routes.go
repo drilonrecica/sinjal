@@ -23,6 +23,7 @@ type App struct {
 	Setup    *Setup
 	CSRFKey  []byte     // vault.Key.Derive(CSRFKeyLabel)
 	Vault    *vault.Key // encrypts secrets at rest (TOTP)
+	Passkeys *auth.Passkeys
 }
 
 // Routes mounts the whole route table (docs/31_HTTP_ROUTES.md) on r, which
@@ -36,9 +37,10 @@ type App struct {
 //     state change requires an admin (RequireAdmin).
 func Routes(r chi.Router, app App) {
 	authn := auth.NewAuthenticator(app.DB, app.Vault, logging.Sub(app.Logger, "auth"))
-	login := NewLogin(authn, app.Sessions, app.Logger)
-	reauth := NewReauth(authn, app.Sessions, login.limiter, app.Logger)
-	settingsAuth := NewSettingsAuth(authn, app.Sessions, app.Logger)
+	login := NewLogin(authn, app.Passkeys, app.Sessions, app.Logger)
+	reauth := NewReauth(authn, app.Passkeys, app.Sessions, login.limiter, app.Logger)
+	passkeys := NewPasskeys(app.Passkeys, app.Sessions, login, app.Logger)
+	settingsAuth := NewSettingsAuth(authn, app.Passkeys, app.Sessions, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
 	RegisterHealth(r, app.Health)
@@ -48,6 +50,7 @@ func Routes(r chi.Router, app App) {
 		r.Use(LoadSession(app.Sessions, app.Logger), NewCSRF(app.CSRFKey, app.Logger).Middleware)
 		RegisterSetup(r, app.Setup)
 		RegisterLogin(r, login)
+		RegisterPasskeyLogin(r, passkeys)
 		RegisterLogout(r, app.Sessions, app.Logger)
 
 		// Signed-in users: admins and viewers.
@@ -55,6 +58,7 @@ func Routes(r chi.Router, app App) {
 			r.Use(RequireAuth(app.Logger))
 			RegisterPages(r, app.Logger)
 			RegisterReauth(r, reauth)
+			RegisterPasskeyReauth(r, passkeys)
 
 			// Admins only. Every state-changing app route is mounted here;
 			// TestRouteTableGuards fails for one mounted anywhere else.
@@ -62,6 +66,7 @@ func Routes(r chi.Router, app App) {
 			r.Group(func(r chi.Router) {
 				r.Use(RequireAdmin(app.Logger))
 				RegisterSettingsAuth(r, settingsAuth, recentAuth)
+				RegisterPasskeyRegistration(r, passkeys, recentAuth)
 			})
 		})
 	})

@@ -67,10 +67,11 @@ func sameOriginReferer(r *http.Request) string {
 	return u.RequestURI()
 }
 
-// Reauth serves /reauth. It shares the login limiter: failures (password or
-// TOTP code) count per client IP and user.
+// Reauth serves /reauth. It shares the login limiter: failures (password,
+// TOTP code or passkey) count per client IP and user.
 type Reauth struct {
 	auth     *auth.Authenticator
+	passkeys *auth.Passkeys
 	sessions *auth.Sessions
 	limiter  *ratelimit.Limiter
 	log      *slog.Logger
@@ -78,8 +79,8 @@ type Reauth struct {
 }
 
 // NewReauth returns the re-authentication handler.
-func NewReauth(a *auth.Authenticator, sessions *auth.Sessions, limiter *ratelimit.Limiter, logger *slog.Logger) *Reauth {
-	return &Reauth{auth: a, sessions: sessions, limiter: limiter, log: logging.Sub(logger, "auth"), now: time.Now}
+func NewReauth(a *auth.Authenticator, passkeys *auth.Passkeys, sessions *auth.Sessions, limiter *ratelimit.Limiter, logger *slog.Logger) *Reauth {
+	return &Reauth{auth: a, passkeys: passkeys, sessions: sessions, limiter: limiter, log: logging.Sub(logger, "auth"), now: time.Now}
 }
 
 // RegisterReauth mounts GET/HEAD/POST /reauth inside RequireAuth.
@@ -109,6 +110,7 @@ func (h *Reauth) loadFactors(w http.ResponseWriter, r *http.Request, form *templ
 		return false
 	}
 	form.TOTP = totp
+	form.Passkey = h.passkeys.OfferedTo(r.Context(), cs.User.ID)
 	return true
 }
 
@@ -124,9 +126,7 @@ func (h *Reauth) submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := proxy.ClientIP(r).String()
-	// Logins cannot contain control characters, so this key never collides
-	// with a login key (ip NUL login).
-	key := ip + "\x00\x00" + cs.User.ID
+	key := reauthLimitKey(ip, cs.User.ID)
 	now := h.now()
 
 	if h.limiter.Blocked(key, now) {
@@ -167,6 +167,11 @@ func (h *Reauth) submit(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("reauthenticated", "user_id", cs.User.ID, "session_id", sess.ID)
 	http.Redirect(w, r, safeNext(form.Next), http.StatusSeeOther)
 }
+
+// reauthLimitKey counts failed re-authentications (password, code or
+// passkey) per client address and user. Logins cannot contain control
+// characters, so it never collides with a login key (ip NUL login).
+func reauthLimitKey(ip, userID string) string { return ip + "\x00\x00" + userID }
 
 func (h *Reauth) render(w http.ResponseWriter, r *http.Request, status int, f templates.ReauthForm) {
 	render(w, r, h.log, status, templates.Reauth(pageFor(r, "Confirm it's you — Sinjal"), f))

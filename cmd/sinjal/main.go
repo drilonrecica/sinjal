@@ -114,6 +114,14 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	}
 
 	sessions := auth.NewSessions(database, logging.Sub(logger, "auth"))
+	// Passkeys are tied to SINJAL_BASE_URL. An address WebAuthn cannot use
+	// only turns passkeys off; say so once, so it is not a silent surprise.
+	passkeys := auth.NewPasskeys(database, cfg.BaseURL, logging.Sub(logger, "auth"))
+	if reason := passkeys.Unavailable(); cfg.BaseURL == "" {
+		log.Info("passkeys are off: " + reason)
+	} else if reason != "" {
+		log.Warn("passkeys are off: " + reason)
+	}
 	router := web.NewRouter(logger, cfg.TrustedProxies)
 	web.Routes(router, web.App{
 		Logger:   logger,
@@ -124,6 +132,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		Setup:    web.NewSetup(database, setupToken, logger),
 		CSRFKey:  masterKey.Derive(web.CSRFKeyLabel),
 		Vault:    masterKey,
+		Passkeys: passkeys,
 	})
 
 	cleanupDone := make(chan struct{})
