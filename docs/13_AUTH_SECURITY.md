@@ -385,7 +385,7 @@ Record:
 - login success/failure
 - password/passkey/TOTP changes
 - monitor create/delete
-- notification config changes (`notification.channel_created`, `_updated`, `_deleted`; metadata is the name and type, never configuration)
+- notification config changes (`notification.channel_created`, `_updated`, `_deleted`; metadata is the name and type, never configuration), test sends (`notification.channel_tested`, with `result` sent or failed), profile changes (`notification.profile_created`, `_updated`, `_deleted`) and simulations (`notification.profile_simulated`), metadata the profile's name
 - backup restore
 - major security changes
 

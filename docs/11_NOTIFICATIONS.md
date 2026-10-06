@@ -200,3 +200,5 @@ Profile/monitor:
 - "Simulate incident" flow that exercises routing without falsifying production history
 
 Clearly mark simulated notifications.
+
+Implementation (M5-11, `03_INFORMATION_ARCHITECTURE.md` "Notifications"): "Send test notification" on a channel's edit page and "Simulate incident" on a profile's edit page, both for an example monitor, rendered with `Test` set (`[TEST]` title, the simulated first line, `"test": true`, grey embed). Each send is bounded at 20 s (or the sender's shorter bound), so the page is written within the server's write timeout; a simulation sends up to 4 at once. A test send through a channel is recorded as a final attempt (`event_type` `test`, no incident) and moves the channel's health like any delivery. A simulation sends a DOWN along the critical routes and a RECOVERY along the info routes to the enabled channels and writes nothing but its audit entry, so the history, deliveries and channel health stay true; quiet hours are not applied to it, and the result page says what they would do with a real incident now.

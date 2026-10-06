@@ -52,6 +52,7 @@ POST /notifications/channels/{id}/delete
 
 GET  /notifications/profiles/new
 POST /notifications/profiles
+GET  /notifications/profiles/{id}/edit
 POST /notifications/profiles/{id}
 POST /notifications/profiles/{id}/simulate
 POST /notifications/profiles/{id}/delete
@@ -63,6 +64,7 @@ GET  /maintenance/{id}/edit
 POST /maintenance/{id}
 POST /maintenance/{id}/delete
 GET  /fragments/maintenance
+GET  /fragments/notifications      # the channel list
 GET  /fragments/overview
 GET  /fragments/incidents          # ?monitor={id} narrows it, ?limit=n (1-100) shortens it
 GET  /fragments/incidents/{id}     # the timeline of one incident

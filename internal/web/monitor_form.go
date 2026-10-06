@@ -54,7 +54,6 @@ var storeFieldToForm = map[string]string{
 	"timeout_ms":                "timeout",
 	"retry_delay_ms":            "retry_delay",
 	"max_body_bytes":            "max_body_kib",
-	"notification_profile_id":   "form",
 	"expected_interval_seconds": "expected_interval",
 	"grace_seconds":             "grace",
 }
@@ -145,6 +144,7 @@ func formFromMonitor(m store.Monitor, cfg monitorConfig, tags []string) template
 		FailureThreshold: strconv.Itoa(m.FailureThreshold),
 		SuccessThreshold: strconv.Itoa(m.SuccessThreshold),
 		Parent:           m.ParentMonitorID,
+		Profile:          m.NotificationProfileID,
 		UserAgent:        c.CustomUserAgent,
 		MaxBodyKiB:       strconv.Itoa(c.MaxBodyBytes / 1024),
 		TLSExpiry:        c.TLSExpiryEnabled,
@@ -233,6 +233,7 @@ func formFromValues(v url.Values) templates.MonitorForm {
 		FailureThreshold: v.Get("failure_threshold"),
 		SuccessThreshold: v.Get("success_threshold"),
 		Parent:           v.Get("parent_monitor_id"),
+		Profile:          v.Get("notification_profile_id"),
 		UserAgent:        v.Get("custom_user_agent"),
 		MaxBodyKiB:       v.Get("max_body_kib"),
 		TLSExpiry:        v.Get("tls_expiry") != "",
@@ -269,15 +270,16 @@ func formFromValues(v url.Values) templates.MonitorForm {
 func monitorFromForm(f templates.MonitorForm) store.MonitorInput {
 	errs := f.Errors
 	in := store.MonitorInput{
-		Type:             f.Type,
-		Name:             f.Name,
-		Enabled:          f.Enabled,
-		IntervalSeconds:  wholeNumber(f.Interval, "interval", errs),
-		TimeoutMS:        milliseconds(f.Timeout, "timeout", errs),
-		RetryDelayMS:     milliseconds(f.RetryDelay, "retry_delay", errs),
-		FailureThreshold: wholeNumber(f.FailureThreshold, "failure_threshold", errs),
-		SuccessThreshold: wholeNumber(f.SuccessThreshold, "success_threshold", errs),
-		ParentMonitorID:  f.Parent,
+		Type:                  f.Type,
+		Name:                  f.Name,
+		Enabled:               f.Enabled,
+		IntervalSeconds:       wholeNumber(f.Interval, "interval", errs),
+		TimeoutMS:             milliseconds(f.Timeout, "timeout", errs),
+		RetryDelayMS:          milliseconds(f.RetryDelay, "retry_delay", errs),
+		FailureThreshold:      wholeNumber(f.FailureThreshold, "failure_threshold", errs),
+		SuccessThreshold:      wholeNumber(f.SuccessThreshold, "success_threshold", errs),
+		ParentMonitorID:       f.Parent,
+		NotificationProfileID: f.Profile,
 		HTTP: store.HTTPConfig{
 			URL:                f.URL,
 			Method:             f.Method,
@@ -591,6 +593,15 @@ func (h *Monitors) renderForm(w http.ResponseWriter, r *http.Request, status int
 			f.Parents = append(f.Parents, templates.Option{Value: m.ID, Label: m.Name})
 		}
 	}
+	profiles, err := store.ListProfiles(r.Context(), h.db.Reader)
+	if err != nil {
+		h.fail(w, r, "listing profiles", err)
+		return
+	}
+	f.Profiles = nil
+	for _, p := range profiles {
+		f.Profiles = append(f.Profiles, templates.Option{Value: p.ID, Label: p.Name})
+	}
 	f.HasBasic, f.HasBearer = stored[monitor.SecretBasicAuth], stored[monitor.SecretBearerToken]
 	f.SecretHeaders = nil
 	for name := range stored {
@@ -733,7 +744,6 @@ func (h *Monitors) save(w http.ResponseWriter, r *http.Request, old *store.Monit
 		}
 		id, err = store.CreateMonitor(ctx, h.db, in, h.now())
 	} else {
-		in.NotificationProfileID = old.NotificationProfileID // not on the form yet
 		err = store.UpdateMonitor(ctx, h.db, id, in, h.now())
 	}
 	switch {

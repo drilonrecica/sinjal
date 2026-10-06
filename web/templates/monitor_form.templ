@@ -264,7 +264,19 @@ templ MonitorFormPage(page Page, f MonitorForm) {
 				</fieldset>
 				<fieldset class="form-section">
 					<legend>Notifications</legend>
-					<p class="auth-hint">Notification profiles arrive with notifications. Nothing is sent yet.</p>
+					@field("notification_profile_id", "Profile", f.Errors) {
+						<select id="notification_profile_id" name="notification_profile_id" { fieldAttrs("notification_profile_id", f.Errors, "profile-hint")... }>
+							<option value="" selected?={ f.Profile == "" }>None: send nothing</option>
+							for _, p := range f.Profiles {
+								<option value={ p.Value } selected?={ f.Profile == p.Value }>{ p.Label }</option>
+							}
+						</select>
+						if len(f.Profiles) == 0 {
+							<p id="profile-hint" class="auth-hint">There are no profiles yet. <a href="/notifications/profiles/new">Add one</a> on Notifications, then choose it here.</p>
+						} else {
+							<p id="profile-hint" class="auth-hint">The profile decides which channels hear about this monitor, and when.</p>
+						}
+					}
 				</fieldset>
 				if f.Type == "http" {
 					<details class="form-section form-advanced" open?={ f.AdvancedOpen() }>

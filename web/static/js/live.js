@@ -6,7 +6,8 @@
  *
  * [data-live][data-monitor-id]  one monitor (row, detail header)
  * [data-live-list]              a whole list, refetched when monitors are
- *                               created or deleted, or maintenance changes
+ *                               created or deleted, maintenance changes or
+ *                               a notification channel's health moves
  * [data-live-incidents]         an incident list or timeline, refetched
  *                               when any incident changes
  * [data-gone-href]              where to go when its monitor is deleted */
@@ -48,6 +49,10 @@
   });
 
   document.addEventListener("sse:maintenance.updated", function () {
+    each(document, "[data-live-list]", refresh);
+  });
+
+  document.addEventListener("sse:notification.channel_updated", function () {
     each(document, "[data-live-list]", refresh);
   });
 

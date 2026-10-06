@@ -39,6 +39,8 @@ func TestEveryInputHasALabel(t *testing.T) {
 		"totpSetup": renderString(t, TOTPSetup(signedIn, TOTPSetupView{Pending: "p"})),
 		"account":   renderString(t, AccountPassword(signedIn, PasswordForm{}, 12)),
 		"monitor":   renderString(t, MonitorFormPage(signedIn, testMonitorForm)),
+		"profile":   renderString(t, ProfileFormPage(signedIn, testProfileForm)),
+		"channel":   renderString(t, ChannelFormPage(signedIn, ChannelForm{ID: "c1", Type: "smtp", Values: map[string]string{}, SecretSet: map[string]bool{"password": true}})),
 	}
 	for name, html := range views {
 		labelled := map[string]bool{}

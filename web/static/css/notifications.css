@@ -52,3 +52,62 @@
 .chan-delete {
   margin-top: var(--space-5);
 }
+
+.profile-section {
+  margin-top: var(--space-6);
+}
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.chan-test {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.chan-test h2 {
+  font-size: var(--text-lg);
+}
+
+/* The routing matrix: channels down, severities across. It scrolls on
+ * its own at phone width rather than the page. */
+.route-scroll {
+  overflow-x: auto;
+}
+.route-matrix {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+.route-matrix th,
+.route-matrix td {
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.route-matrix td {
+  text-align: center;
+  vertical-align: middle;
+}
+.route-matrix thead th:not(:first-child) {
+  text-align: center;
+}
+.route-matrix input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.route-kinds {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+.quiet-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+}

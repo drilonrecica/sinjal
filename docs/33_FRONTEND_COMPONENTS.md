@@ -48,6 +48,13 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 - maintenance list: sections In effect now / Upcoming / Past, one compact row per window (name, schedule, when, scope, effect)
 - maintenance form: when (name, start, duration, repeats with weekdays), effect (hold back notifications, exclude from adjusted uptime), monitors (all, or chosen monitors and tags); delete on the edit page
 
+## Notification components
+
+- channel list (`ChannelSection`): one compact row per channel (name, type, health in words, last success and failure); the live part of the page
+- profile list: one row per profile (name, monitors using it, routes, quiet hours, reminder)
+- routing matrix (`ProfileFormPage`): a table, channels as rows and severities as columns, one checkbox per cell with a visually hidden label ("Critical to Mail"); it scrolls inside its own box at phone width
+- send result: `auth-notice` (`role="status"`) when sent, `auth-alert` (`role="alert"`) with the sender's error when not; the simulation page lists one row per message
+
 ## Form primitives
 
 - text input

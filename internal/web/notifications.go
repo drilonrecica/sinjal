@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/notify"
 	"github.com/drilonrecica/sinjal/internal/store"
 	"github.com/drilonrecica/sinjal/internal/vault"
+	"github.com/drilonrecica/sinjal/internal/web/sse"
 	"github.com/drilonrecica/sinjal/web/templates"
 )
 
@@ -25,19 +27,22 @@ const channelFormMaxBody = 64 << 10
 // configuration holds secrets: they are only ever written, never shown back
 // (docs/13), and the pages are for admins to change.
 type Notifications struct {
-	db  *db.DB
-	key *vault.Key
-	loc *time.Location
-	log *slog.Logger
-	now func() time.Time
+	db     *db.DB
+	key    *vault.Key
+	events *sse.Hub // may be nil
+	loc    *time.Location
+	log    *slog.Logger
+	now    func() time.Time
+	send   func(context.Context, notify.Config, notify.Message) error
 }
 
 // NewNotifications returns the notifications handler; loc nil means UTC.
-func NewNotifications(d *db.DB, key *vault.Key, loc *time.Location, logger *slog.Logger) *Notifications {
+// events, when set, hears about channels whose health a test changed.
+func NewNotifications(d *db.DB, key *vault.Key, events *sse.Hub, loc *time.Location, logger *slog.Logger) *Notifications {
 	if loc == nil {
 		loc = time.UTC
 	}
-	return &Notifications{db: d, key: key, loc: loc, log: logging.Sub(logger, "http"), now: time.Now}
+	return &Notifications{db: d, key: key, events: events, loc: loc, log: logging.Sub(logger, "http"), now: time.Now, send: notify.Send}
 }
 
 // RegisterNotifications mounts the list inside RequireAuth: viewers see the
@@ -45,6 +50,7 @@ func NewNotifications(d *db.DB, key *vault.Key, loc *time.Location, logger *slog
 func RegisterNotifications(r chi.Router, h *Notifications) {
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
 		r.Method(method, "/notifications", http.HandlerFunc(h.list))
+		r.Method(method, "/fragments/notifications", http.HandlerFunc(h.listFragment))
 	}
 }
 
@@ -55,7 +61,14 @@ func RegisterNotificationChanges(r chi.Router, h *Notifications) {
 	r.Post("/notifications/channels", h.create)
 	r.Get("/notifications/channels/{id}/edit", h.editForm)
 	r.Post("/notifications/channels/{id}", h.update)
+	r.Post("/notifications/channels/{id}/test", h.test)
 	r.Post("/notifications/channels/{id}/delete", h.remove)
+	r.Get("/notifications/profiles/new", h.newProfile)
+	r.Post("/notifications/profiles", h.createProfile)
+	r.Get("/notifications/profiles/{id}/edit", h.editProfile)
+	r.Post("/notifications/profiles/{id}", h.updateProfile)
+	r.Post("/notifications/profiles/{id}/simulate", h.simulate)
+	r.Post("/notifications/profiles/{id}/delete", h.removeProfile)
 }
 
 func (h *Notifications) fail(w http.ResponseWriter, r *http.Request, what string, err error) {
@@ -64,18 +77,46 @@ func (h *Notifications) fail(w http.ResponseWriter, r *http.Request, what string
 }
 
 func (h *Notifications) list(w http.ResponseWriter, r *http.Request) {
-	channels, err := store.ListChannels(r.Context(), h.db.Reader)
+	v, err := h.listView(r)
 	if err != nil {
-		h.fail(w, r, "listing channels", err)
+		h.fail(w, r, "listing notifications", err)
 		return
 	}
-	now := h.now()
+	render(w, r, h.log, http.StatusOK, templates.NotificationsPage(pageFor(r, "Notifications — Sinjal"), v))
+}
+
+func (h *Notifications) listFragment(w http.ResponseWriter, r *http.Request) {
+	v, err := h.listView(r)
+	if err != nil {
+		h.fail(w, r, "listing notifications", err)
+		return
+	}
+	render(w, r, h.log, http.StatusOK, templates.ChannelSection(v))
+}
+
+// listView is the channels with their health and the profiles in words.
+func (h *Notifications) listView(r *http.Request) (templates.ChannelListView, error) {
+	ctx := r.Context()
 	v := templates.ChannelListView{Admin: isAdmin(r)}
+	channels, err := store.ListChannels(ctx, h.db.Reader)
+	if err != nil {
+		return v, err
+	}
+	profiles, err := store.ListProfiles(ctx, h.db.Reader)
+	if err != nil {
+		return v, err
+	}
+	now := h.now()
+	names := make(map[string]string, len(channels))
 	for _, c := range channels {
+		names[c.ID] = c.Name
 		v.Rows = append(v.Rows, templates.ChannelRow{ID: c.ID, Name: c.Name, TypeLabel: templates.ChannelTypeLabel(c.Type),
 			Status: channelStatus(c), Detail: h.channelDetail(c, now)})
 	}
-	render(w, r, h.log, http.StatusOK, templates.NotificationsPage(pageFor(r, "Notifications — Sinjal"), v))
+	for _, p := range profiles {
+		v.Profiles = append(v.Profiles, h.profileRow(p, names))
+	}
+	return v, nil
 }
 
 // channelStatus is the health of a channel in words (docs/11).

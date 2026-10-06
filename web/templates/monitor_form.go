@@ -54,6 +54,9 @@ type MonitorForm struct {
 
 	Parent  string
 	Parents []Option
+	// Profile is the chosen notification profile; Profiles the choices.
+	Profile  string
+	Profiles []Option
 
 	UserAgent  string
 	MaxBodyKiB string
@@ -135,7 +138,7 @@ var FormFieldOrder = []string{
 	"expected_interval", "grace", "source_label", "url", "method", "request_body", "headers", "auth", "basic_user", "basic_password",
 	"bearer_token", "sh_new_name", "sh_new_value", "secret_headers", "expected_status", "body_contains", "body_not_contains",
 	"json_assertions", "interval", "timeout", "retry_delay", "failure_threshold", "success_threshold",
-	"parent_monitor_id", "custom_user_agent", "max_body_kib", "tls_warning_days", "proxy_url", "ip_family",
+	"parent_monitor_id", "notification_profile_id", "custom_user_agent", "max_body_kib", "tls_warning_days", "proxy_url", "ip_family",
 }
 
 // fieldLabels names the fields in the error summary.
@@ -149,7 +152,7 @@ var fieldLabels = map[string]string{
 	"body_contains": "Body contains", "body_not_contains": "Body does not contain",
 	"json_assertions": "JSON assertions", "interval": "Interval", "timeout": "Timeout",
 	"retry_delay": "Retry delay", "failure_threshold": "Failures before down",
-	"success_threshold": "Successes before up", "parent_monitor_id": "Depends on",
+	"success_threshold": "Successes before up", "parent_monitor_id": "Depends on", "notification_profile_id": "Profile",
 	"custom_user_agent": "User-Agent", "max_body_kib": "Body limit", "tls_warning_days": "Warning days",
 	"proxy_url": "Proxy", "ip_family": "IP version",
 }

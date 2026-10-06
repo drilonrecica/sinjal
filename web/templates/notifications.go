@@ -1,9 +1,95 @@
 package templates
 
-// ChannelListView is the Notifications page: the configured channels.
+// ChannelListView is the Notifications page: the configured channels and
+// the profiles that route to them.
 type ChannelListView struct {
-	Admin bool
-	Rows  []ChannelRow
+	Admin    bool
+	Rows     []ChannelRow
+	Profiles []ProfileRow
+}
+
+// ProfileRow is one profile in the list, its settings already in words.
+type ProfileRow struct {
+	ID       string
+	Name     string
+	Routes   []string // "Critical: Mail, Ops chat"; empty when it routes nothing
+	Quiet    string   // "Quiet 23:00–07:00, critical bypasses" or "No quiet hours"
+	Reminder string   // "Reminder after 1 h" or "No reminder"
+	Monitors string   // "Used by 3 monitors"
+}
+
+// Severity is one column of the routing matrix.
+type Severity struct{ Value, Label, Kinds string }
+
+// Severities are the matrix columns, with what each carries (docs/36).
+var Severities = []Severity{
+	{"info", "Info", "recovery, stable again"},
+	{"warning", "Warning", "certificate expiry, flapping"},
+	{"critical", "Critical", "down, still down"},
+}
+
+// RouteChannel is one row of the routing matrix.
+type RouteChannel struct {
+	ID, Name, TypeLabel string
+	Enabled             bool
+}
+
+// ProfileForm is the state of the create/edit profile page. Times and the
+// reminder are kept as typed.
+type ProfileForm struct {
+	ID             string // "" while creating
+	Name           string
+	QuietEnabled   bool
+	QuietStart     string
+	QuietEnd       string
+	CriticalBypass bool
+	Reminder       string // minutes; "" for none
+	Channels       []RouteChannel
+	Routes         map[string]bool // RouteKey(severity, channel) → chosen
+	Monitors       int
+	Zone           string
+	Errors         map[string]string
+}
+
+// RouteKey is the form value of one matrix cell.
+func RouteKey(severity, channelID string) string { return severity + ":" + channelID }
+
+// Editing reports whether the form edits an existing profile.
+func (f ProfileForm) Editing() bool { return f.ID != "" }
+
+// Action is where the form posts.
+func (f ProfileForm) Action() string {
+	if f.Editing() {
+		return "/notifications/profiles/" + f.ID
+	}
+	return "/notifications/profiles"
+}
+
+func (f ProfileForm) summary() []summaryItem {
+	var out []summaryItem
+	for _, it := range []summaryItem{{"name", "Name", ""}, {"routes", "Routing", ""}, {"quiet_start", "Quiet from", ""},
+		{"quiet_end", "Quiet until", ""}, {"reminder", "Reminder", ""}} {
+		if msg, ok := f.Errors[it.Field]; ok {
+			it.Message = msg
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// SendResult is what became of one test or simulated message.
+type SendResult struct {
+	Channel string
+	What    string // "[TEST] DOWN", "[TEST] RECOVERY", "Test notification"
+	Error   string // "" when it was sent
+}
+
+// SimulationView is the outcome of "Simulate incident".
+type SimulationView struct {
+	ProfileID string
+	Name      string
+	Quiet     string // how the profile's quiet hours would treat it now; "" without quiet hours
+	Results   []SendResult
 }
 
 // ChannelRow is one channel in the list. Status and Detail are text, so
@@ -96,6 +182,8 @@ type ChannelForm struct {
 	// Errors maps a field name to its message; "form" holds a failure not
 	// tied to one field.
 	Errors map[string]string
+	// Test is the outcome of "Send test notification", nil otherwise.
+	Test *SendResult
 }
 
 // Editing reports whether the form edits an existing channel.

@@ -47,6 +47,12 @@ const (
 	ChannelCreated = "notification.channel_created"
 	ChannelUpdated = "notification.channel_updated"
 	ChannelDeleted = "notification.channel_deleted"
+	ChannelTested  = "notification.channel_tested"
+
+	ProfileCreated   = "notification.profile_created"
+	ProfileUpdated   = "notification.profile_updated"
+	ProfileDeleted   = "notification.profile_deleted"
+	ProfileSimulated = "notification.profile_simulated"
 
 	IncidentNoted = "incident.noted"
 )

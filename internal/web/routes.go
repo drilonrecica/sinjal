@@ -50,7 +50,7 @@ func Routes(r chi.Router, app App) {
 	monitors := NewMonitors(app.DB, app.Vault, app.Engine, app.Events, app.Timezone, app.Logger)
 	account := NewAccount(app.DB, app.Sessions, app.Logger)
 	maint := NewMaintenance(app.DB, app.Events, app.Timezone, app.Logger)
-	notifications := NewNotifications(app.DB, app.Vault, app.Timezone, app.Logger)
+	notifications := NewNotifications(app.DB, app.Vault, app.Events, app.Timezone, app.Logger)
 	overview := NewOverview(app.DB, app.Timezone, app.Logger)
 	incidents := NewIncidents(app.DB, app.Events, app.Timezone, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)

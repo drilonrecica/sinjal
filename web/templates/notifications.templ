@@ -3,47 +3,100 @@ package templates
 import "strconv"
 
 // NotificationsPage is the Notifications page (docs/03): the channels
-// notifications can be sent through, with their health.
+// notifications can be sent through, with their health, and the profiles
+// that route to them. The channels refresh when a delivery changes one.
 templ NotificationsPage(page Page, v ChannelListView) {
-	@Shell(page.withAssets([]string{"css/monitors.css", "css/notifications.css"}, nil), "notifications") {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/notifications.css"}, LiveScripts), "notifications") {
 		<div class="page-head">
 			<h1>Notifications</h1>
 			if v.Admin {
 				<a class="action" href="/notifications/channels/new">Add channel</a>
 			}
 		</div>
-		<section aria-labelledby="channels-title">
-			<h2 id="channels-title">Channels</h2>
-			if len(v.Rows) == 0 {
+		<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:notification.channel_updated">
+			@ChannelSection(v)
+		</div>
+		<section aria-labelledby="profiles-title" class="profile-section">
+			<div class="section-head">
+				<h2 id="profiles-title">Profiles</h2>
+				if v.Admin && len(v.Rows) > 0 {
+					<a class="action" href="/notifications/profiles/new">Add profile</a>
+				}
+			</div>
+			if len(v.Profiles) == 0 {
 				<div class="empty-state">
-					<p>No channels yet. A channel is where Sinjal sends alerts: email, Telegram, Discord or a webhook.</p>
+					<p>No profiles yet. A profile decides which channels each severity goes to, with optional quiet hours and an outage reminder. A monitor sends notifications once it has a profile.</p>
 					if v.Admin {
-						<a class="action" href="/notifications/channels/new">Add channel</a>
+						if len(v.Rows) == 0 {
+							<p class="auth-hint">Add a channel first: a profile routes to channels.</p>
+						} else {
+							<a class="action" href="/notifications/profiles/new">Add profile</a>
+						}
 					}
 				</div>
 			} else {
 				<ul class="chan-list" role="list">
-					for _, c := range v.Rows {
+					for _, p := range v.Profiles {
 						<li class="chan-row">
 							<div class="chan-main">
-								<span class="chan-name">{ c.Name }</span>
-								<span class="chan-type">{ c.TypeLabel }</span>
+								<span class="chan-name">{ p.Name }</span>
+								<span class="chan-type">{ p.Monitors }</span>
 							</div>
-							<p class="chan-status">{ c.Status }</p>
-							if c.Detail != "" {
-								<p class="chan-detail">{ c.Detail }</p>
-							}
 							if v.Admin {
 								<div class="chan-actions">
-									<a href={ templ.SafeURL("/notifications/channels/" + c.ID + "/edit") }>Edit<span class="visually-hidden">{ c.Name }</span></a>
+									<a href={ templ.SafeURL("/notifications/profiles/" + p.ID + "/edit") }>Edit<span class="visually-hidden">{ p.Name }</span></a>
 								</div>
 							}
+							if len(p.Routes) == 0 {
+								<p class="chan-detail">Routes nothing: no notification is sent.</p>
+							} else {
+								for _, route := range p.Routes {
+									<p class="chan-detail">{ route }</p>
+								}
+							}
+							<p class="chan-detail">{ p.Quiet }. { p.Reminder }.</p>
 						</li>
 					}
 				</ul>
 			}
 		</section>
 	}
+}
+
+// ChannelSection is the channel list. It replaces itself from
+// /fragments/notifications when live.js sends it "refresh".
+templ ChannelSection(v ChannelListView) {
+	<section data-live-list hx-get="/fragments/notifications" hx-trigger="refresh" hx-swap="outerHTML" aria-labelledby="channels-title">
+		<h2 id="channels-title">Channels</h2>
+		if len(v.Rows) == 0 {
+			<div class="empty-state">
+				<p>No channels yet. A channel is where Sinjal sends alerts: email, Telegram, Discord or a webhook.</p>
+				if v.Admin {
+					<a class="action" href="/notifications/channels/new">Add channel</a>
+				}
+			</div>
+		} else {
+			<ul class="chan-list" role="list">
+				for _, c := range v.Rows {
+					<li class="chan-row">
+						<div class="chan-main">
+							<span class="chan-name">{ c.Name }</span>
+							<span class="chan-type">{ c.TypeLabel }</span>
+						</div>
+						<p class="chan-status">{ c.Status }</p>
+						if c.Detail != "" {
+							<p class="chan-detail">{ c.Detail }</p>
+						}
+						if v.Admin {
+							<div class="chan-actions">
+								<a href={ templ.SafeURL("/notifications/channels/" + c.ID + "/edit") }>Edit<span class="visually-hidden">{ c.Name }</span></a>
+							</div>
+						}
+					</li>
+				}
+			</ul>
+		}
+	</section>
 }
 
 // ChannelFormPage creates or edits a channel. The type is chosen first on
@@ -120,6 +173,21 @@ templ ChannelFormPage(page Page, f ChannelForm) {
 				</div>
 			</form>
 			if f.Editing() {
+				<section class="chan-test" aria-labelledby="test-title">
+					<h2 id="test-title">Send test notification</h2>
+					<p>Sends a message marked [TEST] through this channel as it is saved now, also when it is disabled. The result counts towards the channel's health.</p>
+					if f.Test != nil {
+						if f.Test.Error == "" {
+							<p class="auth-notice" role="status">Test notification sent to { f.Test.Channel }. Check that it arrived.</p>
+						} else {
+							<p class="auth-alert" role="alert">The test notification failed: { f.Test.Error }</p>
+						}
+					}
+					<form method="post" action={ templ.SafeURL("/notifications/channels/" + f.ID + "/test") }>
+						@CSRFField(page)
+						<button class="detail-button" type="submit">Send test notification</button>
+					</form>
+				</section>
 				<form class="chan-delete" method="post" action={ templ.SafeURL("/notifications/channels/" + f.ID + "/delete") }>
 					@CSRFField(page)
 					<button class="detail-button detail-button-danger" type="submit">Delete this channel</button>
@@ -170,6 +238,202 @@ templ ChannelDeleteConfirm(page Page, v DeleteConfirmView) {
 					<button class="detail-button detail-button-danger" type="submit">Delete channel</button>
 				</form>
 				<a class="detail-button" href="/notifications">Cancel</a>
+			</div>
+		</div>
+	}
+}
+
+// ProfileFormPage creates or edits a notification profile: the severity ×
+// channel matrix, quiet hours and the outage reminder (docs/11).
+templ ProfileFormPage(page Page, f ProfileForm) {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/monitor_form.css", "css/monitor_detail.css", "css/notifications.css"}, nil), "notifications") {
+		<div class="monitor-form-page">
+			<p class="crumb"><a href="/notifications">Notifications</a></p>
+			if f.Editing() {
+				<h1>Edit { f.Name }</h1>
+			} else {
+				<h1>Add profile</h1>
+			}
+			if msg, ok := f.Errors["form"]; ok {
+				<p class="auth-alert" role="alert">{ msg }</p>
+			}
+			if items := f.summary(); len(items) > 0 {
+				<div class="form-summary" role="alert" aria-labelledby="summary-title">
+					<h2 id="summary-title">Fix { strconv.Itoa(len(items)) } { plural(len(items), "problem", "problems") } to save</h2>
+					<ul>
+						for _, it := range items {
+							<li><a href={ templ.SafeURL("#" + it.Field) }>{ it.Label }</a>: { it.Message }</li>
+						}
+					</ul>
+				</div>
+			}
+			<form class="monitor-form" method="post" action={ templ.SafeURL(f.Action()) } novalidate>
+				@CSRFField(page)
+				<fieldset class="form-section">
+					<legend>Profile</legend>
+					@field("name", "Name", f.Errors) {
+						<input id="name" name="name" type="text" value={ f.Name } required maxlength="100" autocomplete="off" { fieldAttrs("name", f.Errors, "name-hint")... }/>
+						<p id="name-hint" class="auth-hint">Such as Critical or Office hours. Monitors choose a profile by this name.</p>
+					}
+				</fieldset>
+				<fieldset class="form-section" id="routes" { fieldAttrs("routes", f.Errors, "routes-hint")... }>
+					<legend>Routing</legend>
+					<p id="routes-hint" class="auth-hint">Tick where each severity is sent. A severity without a channel is not sent.</p>
+					if len(f.Channels) == 0 {
+						<p>There are no channels yet. <a href="/notifications/channels/new">Add a channel</a> first.</p>
+					} else {
+						<div class="route-scroll">
+							<table class="route-matrix">
+								<thead>
+									<tr>
+										<th scope="col">Channel</th>
+										for _, sev := range Severities {
+											<th scope="col">
+												{ sev.Label }
+												<span class="route-kinds">{ sev.Kinds }</span>
+											</th>
+										}
+									</tr>
+								</thead>
+								<tbody>
+									for _, c := range f.Channels {
+										<tr>
+											<th scope="row">
+												{ c.Name }
+												<span class="route-kinds">
+													{ c.TypeLabel }
+													if !c.Enabled {
+														, disabled
+													}
+												</span>
+											</th>
+											for _, sev := range Severities {
+												<td>
+													<input
+														id={ "route-" + sev.Value + "-" + c.ID }
+														type="checkbox"
+														name="route"
+														value={ RouteKey(sev.Value, c.ID) }
+														checked?={ f.Routes[RouteKey(sev.Value, c.ID)] }
+													/>
+													<label for={ "route-" + sev.Value + "-" + c.ID } class="visually-hidden">{ sev.Label } to { c.Name }</label>
+												</td>
+											}
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					}
+					if msg, ok := f.Errors["routes"]; ok {
+						<p id="routes-error" class="auth-error">{ msg }</p>
+					}
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Quiet hours</legend>
+					@checkbox("quiet_enabled", "Use quiet hours", f.QuietEnabled, "Inside the window, info and warning notifications are not sent, and not sent later either.")
+					<div class="quiet-times">
+						@field("quiet_start", "Quiet from", f.Errors) {
+							<input id="quiet_start" name="quiet_start" type="time" value={ f.QuietStart } { fieldAttrs("quiet_start", f.Errors, "quiet-zone")... }/>
+						}
+						@field("quiet_end", "Quiet until", f.Errors) {
+							<input id="quiet_end" name="quiet_end" type="time" value={ f.QuietEnd } { fieldAttrs("quiet_end", f.Errors, "quiet-zone")... }/>
+						}
+					</div>
+					<p id="quiet-zone" class="auth-hint">In { f.Zone }. An end before the start runs past midnight, such as 23:00 until 07:00.</p>
+					@checkbox("critical_bypass", "Critical notifications bypass quiet hours", f.CriticalBypass, "Down and still-down notifications are sent at any hour. Off, they are held like the rest.")
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Outage reminder</legend>
+					@field("reminder", "Remind after (minutes)", f.Errors) {
+						<input id="reminder" name="reminder" type="number" min="1" max="10080" inputmode="numeric" value={ f.Reminder } { fieldAttrs("reminder", f.Errors, "reminder-hint")... }/>
+						<p id="reminder-hint" class="auth-hint">One "still down" notification when an outage lasts this long. Empty: no reminder.</p>
+					}
+				</fieldset>
+				<div class="form-actions">
+					<button class="auth-submit" type="submit">
+						if f.Editing() {
+							Save changes
+						} else {
+							Add profile
+						}
+					</button>
+					<a href="/notifications">Cancel</a>
+				</div>
+			</form>
+			if f.Editing() {
+				<section class="chan-test" aria-labelledby="simulate-title">
+					<h2 id="simulate-title">Simulate incident</h2>
+					<p>Sends a [TEST] DOWN to the channels this profile routes critical notifications to, and a [TEST] RECOVERY to its info channels, as the profile is saved now. Nothing is recorded: no incident, no delivery history, no change to channel health.</p>
+					<form method="post" action={ templ.SafeURL("/notifications/profiles/" + f.ID + "/simulate") }>
+						@CSRFField(page)
+						<button class="detail-button" type="submit">Simulate incident</button>
+					</form>
+				</section>
+				<form class="chan-delete" method="post" action={ templ.SafeURL("/notifications/profiles/" + f.ID + "/delete") }>
+					@CSRFField(page)
+					<button class="detail-button detail-button-danger" type="submit">Delete this profile</button>
+				</form>
+			}
+		</div>
+	}
+}
+
+// ProfileDeleteConfirm asks before a profile is deleted.
+templ ProfileDeleteConfirm(page Page, v DeleteConfirmView, monitors int) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/monitor_detail.css"}, nil), "notifications") {
+		<div class="monitor-detail">
+			<p class="crumb"><a href="/notifications">Notifications</a></p>
+			<h1>Delete { v.Name }?</h1>
+			if monitors > 0 {
+				<p>{ strconv.Itoa(monitors) } { plural(monitors, "monitor uses", "monitors use") } this profile. They keep being checked, but send no notifications until they get another profile.</p>
+			} else {
+				<p>No monitor uses this profile.</p>
+			}
+			<div class="detail-actions">
+				<form method="post" action={ templ.SafeURL("/notifications/profiles/" + v.ID + "/delete") }>
+					@CSRFField(page)
+					<input type="hidden" name="confirm" value="1"/>
+					<button class="detail-button detail-button-danger" type="submit">Delete profile</button>
+				</form>
+				<a class="detail-button" href="/notifications">Cancel</a>
+			</div>
+		</div>
+	}
+}
+
+// SimulationPage shows what "Simulate incident" sent.
+templ SimulationPage(page Page, v SimulationView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/monitor_detail.css", "css/notifications.css"}, nil), "notifications") {
+		<div class="monitor-detail">
+			<p class="crumb"><a href="/notifications">Notifications</a></p>
+			<h1>Simulated incident: { v.Name }</h1>
+			<p>Messages marked [TEST] for an example monitor. Nothing was recorded: no incident, no delivery history, no change to channel health.</p>
+			if v.Quiet != "" {
+				<p class="auth-hint">{ v.Quiet }</p>
+			}
+			if len(v.Results) == 0 {
+				<p class="auth-alert" role="alert">Nothing was sent: this profile routes neither critical nor info notifications to an enabled channel.</p>
+			} else {
+				<ul class="chan-list" role="list">
+					for _, r := range v.Results {
+						<li class="chan-row">
+							<div class="chan-main">
+								<span class="chan-name">{ r.Channel }</span>
+								<span class="chan-type">{ r.What }</span>
+							</div>
+							if r.Error == "" {
+								<p class="chan-status">Sent</p>
+							} else {
+								<p class="chan-status">Failed</p>
+								<p class="chan-detail">{ r.Error }</p>
+							}
+						</li>
+					}
+				</ul>
+			}
+			<div class="detail-actions">
+				<a class="detail-button" href={ templ.SafeURL("/notifications/profiles/" + v.ProfileID + "/edit") }>Back to the profile</a>
 			</div>
 		</div>
 	}

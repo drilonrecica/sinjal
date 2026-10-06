@@ -243,7 +243,7 @@ Routes:
 - error message
 - delivered_at
 
-One row per attempt (`notification_deliveries`): `event_type` is the intent's kind (`down`, `recovery`, `flapping`, `stable`, `tls_warning`; later `reminder`, `test`), `attempt` counts from 1, `status` is `sent`, `failed` (this attempt) or `dropped` (not attempted: the incident had ended before the retry), `delivered_at` is set on `sent` only, `incident_id` is NULL for a notice that belongs to no incident.
+One row per attempt (`notification_deliveries`): `event_type` is the intent's kind (`down`, `recovery`, `flapping`, `stable`, `tls_warning`, `reminder`; `test` for "Send test notification", one final attempt without an incident; a simulated incident writes no row), `attempt` counts from 1, `status` is `sent`, `failed` (this attempt) or `dropped` (not attempted: the incident had ended before the retry), `delivered_at` is set on `sent` only, `incident_id` is NULL for a notice that belongs to no incident.
 
 ## Status page
 

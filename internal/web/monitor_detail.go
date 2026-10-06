@@ -144,6 +144,14 @@ func (h *Monitors) configGroups(r *http.Request, m store.Monitor, parent string,
 	if err != nil {
 		return nil, err
 	}
+	var profile string
+	if m.NotificationProfileID != "" {
+		p, err := store.GetProfile(ctx, q, m.NotificationProfileID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, err
+		}
+		profile = p.Name
+	}
 	orNone := func(s, none string) string {
 		if s == "" {
 			return none
@@ -173,6 +181,7 @@ func (h *Monitors) configGroups(r *http.Request, m store.Monitor, parent string,
 		{Label: "Successes before up", Value: strconv.Itoa(m.SuccessThreshold)},
 		{Label: "Depends on", Value: orNone(parent, "Nothing")},
 		{Label: "Tags", Value: orNone(strings.Join(tags, ", "), "None")},
+		{Label: "Notification profile", Value: orNone(profile, "None: nothing is sent")},
 	}...)}}
 	if !admin {
 		return gs, nil

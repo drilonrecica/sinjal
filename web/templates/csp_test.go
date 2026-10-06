@@ -86,7 +86,20 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"incidentDetail": IncidentDetail(page, IncidentDetailView{Incident: testIncidents.Rows[0], Admin: true, NoteMax: 1000, Error: "e",
 			Events: []IncidentEventView{{Label: "First failure", Message: "<b>x</b>", Time: "t", At: "a"}, {Label: "Note", Message: "n", Time: "t", At: "a", Note: true}}}),
 		"incidentDetailViewer": IncidentDetail(page, IncidentDetailView{Incident: testIncidents.Rows[1]}),
-		"totpSetup":            TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
+		"notifications": NotificationsPage(page, ChannelListView{Admin: true, Rows: []ChannelRow{{ID: "c1", Name: "Mail", TypeLabel: "Email", Status: "Healthy", Detail: "d"}},
+			Profiles: []ProfileRow{{ID: "p1", Name: "Ops", Routes: []string{"Critical: Mail"}, Quiet: "q", Reminder: "r", Monitors: "m"}, {ID: "p2", Name: "Empty"}}}),
+		"notificationsNone": NotificationsPage(page, ChannelListView{Admin: true}),
+		"channelSection":    ChannelSection(ChannelListView{}),
+		"channelForm": ChannelFormPage(page, ChannelForm{ID: "c1", Type: "webhook", Values: map[string]string{}, SecretSet: map[string]bool{},
+			Errors: map[string]string{"url": "x"}, Test: &SendResult{Channel: "Mail", Error: "e"}}),
+		"channelFormSent": ChannelFormPage(page, ChannelForm{ID: "c1", Type: "discord", Test: &SendResult{Channel: "Mail"}}),
+		"channelDelete":   ChannelDeleteConfirm(page, DeleteConfirmView{ID: "c1", Name: "Mail"}),
+		"profileForm":     ProfileFormPage(page, testProfileForm),
+		"profileFormNew":  ProfileFormPage(page, ProfileForm{Zone: "UTC"}),
+		"profileDelete":   ProfileDeleteConfirm(page, DeleteConfirmView{ID: "p1", Name: "Ops"}, 2),
+		"simulation":      SimulationPage(page, SimulationView{ProfileID: "p1", Name: "Ops", Quiet: "q", Results: []SendResult{{Channel: "Mail", What: "[TEST] DOWN"}, {Channel: "Hook", What: "[TEST] RECOVERY", Error: "e"}}}),
+		"simulationNone":  SimulationPage(page, SimulationView{ProfileID: "p1", Name: "Ops"}),
+		"totpSetup":       TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}
 	for _, tab := range DetailTabs {
 		v := MonitorDetailView{Monitor: testMonitor, Admin: true, Tab: tab.Key,
@@ -122,3 +135,8 @@ var testIncidents = IncidentListView{Fragment: "/fragments/incidents", ShowMonit
 		{ID: "i1", MonitorID: "m1", Monitor: "API", Active: true, Started: "10:00 UTC", StartedAt: "2026-10-06T10:00:00Z", Duration: "5m", Summary: "status 503", Parent: true, Maintenance: true},
 		{ID: "i2", MonitorID: "m1", Monitor: "API", Started: "09:00 UTC", StartedAt: "2026-10-06T09:00:00Z", Duration: "2m"},
 	}}
+
+var testProfileForm = ProfileForm{ID: "p1", Name: "Ops", QuietEnabled: true, QuietStart: "23:00", QuietEnd: "07:00", Reminder: "60", Zone: "UTC",
+	Channels: []RouteChannel{{ID: "c1", Name: "Mail", TypeLabel: "Email", Enabled: true}, {ID: "c2", Name: "Old", TypeLabel: "Webhook"}},
+	Routes:   map[string]bool{"critical:c1": true},
+	Errors:   map[string]string{"name": "x", "routes": "x", "quiet_start": "x", "quiet_end": "x", "reminder": "x", "form": "x"}}
