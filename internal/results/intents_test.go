@@ -182,7 +182,7 @@ func TestNoIntentWithoutAnIncidentChange(t *testing.T) {
 func TestIntentsAreLogged(t *testing.T) {
 	d, _ := testDB(t)
 	var buf bytes.Buffer
-	p := New(d, slog.New(slog.NewTextHandler(&buf, nil)), nil, nil, nil)
+	p := New(d, slog.New(slog.NewTextHandler(&buf, nil)), time.UTC, nil, nil, nil)
 	p.flushAfter = time.Millisecond
 	id := newMonitor(t, d, "web", nil)
 	ctx, cancel := context.WithCancel(context.Background())

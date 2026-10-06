@@ -25,6 +25,9 @@ type NewIncident struct {
 	Summary     string    // message of the failure that confirmed it
 	// SuppressedByParent: the parent monitor was down when it opened.
 	SuppressedByParent bool
+	// MaintenanceOverlap: a maintenance window covering the monitor was in
+	// effect between its start and its confirmation.
+	MaintenanceOverlap bool
 }
 
 // OpenIncident records a monitor's active incident with its detected and
@@ -34,11 +37,11 @@ type NewIncident struct {
 func OpenIncident(ctx context.Context, tx *sql.Tx, in NewIncident) (id string, opened bool, err error) {
 	id = ids.New()
 	res, err := tx.ExecContext(ctx, `INSERT INTO incidents
-		(id, monitor_id, started_at, initial_failure_kind, summary, suppressed_by_parent, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		(id, monitor_id, started_at, initial_failure_kind, summary, suppressed_by_parent, maintenance_overlap, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (monitor_id) WHERE ended_at IS NULL DO NOTHING`,
 		id, in.MonitorID, formatTime(in.StartedAt), nullStr(in.FailureKind), nullStr(in.Summary),
-		b2i(in.SuppressedByParent), formatTime(in.DeclaredAt))
+		b2i(in.SuppressedByParent), b2i(in.MaintenanceOverlap), formatTime(in.DeclaredAt))
 	if err != nil {
 		return "", false, err
 	}
@@ -173,4 +176,18 @@ func PendingDown(ctx context.Context, tx *sql.Tx, monitorID string) (string, err
 		return id, nil
 	}
 	return "", nil
+}
+
+// IncidentStart returns when an incident started.
+func IncidentStart(ctx context.Context, tx *sql.Tx, incidentID string) (time.Time, error) {
+	var started string
+	err := tx.QueryRowContext(ctx, `SELECT started_at FROM incidents WHERE id = ?`, incidentID).Scan(&started)
+	return parseTime(started), err
+}
+
+// SetMaintenanceOverlap marks an incident as having overlapped a
+// maintenance window.
+func SetMaintenanceOverlap(ctx context.Context, tx *sql.Tx, incidentID string) error {
+	_, err := tx.ExecContext(ctx, `UPDATE incidents SET maintenance_overlap = 1 WHERE id = ?`, incidentID)
+	return err
 }

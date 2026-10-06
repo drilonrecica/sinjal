@@ -202,6 +202,13 @@ Includes optional human-readable `source_label`.
 
 Keep recurrence simple.
 
+Stored form (`maintenance_windows`, `internal/store/maintenance.go`):
+
+- `starts_at`: the first occurrence, UTC like every timestamp; a recurring window also takes its time of day from it, read in the instance time zone
+- `duration_seconds`: elapsed time of one occurrence, 1 minute to 31 days
+- `weekday_mask`: weekly windows only, NULL otherwise; bit *n* is `time.Weekday(n)`, Sunday = bit 0 … Saturday = bit 6
+- `scope_json`: NULL for every monitor, otherwise `{"monitors":[ids],"tags":[names]}`; a monitor is in scope if it is listed or carries one of the tags. Tags are kept by name (case-insensitive) because a tag no monitor uses is deleted and would come back with a new id; a monitor or tag that disappears later simply matches nothing
+
 ## Notification channel
 
 - id

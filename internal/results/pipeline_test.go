@@ -58,7 +58,7 @@ func TestPipelineScenarios(t *testing.T) {
 		}
 	}, quiet)
 	sch := scheduler.New(pool.Submit)
-	proc = New(d, quiet, sch.Retry, func(id string) {
+	proc = New(d, quiet, time.UTC, sch.Retry, func(id string) {
 		m, err := store.GetMonitor(context.Background(), d.Reader, id)
 		if err != nil {
 			t.Error(err)

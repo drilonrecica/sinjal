@@ -56,7 +56,7 @@ type Engine struct {
 // checks that may run at once; userAgent is sent by HTTP checks that set
 // none of their own. updated, which may be nil, is called with the id of a
 // monitor after its row changed (the SSE hub); it must not block.
-func New(d *db.DB, key *vault.Key, workers int, userAgent string, updated func(monitorID string), logger *slog.Logger) *Engine {
+func New(d *db.DB, key *vault.Key, workers int, userAgent string, loc *time.Location, updated func(monitorID string), logger *slog.Logger) *Engine {
 	if updated == nil {
 		updated = func(string) {}
 	}
@@ -72,7 +72,7 @@ func New(d *db.DB, key *vault.Key, workers int, userAgent string, updated func(m
 	e.sch = scheduler.New(e.pool.Submit)
 	// No consumer for notification intents yet: the dispatcher arrives with
 	// M5. Until then they are decided, recorded and logged.
-	e.proc = results.New(d, logging.Sub(logger, "results"), e.sch.Retry, updated, nil)
+	e.proc = results.New(d, logging.Sub(logger, "results"), loc, e.sch.Retry, updated, nil)
 	return e
 }
 

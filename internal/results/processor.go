@@ -15,6 +15,7 @@ import (
 
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/incident"
+	"github.com/drilonrecica/sinjal/internal/maintenance"
 	"github.com/drilonrecica/sinjal/internal/store"
 )
 
@@ -82,6 +83,7 @@ type tracked struct {
 type Processor struct {
 	db     *db.DB
 	log    *slog.Logger
+	loc    *time.Location // the instance time zone, for maintenance windows
 	retry  func(monitorID string, delay time.Duration)
 	notify func(monitorID string)
 	intent func(incident.Intent)
@@ -102,16 +104,18 @@ type Processor struct {
 	lastFailureLog                      time.Time
 }
 
-// New returns a processor writing to d. retry is called when a monitor
+// New returns a processor writing to d. Maintenance windows repeat in loc,
+// the instance time zone. retry is called when a monitor
 // needs a confirmation check after the given delay (the scheduler's Retry),
 // notify after a monitor's row changed (the SSE hub), intent for every
 // notification intent once it is committed, suppressed ones included (the
 // notification dispatcher); each may be nil. All are called from the
 // processor's goroutine and must not block.
-func New(d *db.DB, log *slog.Logger, retry func(monitorID string, delay time.Duration), notify func(monitorID string), intent func(incident.Intent)) *Processor {
+func New(d *db.DB, log *slog.Logger, loc *time.Location, retry func(monitorID string, delay time.Duration), notify func(monitorID string), intent func(incident.Intent)) *Processor {
 	return &Processor{
 		db:         d,
 		log:        log,
+		loc:        loc,
 		retry:      retry,
 		notify:     notify,
 		intent:     intent,
@@ -231,6 +235,11 @@ type monitorWork struct {
 	// pending is the active incident whose DOWN notification the parent or
 	// maintenance holds back; "" when there is none.
 	pending string
+	// windows are the maintenance windows covering the monitor, read the
+	// first time this batch needs them.
+	windows     []maintenance.Window
+	windowsRead bool
+	loc         *time.Location
 	// lastTransition is when the monitor last went down or recovered. It
 	// is only known, and only needed, while the monitor is flapping.
 	lastTransition time.Time
@@ -336,7 +345,7 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	// A DOWN held back by the parent or by maintenance is decided once
 	// neither holds any more and the monitor is still down.
 	if w.pending != "" && w.state == incident.Down {
-		c, err := w.conditions(ctx, tx)
+		c, err := w.conditions(ctx, tx, r)
 		if err == nil && !c.ParentDown && !c.Maintenance {
 			err = w.intend(ctx, tx, incident.IntentDown, r, w.pending)
 		}
@@ -357,14 +366,18 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	}
 	switch {
 	case changed && out.State == incident.Down:
-		c, err := w.conditions(ctx, tx)
+		c, err := w.conditions(ctx, tx, r)
+		if err != nil {
+			return err
+		}
+		overlap, err := w.inMaintenance(ctx, tx, r.MonitorID, w.first.at, r.CheckedAt)
 		if err != nil {
 			return err
 		}
 		id, opened, err := store.OpenIncident(ctx, tx, store.NewIncident{
 			MonitorID: r.MonitorID, StartedAt: w.first.at, DeclaredAt: r.CheckedAt,
 			FailureKind: w.first.kind, Detected: w.first.message, Summary: r.Message,
-			SuppressedByParent: c.ParentDown,
+			SuppressedByParent: c.ParentDown, MaintenanceOverlap: overlap,
 		})
 		if err == nil && opened {
 			err = w.transition(ctx, tx, incident.IntentDown, r, id, w.first.at)
@@ -374,6 +387,9 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 		}
 	case changed && w.state == incident.Down:
 		id, closed, err := store.CloseIncident(ctx, tx, r.MonitorID, r.CheckedAt, incident.EventRecovered)
+		if err == nil && closed {
+			err = w.markOverlap(ctx, tx, r, id)
+		}
 		if err == nil && closed {
 			err = w.transition(ctx, tx, incident.IntentRecovery, r, id, r.CheckedAt)
 		}
@@ -436,18 +452,70 @@ func (w *monitorWork) endFlapping(ctx context.Context, tx *sql.Tx, r *Result) er
 	return w.intend(ctx, tx, incident.IntentDown, r, id)
 }
 
-// conditions is what may hold back the monitor's notifications now. The
-// parent is read inside the batch, so a parent that changed earlier in it
-// counts; it is read only when an intent is being decided.
-func (w *monitorWork) conditions(ctx context.Context, tx *sql.Tx) (incident.Conditions, error) {
+// conditions is what may hold back the monitor's notifications at the time
+// of result r. The parent is read inside the batch, so a parent that
+// changed earlier in it counts; parent and maintenance windows are read
+// only when an intent is being decided.
+func (w *monitorWork) conditions(ctx context.Context, tx *sql.Tx, r *Result) (incident.Conditions, error) {
 	c := incident.Conditions{Flapping: w.flapping}
+	var err error
 	if w.parentID != "" {
-		var err error
 		if c.ParentDown, err = store.ParentDown(ctx, tx, w.parentID); err != nil {
 			return c, err
 		}
 	}
+	if err = w.readWindows(ctx, tx, r.MonitorID); err != nil {
+		return c, err
+	}
+	for _, mw := range w.windows {
+		if mw.Suppress && mw.Active(r.CheckedAt, w.loc) {
+			c.Maintenance = true
+		}
+	}
 	return c, nil
+}
+
+// readWindows reads the maintenance windows covering the monitor, once per
+// batch.
+func (w *monitorWork) readWindows(ctx context.Context, tx *sql.Tx, monitorID string) error {
+	if w.windowsRead {
+		return nil
+	}
+	var err error
+	w.windows, err = store.MonitorWindows(ctx, tx, monitorID)
+	w.windowsRead = err == nil
+	return err
+}
+
+// inMaintenance reports whether a maintenance window covering the monitor,
+// suppressing or not, is in effect at some time from from to to.
+func (w *monitorWork) inMaintenance(ctx context.Context, tx *sql.Tx, monitorID string, from, to time.Time) (bool, error) {
+	if err := w.readWindows(ctx, tx, monitorID); err != nil {
+		return false, err
+	}
+	for _, mw := range w.windows {
+		if len(mw.Occurrences(from, to.Add(time.Second), w.loc)) > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// markOverlap sets maintenance_overlap on an incident that result r closed
+// if a window was in effect at any time during it.
+func (w *monitorWork) markOverlap(ctx context.Context, tx *sql.Tx, r *Result, incidentID string) error {
+	if err := w.readWindows(ctx, tx, r.MonitorID); err != nil || len(w.windows) == 0 {
+		return err
+	}
+	started, err := store.IncidentStart(ctx, tx, incidentID)
+	if err != nil {
+		return err
+	}
+	overlap, err := w.inMaintenance(ctx, tx, r.MonitorID, started, r.CheckedAt)
+	if err != nil || !overlap {
+		return err
+	}
+	return store.SetMaintenanceOverlap(ctx, tx, incidentID)
 }
 
 // intend decides a notification intent for the monitor at the time of
@@ -455,7 +523,7 @@ func (w *monitorWork) conditions(ctx context.Context, tx *sql.Tx) (incident.Cond
 // incident's timeline, so the decision can be read back later; so is a
 // DOWN that was held back and is now decided after all.
 func (w *monitorWork) intend(ctx context.Context, tx *sql.Tx, kind incident.IntentKind, r *Result, incidentID string) error {
-	c, err := w.conditions(ctx, tx)
+	c, err := w.conditions(ctx, tx, r)
 	if err != nil {
 		return err
 	}
@@ -508,6 +576,7 @@ func (p *Processor) load(ctx context.Context, tx *sql.Tx, id string) (*monitorWo
 		from:       incident.State(cs.State),
 		flapping:   cs.Flapping,
 		parentID:   cs.ParentID,
+		loc:        p.loc,
 	}
 	if prev, ok := p.counters[id]; ok && prev.state == w.state && prev.since == w.since {
 		w.tracked = prev

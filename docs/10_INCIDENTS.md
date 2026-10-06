@@ -128,6 +128,21 @@ During maintenance:
 
 The UI must show maintenance overlays.
 
+Evaluation (`internal/maintenance`, pure; decision in the result processor):
+
+- a window is in effect from each occurrence's start for its duration (elapsed time)
+- `none`: one occurrence at `starts_at`. `daily`: every day from the day of `starts_at`, at its local time of day in the instance time zone (`SINJAL_TIMEZONE`). `weekly`: the same, on the local days whose weekday is in the mask; the start's own day counts only if it is in the mask. There is nothing before `starts_at`
+- daylight saving: the local time of day is kept, so a 02:00 window stays at 02:00 local time and its UTC time moves. A time of day that does not exist on a day (the hour skipped in spring) moves forward by the gap (02:30 → 03:30); one that exists twice (the hour repeated in autumn) is the first of the two, so the window occurs once that day. A window spanning the change lasts its duration in elapsed time
+- overlapping occurrences (a window longer than its period) merge
+- scope: every monitor, or listed monitors and monitors with listed tags (`08_DATA_MODEL.md`)
+
+What it does:
+
+- notifications: when an intent is decided, a window covering the monitor with `suppress_notifications` in effect at that check suppresses it (reason `maintenance`, first in the order). A suppressed DOWN stays pending and is decided on the first result after the window if the monitor is still DOWN (see "Notification intents", catch-up)
+- `incidents.maintenance_overlap`: set when the incident opens if a covering window (suppressing or not) was in effect between its start and its confirmation, and when it closes if one was in effect at any time during it
+- checks continue, and incidents are recorded as usual
+- the windows covering a monitor are read once per batch, and only when an intent is decided or an incident opens or closes
+
 ## Pausing
 
 Pausing a monitor:

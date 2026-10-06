@@ -76,7 +76,7 @@ type harness struct {
 func newHarness(t *testing.T, d *db.DB) *harness {
 	t.Helper()
 	h := &harness{t: t, d: d, done: make(chan struct{})}
-	h.p = New(d, slog.New(slog.NewTextHandler(io.Discard, nil)),
+	h.p = New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), time.UTC,
 		func(id string, delay time.Duration) {
 			h.mu.Lock()
 			h.retries = append(h.retries, retryCall{id, delay})
@@ -553,7 +553,7 @@ func TestWriteErrorHoldsTheBatchAndPushesBack(t *testing.T) {
 func TestShutdownStoresWhatIsQueued(t *testing.T) {
 	d, _ := testDB(t)
 	// No retry, notify or intent hooks: all are optional.
-	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil)
+	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), time.UTC, nil, nil, nil)
 	p.flushAfter = time.Hour
 	id := newMonitor(t, d, "web", nil)
 	ctx, cancel := context.WithCancel(context.Background())

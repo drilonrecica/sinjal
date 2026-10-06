@@ -61,9 +61,12 @@ Do not allow sub-second or high-frequency monitoring in v1.
 - a hostname cannot equal the instance's own base URL host
 
 ## Maintenance
-- positive duration
+- name: required, at most 100 characters
+- start date and time required
+- positive duration: 1 minute to 31 days
+- recurrence: once, daily or weekly
 - weekly recurrence requires weekday selection
-- scope references existing monitors/tags
+- scope references existing monitors/tags (checked in the write transaction)
 
 ## Import
 

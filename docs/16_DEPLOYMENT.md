@@ -137,3 +137,5 @@ Instance timezone affects:
 - maintenance scheduling
 
 Default may come from environment, but user can configure instance timezone.
+
+Today the instance time zone is `SINJAL_TIMEZONE` (default UTC). Maintenance windows repeat at their local time of day in it, across daylight-saving changes (`10_INCIDENTS.md` "Maintenance"); changing it moves recurring windows to the same local time in the new zone.
