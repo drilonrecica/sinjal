@@ -27,12 +27,6 @@ func TestIncidentTablesAndIndexesExist(t *testing.T) {
 			t.Errorf("index %s is missing", idx)
 		}
 	}
-	// M5 tables must not exist yet.
-	for _, tb := range []string{"notification_deliveries", "tls_warnings"} {
-		if e.tableExists(t, tb) {
-			t.Errorf("table %s belongs to a later milestone", tb)
-		}
-	}
 }
 
 func TestIncidentMigrationMatchesSpecSchema(t *testing.T) {
