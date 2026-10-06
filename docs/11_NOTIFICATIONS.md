@@ -39,6 +39,13 @@ Secrets are write-only in the UI: an input is never filled in, a stored one is a
 - The bot token is part of the request URL, so errors never include the URL: a connection failure reads `telegram: timed out` or `telegram: connection refused`.
 - One delivery is bounded at 15 seconds (or the caller's shorter context). Redirects are never followed (shared by all HTTP senders, `http.go`), and at most 4 KiB of an answer is read.
 
+### Discord delivery
+
+`notify.SendDiscord` posts the embed of `Message.Discord()` to the channel webhook (title, description, colour by kind, `allowed_mentions.parse` empty so no name or reason can ping anyone). HTTP 2xx is success.
+- **Rate limits are bounded.** On 429 the wait comes from `retry_after` in the body (seconds, may be fractional), else the `Retry-After` header, else one second. A wait of at most 5 seconds is slept once (it ends early with the context) and the post is retried once. A longer wait, or a second 429, returns `*notify.RateLimitError{After}` (`discord: rate limited, retry in 2m 00s`) without further calls; the dispatcher (M5-08) owns the retry schedule. The sender never loops.
+- Other failures read `discord: 404 Not Found: Unknown Webhook` (status plus Discord's `message`, one line, an HTML error page is never quoted). The webhook URL carries a token, so no error includes it.
+- One delivery is bounded at 15 seconds per call; redirects are not followed.
+
 ## Profiles
 
 Reusable profile example:
