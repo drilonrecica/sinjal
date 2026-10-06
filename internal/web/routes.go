@@ -34,6 +34,7 @@ type App struct {
 func Routes(r chi.Router, app App) {
 	authn := auth.NewAuthenticator(app.DB, logging.Sub(app.Logger, "auth"))
 	login := NewLogin(authn, app.Sessions, app.Logger)
+	reauth := NewReauth(authn, app.Sessions, login.limiter, app.Logger)
 
 	RegisterHealth(r, app.Health)
 	RegisterStatic(r, app.Assets)
@@ -48,9 +49,11 @@ func Routes(r chi.Router, app App) {
 		r.Group(func(r chi.Router) {
 			r.Use(RequireAuth(app.Logger))
 			RegisterPages(r, app.Logger)
+			RegisterReauth(r, reauth)
 
 			// Admins only. Every state-changing app route is mounted here;
 			// TestRouteTableGuards fails for one mounted anywhere else.
+			// Sensitive actions add RequireRecentAuth(app.Logger, time.Now).
 			r.Group(func(r chi.Router) {
 				r.Use(RequireAdmin(app.Logger))
 			})

@@ -1,0 +1,25 @@
+package templates
+
+// Reauth asks the signed-in user to confirm their password before a
+// sensitive action. TOTP (M1-13) and passkeys (M1-14) add their options here.
+templ Reauth(page Page, f ReauthForm) {
+	@authFrame(page) {
+		<h1>Confirm it's you</h1>
+		<p class="auth-lead">Enter your password to continue. Sensitive changes need a recent confirmation.</p>
+		if f.Error != "" {
+			<p class="auth-alert" role="alert">{ f.Error }</p>
+		}
+		<form class="auth-form" method="post" action="/reauth">
+			@CSRFField(page)
+			if f.Next != "" {
+				<input type="hidden" name="next" value={ f.Next }/>
+			}
+			<input type="text" name="username" value={ f.Login } autocomplete="username" hidden/>
+			<div class="auth-field">
+				<label for="password">Password for { f.Login }</label>
+				<input id="password" name="password" type="password" autocomplete="current-password" required autofocus/>
+			</div>
+			<button class="auth-submit" type="submit">Continue</button>
+		</form>
+	}
+}

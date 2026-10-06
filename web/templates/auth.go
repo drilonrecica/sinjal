@@ -23,6 +23,14 @@ type LoginForm struct {
 	Error string
 }
 
+// ReauthForm is the state of the re-authentication form. Login is shown
+// (and offered to password managers); it is not editable.
+type ReauthForm struct {
+	Login string
+	Next  string
+	Error string
+}
+
 // fieldAttrs returns the accessibility attributes of an input: hint ids
 // plus the error message id and aria-invalid when the field has an error.
 func fieldAttrs(name string, errs map[string]string, hints ...string) templ.Attributes {

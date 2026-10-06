@@ -46,6 +46,7 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"setup":       Setup(page, SetupForm{Token: "t", Errors: map[string]string{"login": "x", "form": "y"}}, 12),
 		"authMessage": AuthMessage(page, "Heading", "Message"),
 		"login":       Login(page, LoginForm{Login: "a", Next: "/x", Error: "e"}),
+		"reauth":      Reauth(page, ReauthForm{Login: "a", Next: "/x", Error: "e"}),
 	}
 	for name, c := range pages {
 		var buf bytes.Buffer

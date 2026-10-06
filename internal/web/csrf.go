@@ -122,14 +122,20 @@ func checkOrigin(r *http.Request) string {
 	if origin == "" {
 		return "" // not a browser: no ambient credentials to abuse
 	}
+	if !strings.EqualFold(origin, requestOrigin(r)) {
+		return "foreign Origin"
+	}
+	return ""
+}
+
+// requestOrigin is Sinjal's own origin as the client sees it, resolved
+// under the trusted-proxy rules.
+func requestOrigin(r *http.Request) string {
 	scheme := "http"
 	if proxy.IsHTTPS(r) {
 		scheme = "https"
 	}
-	if !strings.EqualFold(origin, scheme+"://"+proxy.Host(r)) {
-		return "foreign Origin"
-	}
-	return ""
+	return scheme + "://" + proxy.Host(r)
 }
 
 func isURLEncodedForm(r *http.Request) bool {

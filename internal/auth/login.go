@@ -90,6 +90,45 @@ func (a *Authenticator) Login(ctx context.Context, login, password, clientIP str
 	return c.user, nil
 }
 
+// ReauthWindow is how long a login or re-authentication allows sensitive
+// actions (decision P0-09).
+const ReauthWindow = 10 * time.Minute
+
+// RecentlyAuthenticated reports whether s proved the password (or another
+// factor) within ReauthWindow before now.
+func (s Session) RecentlyAuthenticated(now time.Time) bool {
+	return !s.ReauthenticatedAt.IsZero() && now.Sub(s.ReauthenticatedAt) < ReauthWindow
+}
+
+// Reauthenticate checks the signed-in user's password again before a
+// sensitive action. Failures are ErrInvalidCredentials. Both outcomes are
+// audited (auth.reauthenticated / auth.reauth_failed). TOTP (M1-13) and
+// passkeys (M1-14) add their own checks next to this one.
+func (a *Authenticator) Reauthenticate(ctx context.Context, userID, password, clientIP string, now time.Time) error {
+	c, found, err := a.lookup(ctx, `u.id = ?`, userID)
+	if err != nil {
+		return err
+	}
+	ok, err := a.check(ctx, c, found, password, now)
+	if err != nil {
+		return err
+	}
+	ev := audit{Event: "auth.reauth_failed", Metadata: map[string]string{"client_ip": clientIP}}
+	if found { // the account may have been deleted since the session was loaded
+		ev.UserID, ev.ObjectType, ev.ObjectID = userID, "user", userID
+	}
+	if ok {
+		ev.Event = "auth.reauthenticated"
+	}
+	if err := a.audit(ctx, ev, now); err != nil {
+		return err
+	}
+	if !ok {
+		return ErrInvalidCredentials
+	}
+	return nil
+}
+
 // check verifies password against c (or the dummy hash) and rehashes on
 // success when the parameters changed. Disabled accounts and accounts
 // without a password never match.

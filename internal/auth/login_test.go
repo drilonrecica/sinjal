@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 )
 
 const testPassword = "correct horse battery"
@@ -168,5 +169,39 @@ func TestLoginRehashesOutdatedParameters(t *testing.T) {
 	}
 	if ok, rehash, err := VerifyPassword(testPassword, stored); !ok || rehash || err != nil {
 		t.Errorf("new hash: ok %v rehash %v err %v", ok, rehash, err)
+	}
+}
+
+func TestReauthenticate(t *testing.T) {
+	e := newLoginEnv(t)
+	e.user("u1", "admin", "admin", e.hash(testPassword), false)
+	e.user("u2", "off", "admin", e.hash(testPassword), true)
+	ctx := context.Background()
+
+	if err := e.a.Reauthenticate(ctx, "u1", testPassword, "203.0.113.9", now); err != nil {
+		t.Fatalf("right password: %v", err)
+	}
+	for _, tc := range []struct{ uid, pw string }{{"u1", "wrong password!"}, {"u2", testPassword}, {"gone", testPassword}} {
+		*e.calls = nil
+		if err := e.a.Reauthenticate(ctx, tc.uid, tc.pw, "203.0.113.9", now); !errors.Is(err, ErrInvalidCredentials) {
+			t.Errorf("%s/%s: err = %v, want ErrInvalidCredentials", tc.uid, tc.pw, err)
+		}
+		if len(*e.calls) != 1 {
+			t.Errorf("%s: %d verifications, want 1", tc.uid, len(*e.calls))
+		}
+	}
+	got := e.audits()
+	if len(got) != 4 || got[0].event != "auth.reauthenticated" || got[0].userID != "u1" || got[1].event != "auth.reauth_failed" {
+		t.Errorf("audit = %+v", got)
+	}
+}
+
+func TestRecentlyAuthenticated(t *testing.T) {
+	s := Session{ReauthenticatedAt: now}
+	if !s.RecentlyAuthenticated(now.Add(ReauthWindow-time.Second)) || s.RecentlyAuthenticated(now.Add(ReauthWindow)) {
+		t.Error("window boundary wrong")
+	}
+	if (Session{}).RecentlyAuthenticated(now) {
+		t.Error("a session never re-authenticated counts as recent")
 	}
 }

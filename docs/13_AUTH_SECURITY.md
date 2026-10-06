@@ -135,6 +135,14 @@ At minimum:
 - encryption-key operations
 - destructive mass deletion
 
+### Implementation (M1-12)
+
+- `auth.ReauthWindow` = 10 minutes; `Session.RecentlyAuthenticated(now)` compares with `sessions.reauthenticated_at`, which login and every re-authentication set.
+- `web.RequireRecentAuth(logger, now)` is mounted inside `RequireAuth` on sensitive routes. A stale page request gets 303 to `/reauth?next=<path>`. A stale POST cannot be replayed, so it returns to the page the form was on: the `Referer` when it is Sinjal's own origin (`Referrer-Policy: same-origin` keeps it), otherwise no `next`. htmx requests get 403 with `HX-Redirect`. Without a session it fails closed (401).
+- `/reauth` (behind `RequireAuth`, open to viewers): a password form for the signed-in user. `auth.Authenticator.Reauthenticate` uses the same verification path as login (dummy hash, one Argon2 per attempt) and audits `auth.reauthenticated` / `auth.reauth_failed`. Failures share the login limiter, keyed by client IP and user ID (10 per 15 minutes, then 429).
+- Success rotates the session (`Sessions.Rotate`): a new token, `reauthenticated_at` = now, and a new 30-day lifetime, since re-authentication proves the same credentials as a login. The old cookie and its CSRF token stop working. Redirect: 303 to `safeNext(next)`.
+- No production route uses `RequireRecentAuth` yet; password change, session sign-out, TOTP and passkey management (M1-13…M1-18) mount it. TOTP and passkeys add their options to the `/reauth` page next to the password.
+
 ## Passkeys
 
 Use WebAuthn.
