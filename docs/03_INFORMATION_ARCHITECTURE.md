@@ -39,6 +39,8 @@ Healthy systems should feel calm. Do not fill the dashboard with decorative widg
 
 Use compact responsive rows, not card grids.
 
+Built (M2-16, `GET /monitors`): rows are ordered by name, case-insensitively, and refresh in place from the event stream. The target is `scheme://host` only, shown to admins; viewers see no address. Uptime reads "—" until rollups exist, and the sparkline arrives with charts. The dependency indicator names the parent monitor. With no monitors, admins get a "Create monitor" action (`/monitors/new`, built in M2-17) and viewers a plain explanation. Rows added or removed by someone else need a reload until `monitor.created` / `monitor.deleted` have senders (M2-17, M2-18).
+
 Each row should provide:
 - status icon + text
 - name

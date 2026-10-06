@@ -29,6 +29,9 @@ var navLinkRe = regexp.MustCompile(`<a class="nav-link" href="([^"]+)"( aria-cur
 func TestEverySectionRendersTheShell(t *testing.T) {
 	r, _ := pagesRouter()
 	for _, s := range templates.Sections {
+		if s.Key == "monitors" {
+			continue // a real page needing the database: see monitors_test.go
+		}
 		t.Run(s.Key, func(t *testing.T) {
 			rec := get(r, "GET", s.Path)
 			if rec.Code != 200 {
@@ -129,9 +132,9 @@ func TestShellLoadsHashedAssets(t *testing.T) {
 
 func TestPagesHEAD(t *testing.T) {
 	r, _ := pagesRouter()
-	rec := get(r, "HEAD", "/monitors")
+	rec := get(r, "HEAD", "/incidents")
 	if rec.Code != 200 || rec.Body.Len() != 0 {
-		t.Errorf("HEAD /monitors = %d with %d body bytes", rec.Code, rec.Body.Len())
+		t.Errorf("HEAD /incidents = %d with %d body bytes", rec.Code, rec.Body.Len())
 	}
 }
 

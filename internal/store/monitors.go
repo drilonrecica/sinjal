@@ -332,3 +332,22 @@ func nullStr(s string) any {
 	}
 	return s
 }
+
+// HTTPURLs returns the checked address of every HTTP monitor, for list
+// pages. Like ListMonitors it never touches monitor_secrets.
+func HTTPURLs(ctx context.Context, q *sql.DB) (map[string]string, error) {
+	rows, err := q.QueryContext(ctx, `SELECT monitor_id, url FROM http_monitor_config`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var id, u string
+		if err := rows.Scan(&id, &u); err != nil {
+			return nil, err
+		}
+		out[id] = u
+	}
+	return out, rows.Err()
+}

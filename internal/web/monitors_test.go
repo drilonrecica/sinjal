@@ -177,3 +177,87 @@ func TestMonitorViewDefaults(t *testing.T) {
 		t.Errorf("view = %+v", v)
 	}
 }
+
+func TestMonitorListPage(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "a1", "admin", "admin", "")
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	a := e.addMonitor(t, "Beta", "https://beta.example.com/health?key=s3cret", "prod", "eu")
+	e.addMonitor(t, "alpha", "https://alpha.example.com")
+	if _, err := e.db.Writer.Exec(`UPDATE monitors SET parent_monitor_id = (SELECT id FROM monitors WHERE name = 'alpha'),
+		current_state = 'down' WHERE id = ?`, a); err != nil {
+		t.Fatal(err)
+	}
+
+	admin := e.getAs(t, "a1", "GET", "/monitors")
+	body := admin.Body.String()
+	if admin.Code != 200 || admin.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("admin = %d", admin.Code)
+	}
+	for _, want := range []string{
+		"<h1>Monitors</h1>", `aria-current="page"`, `href="/monitors/new"`,
+		`hx-ext="sse"`, `sse-connect="/events"`,
+		"https://beta.example.com", "https://alpha.example.com", ">prod</li>", ">eu</li>",
+		"Depends on alpha", ">Down<", `>Pending<`, "—",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("admin page lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "s3cret") || strings.Contains(body, "/health") {
+		t.Error("the page leaks the path or query of a checked address")
+	}
+	if strings.Index(body, ">alpha</a>") > strings.Index(body, ">Beta</a>") {
+		t.Error("monitors are not ordered by name, case-insensitively")
+	}
+	if n := strings.Count(body, `class="monitor-row"`); n != 2 {
+		t.Errorf("%d rows, want 2", n)
+	}
+	for _, js := range []string{`/static/js/htmx-ext-sse.`, `/static/js/live.`, `/static/css/monitors.`} {
+		if !strings.Contains(body, js) {
+			t.Errorf("page does not load %s", js)
+		}
+	}
+	if strings.Index(body, "/static/js/htmx.min.") > strings.Index(body, "/static/js/htmx-ext-sse.") {
+		t.Error("the SSE extension loads before htmx, which it needs")
+	}
+
+	viewer := e.getAs(t, "v1", "GET", "/monitors").Body.String()
+	if !strings.Contains(viewer, ">Beta</a>") || strings.Contains(viewer, "example.com") {
+		t.Error("a viewer must see the monitors but not their addresses")
+	}
+	if strings.Contains(viewer, "/monitors/new") {
+		t.Error("a viewer is offered the create action")
+	}
+	if rec := e.getAs(t, "v1", "HEAD", "/monitors"); rec.Code != 200 || rec.Body.Len() != 0 {
+		t.Errorf("HEAD = %d with %d body bytes", rec.Code, rec.Body.Len())
+	}
+}
+
+func TestMonitorListEmptyState(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "a1", "admin", "admin", "")
+	e.addUser(t, "v1", "viewer", "viewer", "")
+
+	admin := e.getAs(t, "a1", "GET", "/monitors").Body.String()
+	for _, want := range []string{"No monitors yet", `<a class="action" href="/monitors/new">Create monitor</a>`} {
+		if !strings.Contains(admin, want) {
+			t.Errorf("admin empty state lacks %q", want)
+		}
+	}
+	if strings.Count(admin, "Create monitor") != 1 || strings.Contains(admin, "monitor-list") || strings.Contains(admin, "sse-connect") {
+		t.Error("the empty state must offer one create action and open no event stream")
+	}
+
+	viewer := e.getAs(t, "v1", "GET", "/monitors").Body.String()
+	if !strings.Contains(viewer, "No monitors yet") || strings.Contains(viewer, "Create monitor") {
+		t.Error("a viewer's empty state must explain without offering to create")
+	}
+}
+
+func TestMonitorListRequiresSignIn(t *testing.T) {
+	e := newAppEnv(t)
+	if rec := e.serve(req("GET", "/monitors", nil)); rec.Code != 303 {
+		t.Errorf("anonymous = %d, want 303 to login", rec.Code)
+	}
+}

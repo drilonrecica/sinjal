@@ -14,21 +14,24 @@ import (
 // density, and the CSRF token for forms.
 func pageFor(r *http.Request, title string) templates.Page {
 	var theme, density string
-	var admin bool
 	if cs, ok := SessionFromContext(r.Context()); ok {
-		theme, density, admin = cs.User.Theme, cs.User.Density, cs.User.Role == "admin"
+		theme, density = cs.User.Theme, cs.User.Density
 	}
 	page := templates.NewPage(title, theme, density)
-	page.Admin = admin
+	page.Admin = isAdmin(r)
 	page.CSRFToken = CSRFToken(r)
 	return page
 }
 
-// RegisterPages mounts one placeholder page per primary navigation section.
-// Real section pages replace these in their own milestones.
+// RegisterPages mounts one placeholder page per primary navigation section
+// that has no page of its own yet. Real section pages replace these in their
+// own milestones: Monitors is served by RegisterMonitors.
 func RegisterPages(r chi.Router, logger *slog.Logger) {
 	log := logging.Sub(logger, "http")
 	for _, s := range templates.Sections {
+		if s.Key == "monitors" {
+			continue
+		}
 		h := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			page := pageFor(req, s.Label+" — Sinjal")
 			render(w, req, log, http.StatusOK, templates.PlaceholderPage(page, s))

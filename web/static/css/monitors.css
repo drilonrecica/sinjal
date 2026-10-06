@@ -1,0 +1,175 @@
+/* Monitor list and detail header: compact rows, not cards. Status is a
+ * glyph plus text; colour only reinforces it. */
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+.action:hover {
+  filter: brightness(1.08);
+}
+
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  max-width: 32rem;
+  padding: var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.empty-state p {
+  color: var(--text-muted);
+}
+
+.monitor-list {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.monitor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.monitor-row:last-child {
+  border-bottom: 0;
+}
+.monitor-row:hover {
+  background: var(--surface-2);
+}
+.monitor-row[data-state="down"] {
+  box-shadow: inset 3px 0 0 var(--status-down);
+}
+
+.monitor-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.monitor-name {
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+.monitor-name:hover {
+  text-decoration: underline;
+}
+.monitor-type {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.monitor-target {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 4.5rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.status[data-state="up"] .status-glyph { color: var(--status-up); }
+.status[data-state="down"] .status-glyph { color: var(--status-down); }
+.status[data-state="pending"] .status-glyph { color: var(--status-pending); }
+.status[data-state="paused"] .status-glyph { color: var(--status-paused); }
+.status[data-state="flapping"] .status-glyph { color: var(--status-flapping); }
+
+.monitor-facts {
+  display: flex;
+  gap: var(--space-5);
+  font-size: var(--text-sm);
+}
+.monitor-facts dt {
+  color: var(--text-subtle);
+  font-size: var(--text-xs);
+}
+.monitor-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.monitor-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+}
+.monitor-dependency {
+  color: var(--text-muted);
+}
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+}
+.tag {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.monitor-header {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.monitor-header-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.monitor-header-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+@media (max-width: 47.9375rem) {
+  .monitor-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .monitor-facts {
+    gap: var(--space-4);
+  }
+}

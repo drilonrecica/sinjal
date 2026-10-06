@@ -344,3 +344,16 @@ func TestSecretsDecryptsAllForExecutor(t *testing.T) {
 		t.Errorf("printing the map leaks values: %s", s)
 	}
 }
+
+func TestHTTPURLs(t *testing.T) {
+	d := testDB(t)
+	a := create(t, d, sample("a"))
+	b := create(t, d, sample("b"))
+	got, err := HTTPURLs(context.Background(), d.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[a] != "https://example.com/a" || got[b] != "https://example.com/b" {
+		t.Errorf("HTTPURLs = %v", got)
+	}
+}

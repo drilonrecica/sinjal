@@ -1,0 +1,40 @@
+package templates
+
+// MonitorListView is the Monitors page. Admin shows the create action and
+// is the only role whose rows carry a Target.
+type MonitorListView struct {
+	Admin    bool
+	Monitors []MonitorView
+}
+
+// MonitorList is the Monitors page: compact rows that refresh in place as
+// checks complete (docs/03_INFORMATION_ARCHITECTURE.md).
+templ MonitorList(page Page, v MonitorListView) {
+	@Shell(page.withAssets([]string{"css/monitors.css"}, LiveScripts), "monitors") {
+		<div class="page-head">
+			<h1>Monitors</h1>
+			if v.Admin && len(v.Monitors) > 0 {
+				<a class="action" href="/monitors/new">Create monitor</a>
+			}
+		</div>
+		if len(v.Monitors) == 0 {
+			<section class="empty-state" aria-labelledby="empty-title">
+				<h2 id="empty-title">No monitors yet</h2>
+				if v.Admin {
+					<p>Add a website or service to start watching it.</p>
+					<a class="action" href="/monitors/new">Create monitor</a>
+				} else {
+					<p>An admin has not added any monitors yet.</p>
+				}
+			</section>
+		} else {
+			@Live() {
+				<ul class="monitor-list" role="list" aria-label="Monitors">
+					for _, m := range v.Monitors {
+						@MonitorRow(m)
+					}
+				</ul>
+			}
+		}
+	}
+}

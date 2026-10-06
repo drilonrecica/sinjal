@@ -31,10 +31,12 @@ func NewMonitors(d *db.DB, logger *slog.Logger) *Monitors {
 	return &Monitors{db: d, log: logging.Sub(logger, "http"), now: time.Now}
 }
 
-// RegisterMonitors mounts the live monitor fragments inside RequireAuth.
-// They are read-only and viewers see them too, minus the checked address.
+// RegisterMonitors mounts the monitor list and its live fragments inside
+// RequireAuth. They are read-only and viewers see them too, minus the
+// checked address.
 func RegisterMonitors(r chi.Router, h *Monitors) {
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		r.Method(method, "/monitors", http.HandlerFunc(h.list))
 		r.Method(method, "/fragments/monitors/{id}/row", h.fragment(func(m templates.MonitorView) templ.Component { return templates.MonitorRow(m) }))
 		r.Method(method, "/fragments/monitors/{id}/header", h.fragment(func(m templates.MonitorView) templ.Component { return templates.MonitorHeader(m) }))
 	}
@@ -133,6 +135,43 @@ func joinUnits(a int, au string, b int, bu string) string {
 		return fmt.Sprintf("%d%s", a, au)
 	}
 	return fmt.Sprintf("%d%s %d%s", a, au, b, bu)
+}
+
+// list serves GET /monitors.
+func (h *Monitors) list(w http.ResponseWriter, r *http.Request) {
+	ctx, q := r.Context(), h.db.Reader
+	v := templates.MonitorListView{Admin: isAdmin(r)}
+	monitors, err := store.ListMonitors(ctx, q)
+	var tags map[string][]string
+	var latencies map[string]time.Duration
+	var urls map[string]string
+	if err == nil {
+		tags, err = store.TagsByMonitor(ctx, q)
+	}
+	if err == nil {
+		latencies, err = store.LastDurations(ctx, q)
+	}
+	if err == nil && v.Admin {
+		urls, err = store.HTTPURLs(ctx, q)
+	}
+	if err != nil {
+		h.log.Error("monitor list failed", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	names := make(map[string]string, len(monitors))
+	for _, m := range monitors {
+		names[m.ID] = m.Name
+	}
+	now := h.now()
+	for _, m := range monitors {
+		d, ok := latencies[m.ID]
+		v.Monitors = append(v.Monitors, monitorView(m, viewInput{
+			Tags: tags[m.ID], Latency: d, HasLatency: ok, URL: urls[m.ID],
+			Parent: names[m.ParentMonitorID], Admin: v.Admin,
+		}, now))
+	}
+	render(w, r, h.log, http.StatusOK, templates.MonitorList(pageFor(r, "Monitors — Sinjal"), v))
 }
 
 // view loads one monitor for display, or store.ErrNotFound.
