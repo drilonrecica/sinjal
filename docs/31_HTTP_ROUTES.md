@@ -88,9 +88,18 @@ GET /status/{slug}/api.json
 GET /status/{slug}/feed.xml
 ```
 
+Unlisted:
+
+```text
+GET /s/{token}
+GET /s/{token}/api.json
+GET /s/{token}/feed.xml
+```
+
 Custom hostname:
 - same page can render at `/`
 - access is selected by configured hostname mapping
+- mapped hostnames serve only that page's public routes, static assets and `/healthz`; all other routes return 404 (see `12_STATUS_PAGES.md`)
 
 Do not create conflicting host mappings.
 

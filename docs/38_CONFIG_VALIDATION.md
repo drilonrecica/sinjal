@@ -56,7 +56,9 @@ Do not allow sub-second or high-frequency monitoring in v1.
 - hostname normalized/lowercase
 - host mapping unique
 - public display names required
-- logo size/type constrained
+- logo: PNG or JPEG only (sniffed), ≤ 512 KB, ≤ 1024 × 1024 px; SVG rejected
+- unlisted token generated server-side only, never user-supplied
+- a hostname cannot equal the instance's own base URL host
 
 ## Maintenance
 - positive duration
