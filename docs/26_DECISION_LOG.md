@@ -185,3 +185,4 @@ This summarizes the locked design rounds.
 - P0-13: DNS expected values use a per-monitor match mode (`all` default, `any`) with normalization of names, IPs, MX and TXT; NXDOMAIN/empty answers always fail.
 - P0-14: browser tests use chromedp in a separate dev-only `tests/browser` module, run via `make test-browser`, never in the product module; dev-only tools listed in 40.
 - P0-15: status pages show a 90-day adjusted uptime strip; unlisted URLs are `/s/{token}` (hashed, shown once, noindex); logos PNG/JPEG only; mapped hostnames serve only that page's public routes.
+- P0-16: config import matches by name/key/slug, modes `skip` (default) and `replace`, never deletes, mandatory dry-run preview, all-or-nothing transaction; secrets never imported.

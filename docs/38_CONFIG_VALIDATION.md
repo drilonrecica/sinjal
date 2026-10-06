@@ -70,5 +70,5 @@ Do not allow sub-second or high-frequency monitoring in v1.
 Import must be:
 - validated completely before committing
 - transactionally applied where practical
-- clear about duplicate/conflict behavior
+- clear about duplicate/conflict behavior (matching, `skip`/`replace` modes and mandatory preview: `15_CONFIG_BACKUP.md` "Config import")
 - unable to smuggle secret fields into safe-import format unless explicitly supported

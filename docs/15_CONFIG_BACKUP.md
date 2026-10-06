@@ -41,6 +41,40 @@ Exclude:
 - auth headers
 - heartbeat raw tokens unless intentionally regenerated
 
+### Config import (decision P0-16)
+
+Matching existing items:
+- monitors, notification profiles, tags: by `name`
+- notification channels: by their export `id` key (e.g. `telegram-main`)
+- status pages: by `slug`
+
+Modes:
+- `skip` (default): matched items are left unchanged; unmatched items are created
+- `replace`: matched items are overwritten with the imported definition; unmatched items are created
+- nothing is ever deleted by an import
+
+Preview is mandatory:
+- CLI: `sinjal import-config --dry-run [--mode skip|replace] <path>` prints the plan; without `--dry-run` it applies it
+- UI: upload shows the plan; applying requires explicit confirmation
+- the plan lists every item as create / replace / skip / error, with reasons
+
+Errors (the whole import is rejected):
+- duplicate names/keys/slugs within the file
+- a name that matches more than one existing monitor
+- a reference (profile on a monitor, monitor on a status page, channel in a route) that resolves neither in the file nor in the database
+- any validation failure from `38_CONFIG_VALIDATION.md`
+
+Secrets (the safe export never contains them):
+- `replace` keeps the existing secrets of a matched item
+- newly created notification channels are created **disabled** and marked "needs credentials"
+- newly created heartbeat monitors get fresh tokens, shown once after import
+- secret-looking values in the file (any `secrets`/`token` field other than `REDACTED`) are rejected
+
+Application:
+- the file is fully parsed and validated before any write
+- the plan is applied in a single transaction; on any error nothing changes
+- one audit event `config_imported` records mode and counts
+
 ### Full backup
 Contains everything required for disaster recovery:
 - SQLite DB
@@ -59,7 +93,7 @@ sinjal version
 sinjal backup <path>
 sinjal restore <path>
 sinjal export-config <path>
-sinjal import-config <path>
+sinjal import-config [--dry-run] [--mode skip|replace] <path>
 sinjal check-db
 sinjal healthcheck
 sinjal reset-admin [--login <login>] [--remove-passkeys]
