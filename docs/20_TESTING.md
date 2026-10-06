@@ -92,6 +92,26 @@ Time-dependent logic should be testable using an injectable clock abstraction on
 
 Do not create a generic application-wide abstraction layer solely for architecture purity.
 
+## Manual notification verification
+
+Automated tests use fake notification endpoints. Real delivery to Telegram, Discord and SMTP is verified manually (M5 gate) with the owner's own test accounts.
+
+Credentials live only in a local, git-ignored `.env` file and are never committed, logged or used in CI:
+
+```text
+SINJAL_TEST_TELEGRAM_BOT_TOKEN=
+SINJAL_TEST_TELEGRAM_CHAT_ID=
+SINJAL_TEST_DISCORD_WEBHOOK_URL=
+SINJAL_TEST_SMTP_HOST=
+SINJAL_TEST_SMTP_PORT=
+SINJAL_TEST_SMTP_USER=
+SINJAL_TEST_SMTP_PASS=
+SINJAL_TEST_SMTP_FROM=
+SINJAL_TEST_SMTP_TO=
+```
+
+Tests that use them are guarded by a build tag (`manual`) and are skipped when the variables are unset.
+
 ## Fixtures
 
 Fixtures must never contain real credentials or production URLs.
