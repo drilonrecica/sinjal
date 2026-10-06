@@ -23,6 +23,8 @@ type NewIncident struct {
 	FailureKind string    // of the first failure
 	Detected    string    // message of the first failure
 	Summary     string    // message of the failure that confirmed it
+	// SuppressedByParent: the parent monitor was down when it opened.
+	SuppressedByParent bool
 }
 
 // OpenIncident records a monitor's active incident with its detected and
@@ -32,9 +34,11 @@ type NewIncident struct {
 func OpenIncident(ctx context.Context, tx *sql.Tx, in NewIncident) (id string, opened bool, err error) {
 	id = ids.New()
 	res, err := tx.ExecContext(ctx, `INSERT INTO incidents
-		(id, monitor_id, started_at, initial_failure_kind, summary, created_at) VALUES (?, ?, ?, ?, ?, ?)
+		(id, monitor_id, started_at, initial_failure_kind, summary, suppressed_by_parent, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (monitor_id) WHERE ended_at IS NULL DO NOTHING`,
-		id, in.MonitorID, formatTime(in.StartedAt), nullStr(in.FailureKind), nullStr(in.Summary), formatTime(in.DeclaredAt))
+		id, in.MonitorID, formatTime(in.StartedAt), nullStr(in.FailureKind), nullStr(in.Summary),
+		b2i(in.SuppressedByParent), formatTime(in.DeclaredAt))
 	if err != nil {
 		return "", false, err
 	}
@@ -131,4 +135,42 @@ func SetFlapping(ctx context.Context, tx *sql.Tx, monitorID string, since *time.
 	}
 	_, err := tx.ExecContext(ctx, `UPDATE monitors SET flapping_since = ? WHERE id = ?`, v, monitorID)
 	return err
+}
+
+// ParentDown reports whether the monitor with the given id is DOWN. It
+// reads inside tx, so a parent that went down earlier in the same batch
+// counts. A missing parent is not down.
+func ParentDown(ctx context.Context, tx *sql.Tx, parentID string) (bool, error) {
+	var down bool
+	err := tx.QueryRowContext(ctx, `SELECT current_state = 'down' FROM monitors WHERE id = ?`, parentID).Scan(&down)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return down, err
+}
+
+// PendingDown returns the monitor's active incident if its DOWN
+// notification is still held back by the parent or by maintenance: the
+// latest decision about it is such a suppression, not yet followed by
+// notification_resumed. It returns "" otherwise. A DOWN held back by
+// flapping is not pending; the end of the flapping decides it.
+func PendingDown(ctx context.Context, tx *sql.Tx, monitorID string) (string, error) {
+	var id, typ, msg string
+	err := tx.QueryRowContext(ctx, `SELECT i.id, e.event_type, coalesce(e.message, '')
+		FROM incidents i JOIN incident_events e ON e.incident_id = i.id
+		WHERE i.monitor_id = ? AND i.ended_at IS NULL
+		  AND (e.event_type = ? OR (e.event_type = ? AND e.message LIKE 'down: %'))
+		ORDER BY e.id DESC LIMIT 1`,
+		monitorID, incident.EventNotificationResumed, incident.EventNotificationSuppressed).Scan(&id, &typ, &msg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if typ == incident.EventNotificationSuppressed &&
+		(msg == "down: "+string(incident.ByParent) || msg == "down: "+string(incident.ByMaintenance)) {
+		return id, nil
+	}
+	return "", nil
 }

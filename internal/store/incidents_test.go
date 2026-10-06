@@ -240,3 +240,71 @@ func TestSetFlapping(t *testing.T) {
 		t.Fatalf("after clearing: %+v", got.FlappingSince)
 	}
 }
+
+func TestParentDown(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	p := create(t, d, sample("parent"))
+	inTx(t, d, func(tx *sql.Tx) {
+		for _, state := range []string{"pending", "up", "paused", "down"} {
+			if _, err := tx.Exec(`UPDATE monitors SET current_state = ? WHERE id = ?`, state, p); err != nil {
+				t.Fatal(err)
+			}
+			if down, err := ParentDown(ctx, tx, p); err != nil || down != (state == "down") {
+				t.Fatalf("%s: ParentDown = %v, %v", state, down, err)
+			}
+		}
+		if down, err := ParentDown(ctx, tx, "missing"); err != nil || down {
+			t.Fatalf("missing parent: ParentDown = %v, %v", down, err)
+		}
+	})
+}
+
+// A DOWN is pending while the latest decision about it is a suppression by
+// the parent or by maintenance.
+func TestPendingDown(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	m := create(t, d, sample("api"))
+	var id string
+	inTx(t, d, func(tx *sql.Tx) {
+		var err error
+		if id, _, err = OpenIncident(ctx, tx, NewIncident{MonitorID: m, StartedAt: now, DeclaredAt: now}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	steps := []struct {
+		typ, msg string
+		pending  bool
+	}{
+		{"", "", false},
+		{incident.EventNotificationSuppressed, "down: parent", true},
+		{incident.EventNotificationSuppressed, "recovery: parent", true}, // not about DOWN
+		{incident.EventNotificationResumed, "", false},
+		{incident.EventNotificationSuppressed, "down: maintenance", true},
+		{incident.EventNotificationSuppressed, "down: flapping", false},
+		{incident.EventNotificationSuppressed, "down: parent", true},
+	}
+	for i, s := range steps {
+		inTx(t, d, func(tx *sql.Tx) {
+			if s.typ != "" {
+				if err := AddIncidentEvent(ctx, tx, id, s.typ, s.msg, now.Add(time.Duration(i)*time.Second)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, err := PendingDown(ctx, tx, m)
+			if err != nil || (got == id) != s.pending || (got != "" && got != id) {
+				t.Fatalf("after %q %q: PendingDown = %q, %v; want pending %v", s.typ, s.msg, got, err, s.pending)
+			}
+		})
+	}
+	// An ended incident has nothing pending.
+	inTx(t, d, func(tx *sql.Tx) {
+		if _, _, err := CloseIncident(ctx, tx, m, now.Add(time.Hour), incident.EventRecovered); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := PendingDown(ctx, tx, m); err != nil || got != "" {
+			t.Fatalf("after the close: PendingDown = %q, %v", got, err)
+		}
+	})
+}

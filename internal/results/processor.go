@@ -226,7 +226,11 @@ type monitorWork struct {
 	retry      bool // the last result asks for a confirmation retry
 	from       incident.State
 	flapping   bool              // the FLAPPING overlay is set
+	parentID   string            // the monitor this one depends on, if any
 	intents    []incident.Intent // decided in this batch, in order
+	// pending is the active incident whose DOWN notification the parent or
+	// maintenance holds back; "" when there is none.
+	pending string
 	// lastTransition is when the monitor last went down or recovered. It
 	// is only known, and only needed, while the monitor is flapping.
 	lastTransition time.Time
@@ -329,6 +333,17 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 			return err
 		}
 	}
+	// A DOWN held back by the parent or by maintenance is decided once
+	// neither holds any more and the monitor is still down.
+	if w.pending != "" && w.state == incident.Down {
+		c, err := w.conditions(ctx, tx)
+		if err == nil && !c.ParentDown && !c.Maintenance {
+			err = w.intend(ctx, tx, incident.IntentDown, r, w.pending)
+		}
+		if err != nil {
+			return err
+		}
+	}
 	out := incident.Transition(w.state, w.counters, r.Success, w.thresholds)
 	changed := out.State != w.state
 	if err := store.ApplyCheck(ctx, tx, r.MonitorID, store.CheckUpdate{
@@ -342,9 +357,14 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	}
 	switch {
 	case changed && out.State == incident.Down:
+		c, err := w.conditions(ctx, tx)
+		if err != nil {
+			return err
+		}
 		id, opened, err := store.OpenIncident(ctx, tx, store.NewIncident{
 			MonitorID: r.MonitorID, StartedAt: w.first.at, DeclaredAt: r.CheckedAt,
 			FailureKind: w.first.kind, Detected: w.first.message, Summary: r.Message,
+			SuppressedByParent: c.ParentDown,
 		})
 		if err == nil && opened {
 			err = w.transition(ctx, tx, incident.IntentDown, r, id, w.first.at)
@@ -416,17 +436,51 @@ func (w *monitorWork) endFlapping(ctx context.Context, tx *sql.Tx, r *Result) er
 	return w.intend(ctx, tx, incident.IntentDown, r, id)
 }
 
+// conditions is what may hold back the monitor's notifications now. The
+// parent is read inside the batch, so a parent that changed earlier in it
+// counts; it is read only when an intent is being decided.
+func (w *monitorWork) conditions(ctx context.Context, tx *sql.Tx) (incident.Conditions, error) {
+	c := incident.Conditions{Flapping: w.flapping}
+	if w.parentID != "" {
+		var err error
+		if c.ParentDown, err = store.ParentDown(ctx, tx, w.parentID); err != nil {
+			return c, err
+		}
+	}
+	return c, nil
+}
+
 // intend decides a notification intent for the monitor at the time of
 // result r. A suppressed intent about an incident is recorded on that
-// incident's timeline, so the decision can be read back later.
+// incident's timeline, so the decision can be read back later; so is a
+// DOWN that was held back and is now decided after all.
 func (w *monitorWork) intend(ctx context.Context, tx *sql.Tx, kind incident.IntentKind, r *Result, incidentID string) error {
+	c, err := w.conditions(ctx, tx)
+	if err != nil {
+		return err
+	}
 	in := incident.Intent{Kind: kind, MonitorID: r.MonitorID, IncidentID: incidentID, At: r.CheckedAt,
-		// Maintenance and the parent's state join with M3-06 and M3-05.
-		Suppressed: incident.Suppression(kind, incident.Conditions{Flapping: w.flapping})}
+		Suppressed: incident.Suppression(kind, c)}
 	if in.Suppressed != "" && incidentID != "" {
 		if err := store.AddIncidentEvent(ctx, tx, incidentID, incident.EventNotificationSuppressed,
 			string(kind)+": "+string(in.Suppressed), r.CheckedAt); err != nil {
 			return err
+		}
+	}
+	if kind == incident.IntentDown && incidentID != "" {
+		switch in.Suppressed {
+		case incident.ByParent, incident.ByMaintenance:
+			w.pending = incidentID
+		case "":
+			if w.pending == incidentID {
+				if err := store.AddIncidentEvent(ctx, tx, incidentID, incident.EventNotificationResumed,
+					"", r.CheckedAt); err != nil {
+					return err
+				}
+			}
+			w.pending = ""
+		default:
+			w.pending = ""
 		}
 	}
 	w.intents = append(w.intents, in)
@@ -453,9 +507,15 @@ func (p *Processor) load(ctx context.Context, tx *sql.Tx, id string) (*monitorWo
 		retryDelay: cs.RetryDelay,
 		from:       incident.State(cs.State),
 		flapping:   cs.Flapping,
+		parentID:   cs.ParentID,
 	}
 	if prev, ok := p.counters[id]; ok && prev.state == w.state && prev.since == w.since {
 		w.tracked = prev
+	}
+	if w.state == incident.Down && !w.skip {
+		if w.pending, err = store.PendingDown(ctx, tx, id); err != nil {
+			return nil, err
+		}
 	}
 	if w.flapping && !w.skip {
 		recent, err := store.RecentTransitions(ctx, tx, id)

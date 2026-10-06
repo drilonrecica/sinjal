@@ -200,7 +200,15 @@ What is kept:
 - every intent is logged (`notification intent`, with kind, monitor, incident and reason) and, after the commit, handed to the dispatcher with its reason. Nothing leaves the processor for a batch that was not committed
 - a monitor that stays DOWN, a restart, a pause and a monitor edit produce no intent
 
-The flapping condition comes from `monitors.flapping_since`. The parent and maintenance conditions are part of the decision and are supplied with parent suppression and maintenance evaluation (M3-05, M3-06).
+The flapping condition comes from `monitors.flapping_since`; the parent condition from the parent's stored state (see "Parent dependency"). The maintenance condition is supplied with maintenance evaluation (M3-06).
+
+A held-back DOWN (catch-up):
+
+- a `down` intent suppressed by the parent or by maintenance leaves the DOWN *pending*: the incident's latest DOWN decision is that suppression
+- on every result of a monitor that is still DOWN with a pending DOWN, the conditions are evaluated again; once neither the parent nor maintenance holds, a `down` intent is decided for the active incident and a `notification_resumed` event is added, which ends the pending state
+- if the monitor is flapping by then, that `down` is suppressed by flapping and the end of the flapping announces it; a DOWN suppressed by flapping is never pending
+- the pending state is read from the incident's events (`store.PendingDown`), once per batch and only for DOWN monitors, so a restart neither loses nor repeats it
+- a monitor that recovers while held back gets its recovery decided (suppressed if the condition still holds) and no DOWN afterwards
 
 ## Parent dependency
 
@@ -210,6 +218,15 @@ If parent is DOWN:
 - UI indicates dependency suppression
 
 When parent recovers, child notification behavior resumes based on child actual state.
+
+Implementation:
+
+- the parent is the monitor's direct `parent_monitor_id`; it is DOWN when its stored `current_state` is `down` (PENDING, PAUSED and FLAPPING-while-up are not). A grandparent is not consulted: a DOWN grandparent makes the parent DOWN first in practice
+- the parent's state is read inside the batch transaction (`store.ParentDown`), so a parent that went down earlier in the same batch counts; it is read only when an intent is decided
+- an incident that opens while the parent is DOWN has `suppressed_by_parent = 1`; it is recorded and counts towards uptime like any other
+- when the parent recovers, a child that is still DOWN decides its held-back DOWN on its next result, at most one check interval later (see "Notification intents", catch-up). There is no fan-out from the parent's recovery to its children
+- the parent's and child's checks are independent: a child confirmed DOWN before its parent is announced normally
+- UI: the monitor row and detail header show "Parent down: notifications held" next to "Depends on …" while the parent is DOWN; it refreshes with the child's own live updates
 
 ## Restart
 

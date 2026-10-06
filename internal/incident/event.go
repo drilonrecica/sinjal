@@ -9,4 +9,7 @@ const (
 	// A notification about the incident was decided against; the message
 	// is the intent's kind and the reason ("down: flapping").
 	EventNotificationSuppressed = "notification_suppressed"
+	// The DOWN notification held back by the parent or by maintenance was
+	// decided after all, the monitor still being down when that ended.
+	EventNotificationResumed = "notification_resumed"
 )

@@ -134,6 +134,12 @@
 .monitor-dependency {
   color: var(--text-muted);
 }
+.monitor-dependency[data-parent-down] {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--status-down);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
 .tag-list {
   display: flex;
   flex-wrap: wrap;

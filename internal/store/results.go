@@ -31,7 +31,8 @@ type CheckState struct {
 	FailureThreshold int
 	SuccessThreshold int
 	RetryDelay       time.Duration
-	Flapping         bool // the FLAPPING overlay is set
+	Flapping         bool   // the FLAPPING overlay is set
+	ParentID         string // the monitor it depends on; "" for none
 }
 
 // FormatTime is the text form timestamps are stored in.
@@ -43,8 +44,9 @@ func GetCheckState(ctx context.Context, tx *sql.Tx, monitorID string) (CheckStat
 	var s CheckState
 	var retryMS int
 	err := tx.QueryRowContext(ctx, `SELECT current_state, current_state_since, failure_threshold,
-		success_threshold, retry_delay_ms, flapping_since IS NOT NULL FROM monitors WHERE id = ?`, monitorID).
-		Scan(&s.State, &s.StateSince, &s.FailureThreshold, &s.SuccessThreshold, &retryMS, &s.Flapping)
+		success_threshold, retry_delay_ms, flapping_since IS NOT NULL, coalesce(parent_monitor_id, '')
+		FROM monitors WHERE id = ?`, monitorID).
+		Scan(&s.State, &s.StateSince, &s.FailureThreshold, &s.SuccessThreshold, &retryMS, &s.Flapping, &s.ParentID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return CheckState{}, ErrNotFound
 	}

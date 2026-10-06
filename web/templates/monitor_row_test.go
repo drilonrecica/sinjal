@@ -108,3 +108,21 @@ func TestLiveWrapsChildrenInOneEventSource(t *testing.T) {
 		t.Error("more than one event source")
 	}
 }
+
+// A down parent is said in words on the row and on the detail header.
+func TestParentDownIsShown(t *testing.T) {
+	m := testMonitor
+	for name, c := range map[string]func(MonitorView) templ.Component{
+		"row":    func(v MonitorView) templ.Component { return MonitorRow(v) },
+		"header": func(v MonitorView) templ.Component { return MonitorHeader(v) },
+	} {
+		if html := renderToString(t, c(m)); strings.Contains(html, "Parent down") {
+			t.Errorf("%s: parent down shown while it is up", name)
+		}
+		m.ParentDown = true
+		if html := renderToString(t, c(m)); !strings.Contains(html, "Parent down: notifications held") {
+			t.Errorf("%s: parent down not shown:\n%s", name, html)
+		}
+		m.ParentDown = false
+	}
+}

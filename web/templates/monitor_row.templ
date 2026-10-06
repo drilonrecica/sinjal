@@ -15,7 +15,10 @@ type MonitorView struct {
 	LastCheck string // "2m ago", or "never"
 	Uptime    string // placeholder until rollups exist
 	Parent    string // name of the parent monitor, if any
-	Tags      []string
+	// ParentDown: the parent is down, so this monitor's notifications are
+	// held back (docs/10_INCIDENTS.md "Parent dependency").
+	ParentDown bool
+	Tags       []string
 }
 
 // Monitor states as shown. Flapping is an overlay on up/down in storage
@@ -116,7 +119,7 @@ templ MonitorRow(m MonitorView) {
 		if len(m.Tags) > 0 || m.Parent != "" {
 			<div class="monitor-meta">
 				if m.Parent != "" {
-					<span class="monitor-dependency">Depends on { m.Parent }</span>
+					@dependency(m)
 				}
 				if len(m.Tags) > 0 {
 					<ul class="tag-list" role="list" aria-label="Tags">
@@ -128,6 +131,15 @@ templ MonitorRow(m MonitorView) {
 			</div>
 		}
 	</li>
+}
+
+// dependency names the parent and says when it is down. The text carries
+// the meaning; the style only marks it.
+templ dependency(m MonitorView) {
+	<span class="monitor-dependency">Depends on { m.Parent }</span>
+	if m.ParentDown {
+		<span class="monitor-dependency" data-parent-down>Parent down: notifications held</span>
+	}
 }
 
 // MonitorHeader is the top block of the monitor detail page. Like the row it
@@ -155,7 +167,7 @@ templ MonitorHeader(m MonitorView) {
 				<span class="monitor-target">{ m.Target }</span>
 			}
 			if m.Parent != "" {
-				<span class="monitor-dependency">Depends on { m.Parent }</span>
+				@dependency(m)
 			}
 		</p>
 		<dl class="monitor-facts">

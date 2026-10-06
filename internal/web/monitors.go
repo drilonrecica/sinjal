@@ -64,23 +64,25 @@ type viewInput struct {
 	HasLatency bool
 	URL        string // checked address, only read for admins
 	Parent     string // parent monitor's name
+	ParentDown bool   // the parent monitor is down
 	Admin      bool
 }
 
 // monitorView turns a monitor row into what the templates show.
 func monitorView(m store.Monitor, in viewInput, now time.Time) templates.MonitorView {
 	v := templates.MonitorView{
-		ID:        m.ID,
-		Name:      m.Name,
-		Type:      m.Type,
-		State:     displayState(m),
-		Since:     formatSince(now.Sub(m.StateSince)),
-		SinceAt:   m.StateSince.UTC().Format(time.RFC3339),
-		Latency:   "—",
-		LastCheck: "never",
-		Uptime:    "—",
-		Parent:    in.Parent,
-		Tags:      in.Tags,
+		ID:         m.ID,
+		Name:       m.Name,
+		Type:       m.Type,
+		State:      displayState(m),
+		Since:      formatSince(now.Sub(m.StateSince)),
+		SinceAt:    m.StateSince.UTC().Format(time.RFC3339),
+		Latency:    "—",
+		LastCheck:  "never",
+		Uptime:     "—",
+		Parent:     in.Parent,
+		Tags:       in.Tags,
+		ParentDown: in.ParentDown,
 	}
 	if in.HasLatency {
 		v.Latency = formatLatency(in.Latency)
@@ -192,8 +194,10 @@ func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, e
 		return nil, err
 	}
 	names := make(map[string]string, len(monitors))
+	down := make(map[string]bool)
 	for _, m := range monitors {
 		names[m.ID] = m.Name
+		down[m.ID] = m.State == "down"
 	}
 	now := h.now()
 	var out []templates.MonitorView
@@ -201,7 +205,7 @@ func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, e
 		d, ok := latencies[m.ID]
 		out = append(out, monitorView(m, viewInput{
 			Tags: tags[m.ID], Latency: d, HasLatency: ok, URL: urls[m.ID],
-			Parent: names[m.ParentMonitorID], Admin: admin,
+			Parent: names[m.ParentMonitorID], ParentDown: down[m.ParentMonitorID], Admin: admin,
 		}, now))
 	}
 	return out, nil
@@ -234,7 +238,7 @@ func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.Mo
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return m, templates.MonitorView{}, err
 		}
-		in.Parent = p.Name
+		in.Parent, in.ParentDown = p.Name, p.State == "down"
 	}
 	return m, monitorView(m, in, h.now()), nil
 }

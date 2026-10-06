@@ -261,3 +261,26 @@ func TestMonitorListRequiresSignIn(t *testing.T) {
 		t.Errorf("anonymous = %d, want 303 to login", rec.Code)
 	}
 }
+
+// A monitor whose parent is down says so on the list and on its page.
+func TestParentDownLabel(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	c := e.addMonitor(t, "child", "https://child.example.com")
+	p := e.addMonitor(t, "parent", "https://parent.example.com")
+	if _, err := e.db.Writer.Exec(`UPDATE monitors SET parent_monitor_id = ? WHERE id = ?`, p, c); err != nil {
+		t.Fatal(err)
+	}
+	const label = "Parent down: notifications held"
+	if body := e.getAs(t, "v1", "GET", "/monitors").Body.String(); strings.Contains(body, label) {
+		t.Fatal("the label is shown while the parent is pending")
+	}
+	if _, err := e.db.Writer.Exec(`UPDATE monitors SET current_state = 'down' WHERE id = ?`, p); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/monitors", "/monitors/" + c, "/fragments/monitors/" + c + "/row"} {
+		if body := e.getAs(t, "v1", "GET", path).Body.String(); strings.Count(body, label) != 1 {
+			t.Errorf("%s: the label is shown %d times, want once", path, strings.Count(body, label))
+		}
+	}
+}
