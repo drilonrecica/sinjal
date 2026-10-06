@@ -106,6 +106,13 @@ For long aggregated ranges, p95 may be approximate unless the implementation sto
 
 The UI should not imply SLA-grade percentile precision for rolled-up historical data.
 
+Bucket math (`internal/history/bucket.go`):
+
+- buckets are aligned to the Unix epoch, so in UTC; a daily bucket is a UTC day, and every bucket of a resolution has the same length across DST changes
+- a 5-minute bucket is built from raw results (`FromRaw`): total, success and failure counts, and min, max, average and **exact** p95 (nearest rank, the rule of raw history) over the successful checks; a bucket of failures only has no latency (NULL columns)
+- an hourly or daily bucket is built from the finer buckets it covers (`Merge`): counts summed, the smallest minimum, the largest maximum, the average weighted by successful checks (every stored result has a duration, so `success_count` is the bucket's sample count). Counts, extremes and average are therefore exact at every tier
+- its p95 is **approximate** (`ApproxP95`): the weighted nearest rank over the children's p95 values, each weighted by its successful checks, i.e. the smallest child p95 at which the cumulative weight reaches ⌈0.95 × total⌉. With all weights 1 it is the exact nearest rank, so raw samples and rolled buckets can be combined by the same function. Over buckets it is an estimate that tends to overstate, since each child's p95 is above most of its samples. No sketch is stored
+
 ## DB corruption
 
 If integrity checks indicate corruption:

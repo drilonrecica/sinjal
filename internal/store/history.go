@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"slices"
 	"time"
+
+	"github.com/drilonrecica/sinjal/internal/history"
 )
 
 // History over raw check results (docs/09_DATABASE.md "History queries").
@@ -99,9 +101,7 @@ func LatencyHistory(ctx context.Context, q *sql.DB, monitorID string, from, to t
 		slices.Sort(samples)
 		s.Samples = n
 		s.Min, s.Max, s.Avg = msToDuration(samples[0]), msToDuration(samples[n-1]), msToDuration(sum/float64(n))
-		// Nearest rank: the smallest sample with at least 95 % of the
-		// samples at or below it, rank ceil(0.95 n).
-		s.P95 = msToDuration(samples[(95*n+99)/100-1])
+		s.P95 = msToDuration(history.NearestRank(samples))
 	}
 	return s, points, nil
 }
