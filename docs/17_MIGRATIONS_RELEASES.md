@@ -19,7 +19,8 @@ internal/db/migrations/
   003_monitors.sql        # M2: monitors, monitor_pauses, http config, secrets, tags, check_results,
                           #     minimal notification_profiles (FK target)
   004_incidents.sql       # M3: incidents (+ notification state), incident_events,
-                          #     maintenance_windows
+                          #     maintenance_windows; opens an incident for every
+                          #     monitor that is DOWN at upgrade time
   005_monitor_types.sql   # M4: tcp/icmp/dns/heartbeat config
   006_notifications.sql   # M5: channels, full profiles, routes, deliveries, tls_warnings
   007_aggregates.sql      # M6: check_aggregates

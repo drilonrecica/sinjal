@@ -179,21 +179,28 @@ func TestCheckResultsQueryUsesIndex(t *testing.T) {
 	}
 }
 
-func TestUpgradeFrom002KeepsDataAndBacksUp(t *testing.T) {
-	e := newEnv(t)
+// embeddedFiles returns the named embedded migrations: the schema of an
+// earlier release, to upgrade from.
+func embeddedFiles(t *testing.T, names ...string) fstest.MapFS {
+	t.Helper()
 	embedded, err := fs.Sub(embeddedMigrations, "migrations")
 	if err != nil {
 		t.Fatal(err)
 	}
-	prev := fstest.MapFS{}
-	for _, n := range []string{"001_foundation.sql", "002_auth.sql"} {
+	out := fstest.MapFS{}
+	for _, n := range names {
 		b, err := fs.ReadFile(embedded, n)
 		if err != nil {
 			t.Fatal(err)
 		}
-		prev[n] = &fstest.MapFile{Data: b}
+		out[n] = &fstest.MapFile{Data: b}
 	}
-	if err := e.migrate(prev); err != nil {
+	return out
+}
+
+func TestUpgradeFrom002KeepsDataAndBacksUp(t *testing.T) {
+	e := newEnv(t)
+	if err := e.migrate(embeddedFiles(t, "001_foundation.sql", "002_auth.sql")); err != nil {
 		t.Fatal(err)
 	}
 	e.addUser(t, "u1", "admin")
@@ -231,12 +238,18 @@ func TestUpgradeFrom002KeepsDataAndBacksUp(t *testing.T) {
 }
 
 func TestMonitorMigrationMatchesSpecSchema(t *testing.T) {
+	assertMatchesSpec(t, migratedEnv(t), monitorTables, monitorIndexes)
+}
+
+// assertMatchesSpec compares the live definition of tables and indexes with
+// spec/schema.sql, the consolidated reference: the two must not drift.
+func assertMatchesSpec(t *testing.T, e env, tables, indexes []string) {
+	t.Helper()
 	raw, err := os.ReadFile("../../spec/schema.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
 	spec := string(raw)
-	e := migratedEnv(t)
 	norm := func(s string) string {
 		s = regexp.MustCompile(`--[^\n]*`).ReplaceAllString(s, "")
 		s = strings.Join(strings.Fields(s), " ")
@@ -244,7 +257,7 @@ func TestMonitorMigrationMatchesSpecSchema(t *testing.T) {
 		s = strings.ReplaceAll(s, " )", ")")
 		return strings.TrimSuffix(strings.TrimSpace(s), ";")
 	}
-	for _, table := range monitorTables {
+	for _, table := range tables {
 		m := regexp.MustCompile(`(?s)CREATE TABLE ` + table + ` \(.*?\n\);`).FindString(spec)
 		if m == "" {
 			t.Fatalf("spec/schema.sql has no CREATE TABLE %s", table)
@@ -257,7 +270,7 @@ func TestMonitorMigrationMatchesSpecSchema(t *testing.T) {
 			t.Errorf("table %s differs from spec:\n live: %s\n spec: %s", table, norm(live), norm(m))
 		}
 	}
-	for _, idx := range monitorIndexes {
+	for _, idx := range indexes {
 		m := regexp.MustCompile(`CREATE (?:UNIQUE )?INDEX ` + idx + `\s+ON [^;]+;`).FindString(spec)
 		var live string
 		if err := e.db.Writer.QueryRow(`SELECT sql FROM sqlite_master WHERE type='index' AND name=?`, idx).Scan(&live); err != nil {

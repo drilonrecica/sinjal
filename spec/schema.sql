@@ -253,6 +253,10 @@ CREATE TABLE incident_events (
   created_at TEXT NOT NULL
 );
 
+-- The timeline of one incident, in order.
+CREATE INDEX idx_incident_events_incident
+  ON incident_events(incident_id, id);
+
 -- One row per TLS warning threshold crossed for a given certificate.
 -- Deduplicates warning notifications; a new not_after resets thresholds.
 CREATE TABLE tls_warnings (
