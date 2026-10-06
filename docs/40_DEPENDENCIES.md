@@ -75,7 +75,7 @@ RFC 6238 (HMAC-SHA1, 6 digits, 30 s step, ±1 step) is ~60 lines with `crypto/hm
 
 ## Vendored web assets
 
-Each asset is vendored into `web/static/` with a header comment recording upstream URL, exact version, and licence, embedded via `embed.FS`, and counted against the <100 KB compressed first-party JS budget (`18_PERFORMANCE.md`). These are never loaded from a CDN.
+Each asset is vendored into `web/static/` with a header comment recording upstream URL, exact version, and licence, embedded via `embed.FS`, and counted against the budgets in `18_PERFORMANCE.md` (<100 KB compressed first-party JS; ≤150 KB fonts). These are never loaded from a CDN.
 
 | Asset | Problem | Why not hand-written | Approx. size (gzip) | Licence | Verdict |
 |---|---|---|---|---|---|
@@ -83,5 +83,7 @@ Each asset is vendored into `web/static/` with a header comment recording upstre
 | htmx SSE extension | live status updates over SSE (`32_SSE_EVENTS.md`) | integrates SSE with htmx swaps | ~3 KB | BSD family (record exact) | **approved** |
 | uPlot | latency/availability charts | tiny, canvas-based, fast with large series | ~20 KB JS + ~1 KB CSS | MIT | **approved** |
 | Lucide icons (subset) | UI icons | consistent icon set | only icons used, inlined as SVG | ISC | **approved**, used icons only, no icon font |
+| Inter (variable, subset) | primary UI typeface (`04_DESIGN_SYSTEM.md`) | system stacks render differently per OS | part of ≤150 KB font budget | OFL-1.1 | **approved**; ship OFL text with the files |
+| JetBrains Mono (variable, subset) | technical/mono text, Terminal theme | not installed on most systems | part of ≤150 KB font budget | OFL-1.1 | **approved**; ship OFL text with the files |
 
 No frontend framework, CSS framework runtime or component kit is approved (`AGENTS.md` §2, §4).

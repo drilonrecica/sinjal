@@ -13,11 +13,16 @@ It must not look like:
 
 ## Typography
 
-Recommended:
-- primary UI: Inter or comparable modern grotesk
-- technical/mono: JetBrains Mono or comparable readable monospace
-- self-host fonts in the implemented product if used
-- provide robust system fallbacks
+Fonts (decision P0-06):
+- primary UI: Inter
+- technical/mono: JetBrains Mono
+- self-hosted variable woff2, subset to Latin + Latin Extended-A (covers e.g. ç ë č ć š đ ž)
+- weight ranges: Inter 400–700, JetBrains Mono 400–600
+- `font-display: swap`; served from embedded static assets with content-hashed URLs and immutable caching
+- preload only the Inter file; the mono file loads on first use
+- status pages use the same files
+- no CDN, no Google Fonts requests
+- system fallbacks: `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` and `ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace`
 
 Use monospace selectively for:
 - hostnames

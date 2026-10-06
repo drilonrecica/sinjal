@@ -11,6 +11,7 @@
 ### Web
 - normal localhost dashboard HTML response: <50 ms target
 - total compressed first-party JS: <100 KB
+- self-hosted fonts: ≤150 KB total woff2 (separate from the JS budget; cached immutably)
 - avoid large client-side hydration/runtime
 
 ### Container
