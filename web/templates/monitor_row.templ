@@ -1,0 +1,178 @@
+package templates
+
+// MonitorView is what the monitor row and the detail header show. The web
+// package builds it from the monitor, so templates never format times or
+// decide what a viewer may see. Target is empty for viewers.
+type MonitorView struct {
+	ID        string
+	Name      string
+	Type      string
+	State     string // StateUp, StateDown, StatePending, StatePaused or StateFlapping
+	Since     string // how long the state has lasted, e.g. "3m"
+	SinceAt   string // RFC 3339, for <time datetime>
+	Target    string // scheme://host of the checked address; admins only
+	Latency   string // "128 ms", or "—" before the first result
+	LastCheck string // "2m ago", or "never"
+	Uptime    string // placeholder until rollups exist
+	Parent    string // name of the parent monitor, if any
+	Tags      []string
+}
+
+// Monitor states as shown. Flapping is an overlay on up/down in storage
+// but one label here (docs/10_INCIDENTS.md).
+const (
+	StateUp       = "up"
+	StateDown     = "down"
+	StatePending  = "pending"
+	StatePaused   = "paused"
+	StateFlapping = "flapping"
+)
+
+// stateLabel is the visible status text. Colour and glyph never carry the
+// status alone (docs/22_ACCESSIBILITY.md).
+func stateLabel(state string) string {
+	switch state {
+	case StateUp:
+		return "Up"
+	case StateDown:
+		return "Down"
+	case StatePaused:
+		return "Paused"
+	case StateFlapping:
+		return "Flapping"
+	}
+	return "Pending"
+}
+
+// stateGlyph differs in shape per state, so the icon reads without colour.
+func stateGlyph(state string) string {
+	switch state {
+	case StateUp:
+		return "●"
+	case StateDown:
+		return "▼"
+	case StatePaused:
+		return "❚❚"
+	case StateFlapping:
+		return "◆"
+	}
+	return "○"
+}
+
+// StatusBadge is the status icon plus text.
+templ StatusBadge(state string) {
+	<span class="status" data-state={ state }>
+		<span class="status-glyph" aria-hidden="true">{ stateGlyph(state) }</span>
+		<span class="status-text">{ stateLabel(state) }</span>
+	</span>
+}
+
+// Live wraps everything that refreshes from the event stream. It opens one
+// EventSource (htmx SSE extension) and re-dispatches monitor.updated as DOM
+// events; live.js routes them to the elements marked data-live
+// (docs/32_SSE_EVENTS.md). The attributes are static: no payload is ever
+// rendered from an event.
+templ Live() {
+	<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated">
+		{ children... }
+	</div>
+}
+
+// MonitorRow is one row of the monitor list. It replaces itself from
+// /fragments/monitors/{id}/row whenever live.js sends it "refresh".
+templ MonitorRow(m MonitorView) {
+	<li
+		class="monitor-row"
+		id={ "monitor-" + m.ID }
+		data-live
+		data-monitor-id={ m.ID }
+		data-state={ m.State }
+		hx-get={ "/fragments/monitors/" + m.ID + "/row" }
+		hx-trigger="refresh"
+		hx-swap="outerHTML"
+	>
+		<div class="monitor-main">
+			@StatusBadge(m.State)
+			<a class="monitor-name" href={ templ.SafeURL("/monitors/" + m.ID) }>{ m.Name }</a>
+			<span class="monitor-type">{ m.Type }</span>
+			if m.Target != "" {
+				<span class="monitor-target">{ m.Target }</span>
+			}
+		</div>
+		<dl class="monitor-facts">
+			<div>
+				<dt>Latency</dt>
+				<dd>{ m.Latency }</dd>
+			</div>
+			<div>
+				<dt>Uptime</dt>
+				<dd>{ m.Uptime }</dd>
+			</div>
+			<div>
+				<dt>In state</dt>
+				<dd><time datetime={ m.SinceAt }>{ m.Since }</time></dd>
+			</div>
+		</dl>
+		if len(m.Tags) > 0 || m.Parent != "" {
+			<div class="monitor-meta">
+				if m.Parent != "" {
+					<span class="monitor-dependency">Depends on { m.Parent }</span>
+				}
+				if len(m.Tags) > 0 {
+					<ul class="tag-list" role="list" aria-label="Tags">
+						for _, tag := range m.Tags {
+							<li class="tag">{ tag }</li>
+						}
+					</ul>
+				}
+			</div>
+		}
+	</li>
+}
+
+// MonitorHeader is the top block of the monitor detail page. Like the row it
+// replaces itself from /fragments/monitors/{id}/header.
+templ MonitorHeader(m MonitorView) {
+	<header
+		class="monitor-header"
+		id={ "monitor-header-" + m.ID }
+		data-live
+		data-monitor-id={ m.ID }
+		data-state={ m.State }
+		hx-get={ "/fragments/monitors/" + m.ID + "/header" }
+		hx-trigger="refresh"
+		hx-swap="outerHTML"
+	>
+		<div class="monitor-header-title">
+			<h1>{ m.Name }</h1>
+			@StatusBadge(m.State)
+		</div>
+		<p class="monitor-header-sub">
+			<span class="monitor-type">{ m.Type }</span>
+			if m.Target != "" {
+				<span class="monitor-target">{ m.Target }</span>
+			}
+			if m.Parent != "" {
+				<span class="monitor-dependency">Depends on { m.Parent }</span>
+			}
+		</p>
+		<dl class="monitor-facts">
+			<div>
+				<dt>In state</dt>
+				<dd><time datetime={ m.SinceAt }>{ m.Since }</time></dd>
+			</div>
+			<div>
+				<dt>Latency</dt>
+				<dd>{ m.Latency }</dd>
+			</div>
+			<div>
+				<dt>Last check</dt>
+				<dd>{ m.LastCheck }</dd>
+			</div>
+			<div>
+				<dt>Uptime</dt>
+				<dd>{ m.Uptime }</dd>
+			</div>
+		</dl>
+	</header>
+}

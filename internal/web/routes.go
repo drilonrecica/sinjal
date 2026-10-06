@@ -44,6 +44,7 @@ func Routes(r chi.Router, app App) {
 	passkeys := NewPasskeys(app.Passkeys, app.Sessions, login, app.Logger)
 	settingsAuth := NewSettingsAuth(authn, app.DB, app.Passkeys, app.Sessions, app.Logger)
 	system := NewSettingsSystem(app.DB, app.Logger)
+	monitors := NewMonitors(app.DB, app.Logger)
 	account := NewAccount(app.DB, app.Sessions, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
@@ -62,6 +63,7 @@ func Routes(r chi.Router, app App) {
 			r.Use(RequireAuth(app.Logger))
 			RegisterPages(r, app.Logger)
 			RegisterEvents(r, app.Events, app.Sessions, app.Logger)
+			RegisterMonitors(r, monitors)
 			RegisterReauth(r, reauth)
 			RegisterPasskeyReauth(r, passkeys)
 			RegisterAccount(r, account, recentAuth) // the caller's own password; viewers too

@@ -3,7 +3,7 @@ package templates
 // Shell is the application frame: skip link, sidebar navigation and the main
 // region. active is the Key of the current Section ("" for none).
 templ Shell(page Page, active string) {
-	@Layout(page.withAssets([]string{"css/shell.css"}, []string{"js/htmx.min.js"})) {
+	@Layout(page.withShellAssets()) {
 		<a class="skip-link" href="#main">Skip to main content</a>
 		<div class="shell">
 			<div class="sidebar">

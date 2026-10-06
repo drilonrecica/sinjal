@@ -96,6 +96,13 @@ GET /events
 
 Authenticated admin/viewer stream.
 
+Live fragments (GET/HEAD, admin and viewer, `no-store`; 404 for an unknown monitor). The checked address is only in the admin's version:
+
+```text
+GET /fragments/monitors/{id}/row
+GET /fragments/monitors/{id}/header
+```
+
 Do not put secrets or full diagnostic snippets in SSE payloads.
 
 ## Status pages

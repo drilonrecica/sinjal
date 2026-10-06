@@ -74,6 +74,19 @@ func (p Page) withAssets(styles, scripts []string) Page {
 	return p
 }
 
+// withShellAssets adds the shell stylesheet and htmx. htmx goes before the
+// page's own scripts because deferred scripts run in order and extensions
+// need htmx to exist.
+func (p Page) withShellAssets() Page {
+	p.Styles = slices.Concat(p.Styles, []string{"css/shell.css"})
+	p.Scripts = slices.Concat([]string{"js/htmx.min.js"}, p.Scripts)
+	return p
+}
+
+// LiveScripts are what a page needs to use Live: the htmx SSE extension and
+// the glue that routes events to elements.
+var LiveScripts = []string{"js/htmx-ext-sse.js", "js/live.js"}
+
 // Section is one entry of the primary navigation (docs/03_INFORMATION_ARCHITECTURE.md).
 type Section struct {
 	Key   string

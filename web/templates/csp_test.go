@@ -54,6 +54,9 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"accountPassword": AccountPassword(page, PasswordForm{Changed: true, Errors: map[string]string{"password": "bad", "confirm": "bad"}}, 12),
 		"system":          SettingsSystem(page, SystemView{Audit: []AuditRow{{When: "2026-10-06 12:00:00", Actor: "admin", Event: "auth.login_succeeded", Object: "user u1", Details: "client_ip=1.2.3.4"}, {When: "2026-10-06 11:00:00", Event: "auth.login_failed"}}, OlderPath: "/settings/system?before=5"}),
 		"systemEmpty":     SettingsSystem(page, SystemView{}),
+		"monitorRow":      MonitorRow(testMonitor),
+		"monitorHeader":   MonitorHeader(testMonitor),
+		"live":            Live(),
 		"settingsOff":     SettingsAuth(page, SettingsAuthView{PasskeysUnavailable: "SINJAL_BASE_URL is not set."}),
 		"totpSetup":       TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}

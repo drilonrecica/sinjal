@@ -93,7 +93,7 @@ Each asset is vendored into `web/static/` with a header comment recording upstre
 | Asset | Problem | Why not hand-written | Approx. size (gzip) | Licence | Verdict |
 |---|---|---|---|---|---|
 | htmx 2.x | partial page interactions (`AGENTS.md` §3) | mandated by the architecture | ~17 KB | Zero-Clause BSD (0BSD) | **approved**; vendored as **2.0.11** in `web/static/js/htmx.min.js` |
-| htmx SSE extension | live status updates over SSE (`32_SSE_EVENTS.md`) | integrates SSE with htmx swaps | ~3 KB | BSD family (record exact) | **approved** |
+| htmx SSE extension | live status updates over SSE (`32_SSE_EVENTS.md`) | integrates SSE with htmx swaps | ~3 KB | Zero-Clause BSD (0BSD) | **approved**; vendored as **htmx-ext-sse 2.2.4** in `web/static/js/htmx-ext-sse.js` (unminified upstream file, ~2.5 KB gzip) |
 | uPlot | latency/availability charts | tiny, canvas-based, fast with large series | ~20 KB JS + ~1 KB CSS | MIT | **approved** |
 | Lucide icons (subset) | UI icons | consistent icon set | only icons used, inlined as SVG | ISC | **approved**, used icons only, no icon font |
 | Inter (variable, subset) | primary UI typeface (`04_DESIGN_SYSTEM.md`) | system stacks render differently per OS | part of ≤150 KB font budget | OFL-1.1 | **approved**; ship OFL text with the files |
