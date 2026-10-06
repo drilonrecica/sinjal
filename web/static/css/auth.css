@@ -1,0 +1,76 @@
+/* Pre-login pages (setup, later login and re-auth): one narrow centred
+ * column, no app shell. Themed polish arrives with M1-18. */
+
+.auth {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--space-5) var(--space-4);
+}
+
+.auth-panel {
+  display: grid;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 24rem;
+}
+
+.auth-brand {
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.auth-lead,
+.auth-hint {
+  color: var(--text-muted);
+}
+
+.auth-hint,
+.auth-error {
+  font-size: var(--text-sm);
+}
+
+.auth-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.auth-field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.auth-field label {
+  font-weight: 600;
+}
+
+.auth-field input {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.auth-field input[aria-invalid="true"] {
+  border-color: var(--status-down);
+}
+
+.auth-error {
+  color: var(--status-down);
+}
+
+.auth-alert {
+  padding: var(--space-3);
+  border: 1px solid var(--status-down);
+  border-radius: var(--radius-md);
+}
+
+.auth-submit {
+  padding: var(--space-2) var(--space-4);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: 0;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+}

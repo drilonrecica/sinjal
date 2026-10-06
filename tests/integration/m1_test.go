@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -106,5 +107,79 @@ func TestProxyTrust(t *testing.T) {
 				t.Errorf("client_ip of /healthz requests = %v, want last = %s", got, tc.want)
 			}
 		})
+	}
+}
+
+// setupURL returns the URL from the "Initial setup: ..." WARN line, or "".
+func setupURL(s *server) string {
+	for _, r := range s.records() {
+		if msg, _ := r["msg"].(string); strings.HasPrefix(msg, "Initial setup: ") && r["level"] == "WARN" {
+			return strings.TrimPrefix(msg, "Initial setup: ")
+		}
+	}
+	return ""
+}
+
+// TestInitialSetup covers the setup token flow end to end: the token is
+// logged once, rotates on restart, guards /setup, and setup closes for good
+// after the admin is created.
+func TestInitialSetup(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test builds and runs the binary")
+	}
+	dataDir := filepath.Join(t.TempDir(), "data")
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+
+	s := start(t, dataDir)
+	first := setupURL(s)
+	if err := s.stop(); err != nil {
+		t.Fatal(err)
+	}
+	s = start(t, dataDir)
+	link := setupURL(s)
+	if first == "" || link == "" || first == link {
+		t.Fatalf("setup links %q / %q: want one per start, rotated on restart\n%s", first, link, s.logs)
+	}
+	u, err := url.Parse(link)
+	if err != nil || u.Host == "" || !strings.HasPrefix(u.Host, "localhost:") || u.Path != "/setup" {
+		t.Fatalf("setup link %q", link)
+	}
+	token := u.Query().Get("token")
+	get := s.base + "/setup?token="
+
+	if resp, _ := body(t, noRedirect, get+url.QueryEscape(first[strings.Index(first, "token=")+6:]), nil); resp.StatusCode != 403 {
+		t.Errorf("old token after restart = %d, want 403", resp.StatusCode)
+	}
+	if resp, b := body(t, noRedirect, get+token, nil); resp.StatusCode != 200 || !strings.Contains(string(b), "Create the admin account") {
+		t.Fatalf("GET /setup with token = %d", resp.StatusCode)
+	}
+
+	resp, err := noRedirect.PostForm(s.base+"/setup", url.Values{
+		"token": {token}, "login": {"admin"},
+		"password": {"correct horse battery"}, "confirm": {"correct horse battery"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 303 || resp.Header.Get("Location") != "/login" {
+		t.Fatalf("POST /setup = %d %q", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if resp, _ := body(t, noRedirect, get+token, nil); resp.StatusCode != 404 {
+		t.Errorf("GET /setup after setup = %d, want 404", resp.StatusCode)
+	}
+	if err := s.stop(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(s.logs.String(), "correct horse battery") {
+		t.Error("password reached the logs")
+	}
+
+	s = start(t, dataDir)
+	if link := setupURL(s); link != "" {
+		t.Errorf("setup link logged although an admin exists: %q", link)
+	}
+	if resp, _ := body(t, noRedirect, s.base+"/setup?token="+token, nil); resp.StatusCode != 404 {
+		t.Errorf("GET /setup after restart = %d, want 404", resp.StatusCode)
 	}
 }

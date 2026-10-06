@@ -28,6 +28,19 @@ Creating the admin:
 
 After an admin exists, `/setup` returns 404 and no token is generated or logged.
 
+### Implementation (M1-05)
+
+- `serve` checks for an admin after migrations; if none exists it creates an `auth.SetupToken` (16 bytes, 26 lowercase base32 characters) and logs the setup link once at WARN after the listener opens. The access log records only the route pattern, so the token in the query string does not reach it.
+- `/setup` (`internal/web/setup.go`) answers 404 when the process has no token, after the token is discarded, or when the database already holds an admin (checked on every request). Responses carry `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+- A wrong or missing token answers 403 with a generic page. Failures are counted per client IP (`proxy.ClientIP`): after 10 failures within 15 minutes the IP gets 429 for the rest of the window, even with the right token. The counter (`internal/ratelimit`) tracks at most 1024 IPs and evicts the oldest; login (M1-10) reuses it.
+- `auth.CreateAdmin` validates the input, hashes the password outside the transaction, then in one transaction inserts the user with `INSERT … SELECT … WHERE NOT EXISTS (admin)` and the audit event `setup.admin_created`. Zero inserted rows means another request won: `ErrAdminExists`, answered with 404. Success discards the token and redirects (303) to `/login`.
+- POST bodies are capped at 16 KiB. Until CSRF tokens exist (M1-08), the unguessable setup token in the form body is what stops cross-site submission.
+
+### Credential policy
+
+- Username: trimmed, 1–64 characters, no whitespace or control characters; case is kept.
+- Password: at least 12 characters and at most 1024 bytes; no composition rules (NIST SP 800-63B). Owner decision during M1-05; `auth.ValidatePassword` applies it everywhere a password is set.
+
 ## Password hashing
 
 Use Argon2id via a vetted library.

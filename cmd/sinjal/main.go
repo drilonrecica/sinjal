@@ -13,6 +13,7 @@ import (
 	_ "time/tzdata" // SINJAL_TIMEZONE must work without system zoneinfo (scratch image)
 
 	"github.com/drilonrecica/sinjal/internal/assets"
+	"github.com/drilonrecica/sinjal/internal/auth"
 	"github.com/drilonrecica/sinjal/internal/config"
 	"github.com/drilonrecica/sinjal/internal/datadir"
 	"github.com/drilonrecica/sinjal/internal/db"
@@ -89,6 +90,15 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		return fatalf(stderr, "%v", err)
 	}
 
+	// While no admin exists, /setup is guarded by a one-time token that only
+	// the operator can read from the log (decision P0-10).
+	var setupToken *auth.SetupToken
+	if exists, err := auth.AdminExists(ctx, database.Reader); err != nil {
+		return fatalf(stderr, "checking for an admin account: %v", err)
+	} else if !exists {
+		setupToken = auth.NewSetupToken()
+	}
+
 	health.SetReady() // migrations are complete; the listener opens next
 
 	ln, err := net.Listen("tcp", cfg.Listen)
@@ -96,15 +106,28 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		return fatalf(stderr, "cannot listen on %s: %v", cfg.Listen, err)
 	}
 	log.Info("listening", "addr", ln.Addr().String())
+	if setupToken != nil {
+		log.Warn("Initial setup: " + setupBase(cfg.BaseURL, ln.Addr()) + "/setup?token=" + setupToken.Value())
+	}
 
 	router := web.NewRouter(logger, cfg.TrustedProxies)
 	web.RegisterHealth(router, health)
 	web.RegisterStatic(router, assets.Default)
 	web.RegisterPages(router, logger)
+	web.RegisterSetup(router, web.NewSetup(database, setupToken, logger))
 	srv := web.NewServer(cfg.Listen, router)
 	if err := web.Run(ctx, srv, ln, web.ShutdownGrace, logger); err != nil {
 		return fatalf(stderr, "http server: %v", err)
 	}
 	log.Info("stopped")
 	return 0
+}
+
+// setupBase is SINJAL_BASE_URL, or http://localhost:<port> when it is unset.
+func setupBase(baseURL string, addr net.Addr) string {
+	if baseURL != "" {
+		return baseURL
+	}
+	_, port, _ := net.SplitHostPort(addr.String())
+	return "http://localhost:" + port
 }

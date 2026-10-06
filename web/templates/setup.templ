@@ -1,0 +1,60 @@
+package templates
+
+import "strconv"
+
+// authFrame is the centred, shell-less frame for pre-login pages.
+templ authFrame(page Page) {
+	@Layout(page.withAssets([]string{"css/auth.css"}, nil)) {
+		<main id="main" class="auth">
+			<div class="auth-panel">
+				<p class="auth-brand">Sinjal</p>
+				{ children... }
+			</div>
+		</main>
+	}
+}
+
+// Setup is the initial admin account form (docs/13_AUTH_SECURITY.md).
+templ Setup(page Page, f SetupForm, minPassword int) {
+	@authFrame(page) {
+		<h1>Create the admin account</h1>
+		<p class="auth-lead">This account manages monitors, notifications and settings.</p>
+		if msg, ok := f.Errors["form"]; ok {
+			<p class="auth-alert" role="alert">{ msg }</p>
+		}
+		<form class="auth-form" method="post" action="/setup">
+			<input type="hidden" name="token" value={ f.Token }/>
+			@field("login", "Username", f.Errors) {
+				<input id="login" name="login" type="text" value={ f.Login } autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="64" { fieldAttrs("login", f.Errors)... }/>
+			}
+			@field("password", "Password", f.Errors) {
+				<input id="password" name="password" type="password" autocomplete="new-password" required minlength={ strconv.Itoa(minPassword) } { fieldAttrs("password", f.Errors, "password-hint")... }/>
+				<p id="password-hint" class="auth-hint">At least { strconv.Itoa(minPassword) } characters. A passphrase works well.</p>
+			}
+			@field("confirm", "Confirm password", f.Errors) {
+				<input id="confirm" name="confirm" type="password" autocomplete="new-password" required { fieldAttrs("confirm", f.Errors)... }/>
+			}
+			<button class="auth-submit" type="submit">Create account</button>
+		</form>
+	}
+}
+
+// field renders a label, the input passed as children and its error.
+templ field(name, label string, errs map[string]string) {
+	<div class="auth-field">
+		<label for={ name }>{ label }</label>
+		{ children... }
+		if msg, ok := errs[name]; ok {
+			<p id={ name + "-error" } class="auth-error">{ msg }</p>
+		}
+	</div>
+}
+
+// AuthMessage is a pre-login page that only explains something, such as an
+// invalid setup link.
+templ AuthMessage(page Page, heading, message string) {
+	@authFrame(page) {
+		<h1>{ heading }</h1>
+		<p class="auth-lead">{ message }</p>
+	}
+}
