@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	_ "time/tzdata" // SINJAL_TIMEZONE must work without system zoneinfo (scratch image)
 
 	"github.com/drilonrecica/sinjal/internal/config"
+	"github.com/drilonrecica/sinjal/internal/logging"
 )
 
 // version is set at build time: -ldflags "-X main.version=1.2.3".
@@ -46,6 +48,9 @@ func serve(stderr io.Writer) int {
 	if err != nil {
 		return fatalf(stderr, "invalid configuration:\n%v", err)
 	}
-	_ = cfg // consumed by the server in M0-10
+	logger := logging.New(stderr, cfg.LogFormat, cfg.LogLevel)
+	slog.SetDefault(logger)
+	logging.Sub(logger, "main").Info("starting", "version", version, "data_dir", cfg.DataDir, "listen", cfg.Listen)
+	// The server itself arrives in M0-10.
 	return fatalf(stderr, "serve is not implemented yet")
 }
