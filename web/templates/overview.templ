@@ -1,0 +1,80 @@
+package templates
+
+import "strconv"
+
+// OverviewPage is the first page: problems when there are any, the state
+// of the monitors in numbers, and the latest incidents. A healthy system
+// shows no strip and stays calm (docs/03).
+templ OverviewPage(page Page, v OverviewView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/incidents.css", "css/overview.css"}, LiveScripts), "overview") {
+		<div class="page-head">
+			<h1>Overview</h1>
+		</div>
+		@Live() {
+			@OverviewBody(v)
+		}
+	}
+}
+
+// OverviewBody replaces itself from /fragments/overview: when an incident
+// changes or a monitor is created or deleted (live.js), and once a minute,
+// which also picks up a monitor's first result.
+templ OverviewBody(v OverviewView) {
+	<div data-live-list data-live-incidents hx-get="/fragments/overview" hx-trigger="refresh, every 60s" hx-swap="outerHTML">
+		if v.Monitors == 0 {
+			<section class="empty-state" aria-labelledby="overview-empty-title">
+				<h2 id="overview-empty-title">No monitors yet</h2>
+				if v.Admin {
+					<p>Add a website or service to start watching it.</p>
+					<a class="action" href="/monitors/new">Create monitor</a>
+				} else {
+					<p>An admin has not added any monitors yet.</p>
+				}
+			</section>
+		} else {
+			if len(v.Problems) > 0 {
+				<section class="problem-strip" aria-labelledby="problems-title">
+					<h2 id="problems-title">Needs attention</h2>
+					<ul role="list">
+						for _, p := range v.Problems {
+							<li class="problem" data-state={ p.State }>
+								<span class="problem-glyph" aria-hidden="true">{ problemGlyph(p.State) }</span>
+								<a href={ templ.SafeURL(p.Href) }>{ p.Text }</a>
+							</li>
+						}
+					</ul>
+					if v.MoreProblems > 0 {
+						<p class="problem-more">and { strconv.Itoa(v.MoreProblems) } more on <a href="/monitors">Monitors</a></p>
+					}
+				</section>
+			}
+			<section class="overview-counts" aria-labelledby="counts-title">
+				<h2 id="counts-title" class="visually-hidden">Monitors by state</h2>
+				<dl class="monitor-facts">
+					for _, c := range v.Counts {
+						<div data-state={ c.State }>
+							<dt>{ c.Label }</dt>
+							<dd>{ strconv.Itoa(c.Value) }</dd>
+						</div>
+					}
+				</dl>
+				<p><a href="/monitors">All monitors</a></p>
+			</section>
+			<section class="overview-incidents" aria-labelledby="recent-title">
+				<h2 id="recent-title">Recent incidents</h2>
+				@IncidentRows(v.Incidents)
+				<p><a href="/incidents">All incidents</a></p>
+			</section>
+		}
+	</div>
+}
+
+func problemGlyph(state string) string {
+	switch state {
+	case StateDown:
+		return "▼"
+	case StateFlapping:
+		return "◆"
+	}
+	return "!"
+}

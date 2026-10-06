@@ -35,6 +35,8 @@ Order:
 
 Healthy systems should feel calm. Do not fill the dashboard with decorative widgets.
 
+Built (M3 follow-up, `GET /`): the problem strip ("Needs attention") exists only when there is something to list: monitors that are down (with for how long), flapping ones, and certificates that expire within 14 days or have expired (enabled monitors only; each line is glyph, text and a link to the monitor), at most 8 with "and n more" after them. Then the monitors by state (total, up, down, flapping, pending, paused) as the figures row of the monitor pages, with a link to Monitors, and the latest incidents (the active ones and the last 5 ended, the incident list component) with a link to Incidents. The monitor list itself is on Monitors: a thousand rows do not belong on the first page. Notification channel and DB/disk/system warnings join the strip with their features (M5, M9), and the separate "warnings" section is the strip's certificate lines until then. With no monitors the page offers to create the first one (admins) or says an admin has not (viewers). It refreshes when an incident changes or a monitor is created or deleted, and once a minute, which also shows a monitor's first result.
+
 ## Monitor list
 
 Use compact responsive rows, not card grids.

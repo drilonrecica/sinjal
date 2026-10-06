@@ -76,7 +76,7 @@ func (h *Incidents) fail(w http.ResponseWriter, r *http.Request, what string, er
 
 // list serves GET /incidents.
 func (h *Incidents) list(w http.ResponseWriter, r *http.Request) {
-	v, err := incidentListView(r.Context(), h.db.Reader, h.loc, h.now(), "")
+	v, err := incidentListView(r.Context(), h.db.Reader, h.loc, h.now(), "", incidentListLimit)
 	if err != nil {
 		h.fail(w, r, "listing incidents", err)
 		return
@@ -87,7 +87,11 @@ func (h *Incidents) list(w http.ResponseWriter, r *http.Request) {
 // listFragment serves GET /fragments/incidents; ?monitor= narrows it to one
 // monitor, which is how a monitor's Incidents tab refreshes.
 func (h *Incidents) listFragment(w http.ResponseWriter, r *http.Request) {
-	v, err := incidentListView(r.Context(), h.db.Reader, h.loc, h.now(), r.URL.Query().Get("monitor"))
+	limit := incidentListLimit
+	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n >= 1 && n <= incidentListLimit {
+		limit = n
+	}
+	v, err := incidentListView(r.Context(), h.db.Reader, h.loc, h.now(), r.URL.Query().Get("monitor"), limit)
 	if err != nil {
 		h.fail(w, r, "listing incidents", err)
 		return
@@ -95,13 +99,21 @@ func (h *Incidents) listFragment(w http.ResponseWriter, r *http.Request) {
 	render(w, r, h.log, http.StatusOK, templates.IncidentList(v))
 }
 
-// incidentListView builds the list of all incidents, or of one monitor's.
-func incidentListView(ctx context.Context, q *sql.DB, loc *time.Location, now time.Time, monitorID string) (templates.IncidentListView, error) {
-	v := templates.IncidentListView{Fragment: "/fragments/incidents", ShowMonitor: monitorID == "", Limit: incidentListLimit}
+// incidentListView builds the list of all incidents, or of one monitor's:
+// the active ones and up to limit ended ones.
+func incidentListView(ctx context.Context, q *sql.DB, loc *time.Location, now time.Time, monitorID string, limit int) (templates.IncidentListView, error) {
+	v := templates.IncidentListView{Fragment: "/fragments/incidents", ShowMonitor: monitorID == "", Limit: limit}
+	query := url.Values{}
 	if monitorID != "" {
-		v.Fragment += "?monitor=" + url.QueryEscape(monitorID)
+		query.Set("monitor", monitorID)
 	}
-	rows, err := store.ListIncidents(ctx, q, monitorID, incidentListLimit+1)
+	if limit != incidentListLimit {
+		query.Set("limit", strconv.Itoa(limit))
+	}
+	if len(query) > 0 {
+		v.Fragment += "?" + query.Encode()
+	}
+	rows, err := store.ListIncidents(ctx, q, monitorID, limit+1)
 	if err != nil {
 		return v, err
 	}
@@ -109,7 +121,7 @@ func incidentListView(ctx context.Context, q *sql.DB, loc *time.Location, now ti
 	ended := 0
 	for _, r := range rows {
 		if r.EndedAt != nil {
-			if ended++; ended > incidentListLimit {
+			if ended++; ended > limit {
 				v.More = true
 				continue
 			}

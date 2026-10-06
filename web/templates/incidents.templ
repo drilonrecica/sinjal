@@ -20,6 +20,14 @@ templ IncidentsPage(page Page, v IncidentListView) {
 // it "refresh". It is the whole page body and the monitor's Incidents tab.
 templ IncidentList(v IncidentListView) {
 	<div data-live-incidents hx-get={ v.Fragment } hx-trigger="refresh" hx-swap="outerHTML">
+		@IncidentRows(v)
+	</div>
+}
+
+// IncidentRows is the list without its refresh wiring, for a page that
+// refreshes as a whole (the Overview).
+templ IncidentRows(v IncidentListView) {
+	<div class="incident-rows">
 		if len(v.Rows) == 0 {
 			<section class="empty-state" aria-labelledby="incident-empty-title">
 				<h2 id="incident-empty-title">No incidents</h2>
@@ -124,7 +132,7 @@ templ IncidentTimeline(v IncidentDetailView) {
 			}
 			<a href={ templ.SafeURL("/monitors/" + v.Incident.MonitorID) }>{ v.Incident.Monitor }</a>
 		</h1>
-		<p class="incident-when">
+		<p class="incident-since">
 			Started <time datetime={ v.Incident.StartedAt }>{ v.Incident.Started }</time>,
 			if v.Incident.Active {
 				down for { v.Incident.Duration } so far

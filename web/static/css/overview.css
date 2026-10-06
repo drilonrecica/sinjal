@@ -1,0 +1,50 @@
+/* Overview: calm by default; the strip only exists when something needs
+ * attention. */
+
+.problem-strip {
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--status-down);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.problem-strip h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+}
+.problem-strip ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.problem[data-state="down"] {
+  color: var(--status-down);
+}
+.problem[data-state="flapping"] {
+  color: var(--status-flapping);
+}
+.problem[data-state="tls"] {
+  color: var(--status-warning);
+}
+.problem a {
+  color: inherit;
+  font-weight: 600;
+}
+.problem-glyph {
+  margin-right: var(--space-2);
+}
+.problem-more {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.overview-counts,
+.overview-incidents {
+  margin-bottom: var(--space-5);
+}
+.overview-incidents h2 {
+  font-size: 1rem;
+}
