@@ -69,6 +69,7 @@ Only public-safe fields.
 Heartbeat:
 - lightweight abuse protection/token validation
 - do not create a heavy global rate-limit subsystem
+- implemented (M4-05): `GET|POST /api/v1/heartbeat/{token}` and `POST /api/v1/heartbeat` with a bearer token; 204, 404 for an unknown token, 429 over 60 requests a minute per client address (the bounded `ratelimit.Limiter`, 10,000 addresses). Details in `06_MONITORING_ENGINE.md` "Heartbeat"
 
 Login endpoints need stronger protection than normal authenticated API calls.
 

@@ -80,26 +80,68 @@ func setPaused(ctx context.Context, d *db.DB, id, ts, update string, then func(t
 
 // Schedule is what the scheduler needs to know about a monitor.
 type Schedule struct {
-	ID       string
+	ID string
+	// Interval is the check interval; for a heartbeat monitor it is the
+	// period it may go without a beat.
 	Interval time.Duration
+	// Deadline is set for a heartbeat monitor only: when it is late
+	// (HeartbeatConfig.Deadline). Its first job runs then.
+	Deadline time.Time
+}
+
+const scheduleQuery = `SELECT m.id, m.type, m.interval_seconds,
+	h.expected_interval_seconds, h.grace_seconds, h.last_beat_at, ` + watchedSince + `
+	FROM monitors m LEFT JOIN heartbeat_monitor_config h ON h.monitor_id = m.id`
+
+func scanSchedule(r scanner) (Schedule, error) {
+	var s Schedule
+	var typ, watched string
+	var seconds int
+	var interval, grace sql.NullInt64
+	var last sql.NullString
+	if err := r.Scan(&s.ID, &typ, &seconds, &interval, &grace, &last, &watched); err != nil {
+		return Schedule{}, err
+	}
+	s.Interval = time.Duration(seconds) * time.Second
+	// A heartbeat monitor without its configuration keeps the plain
+	// interval; its check reports the missing configuration.
+	if typ == "heartbeat" && interval.Valid {
+		c := HeartbeatConfig{
+			ExpectedInterval: time.Duration(interval.Int64) * time.Second,
+			Grace:            time.Duration(grace.Int64) * time.Second,
+			LastBeatAt:       parseNullTime(last),
+			WatchedSince:     parseTime(watched),
+		}
+		s.Interval = c.Period()
+		s.Deadline = c.Deadline()
+	}
+	return s, nil
+}
+
+// GetSchedule returns the schedule of one monitor, enabled or not.
+func GetSchedule(ctx context.Context, q *sql.DB, id string) (Schedule, error) {
+	s, err := scanSchedule(q.QueryRowContext(ctx, scheduleQuery+` WHERE m.id = ?`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Schedule{}, ErrNotFound
+	}
+	return s, err
 }
 
 // ListSchedules returns the monitors that are checked: every enabled one,
-// by id. It reads neither configuration nor secrets.
+// by id. It reads neither configuration nor secrets, apart from the timing
+// of heartbeat monitors.
 func ListSchedules(ctx context.Context, q *sql.DB) ([]Schedule, error) {
-	rows, err := q.QueryContext(ctx, `SELECT id, interval_seconds FROM monitors WHERE enabled = 1 ORDER BY id`)
+	rows, err := q.QueryContext(ctx, scheduleQuery+` WHERE m.enabled = 1 ORDER BY m.id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []Schedule
 	for rows.Next() {
-		var s Schedule
-		var seconds int
-		if err := rows.Scan(&s.ID, &seconds); err != nil {
+		s, err := scanSchedule(rows)
+		if err != nil {
 			return nil, err
 		}
-		s.Interval = time.Duration(seconds) * time.Second
 		out = append(out, s)
 	}
 	return out, rows.Err()

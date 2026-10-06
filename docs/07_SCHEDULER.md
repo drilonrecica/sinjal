@@ -148,7 +148,12 @@ The engine gives the worker pool one function. For each job it:
 - stores a failed check (kind `unknown`, message "the monitor's configuration cannot be used: …") when the stored configuration cannot be turned into a request or a stored secret cannot be decrypted. Validation prevents this on save; it means the row or the master key was changed outside Sinjal, and it must be visible rather than leave the monitor unchecked
 - runs the check and hands the result to the result processor
 
-## Pause and resume
+## Heartbeat monitors
+
+A heartbeat monitor is not checked: its job runs at its deadline (last beat, creation or resume, plus interval plus grace; `06_MONITORING_ENGINE.md` "Heartbeat") and every period after it. The scheduler does not know the difference; the engine sets the first delay from the deadline (`Start`, `Resume`, `Schedule`) and `Engine.Beat` sets the job a period ahead on every beat, under the pause mutex.
+
+The job reads the configuration and stores a `heartbeat_missed` failure when the deadline has passed, nothing otherwise (a beat came after the job was handed to a worker). Stored times have second precision, so a deadline read from the database may be up to a second early: the job is scheduled one second after it, and compares with the early value, so it can only be late by that second, never skip a passed deadline.
+
 
 `Engine.Pause` and `Engine.Resume` are the only way a monitor is paused or resumed (`10_INCIDENTS.md` "Pausing"):
 

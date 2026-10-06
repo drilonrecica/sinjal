@@ -34,8 +34,8 @@ type App struct {
 // Routes mounts the whole route table (docs/31_HTTP_ROUTES.md) on r, which
 // comes from NewRouter. Tests build the production table through this too.
 //
-//   - Health checks and static assets need no session and no CSRF check.
-//     Future machine endpoints (heartbeat push) belong here as well.
+//   - Health checks, static assets and machine endpoints (heartbeat push)
+//     need no session and no CSRF check.
 //   - Every browser route sits in the session group: LoadSession, then CSRF
 //     on every state-changing request. Inside it, setup/login/logout are
 //     public; everything else requires a session (RequireAuth), and every
@@ -56,6 +56,7 @@ func Routes(r chi.Router, app App) {
 
 	RegisterHealth(r, app.Health)
 	RegisterStatic(r, app.Assets)
+	RegisterHeartbeat(r, NewHeartbeat(app.Engine, app.Logger))
 
 	r.Group(func(r chi.Router) {
 		r.Use(LoadSession(app.Sessions, app.Logger), NewCSRF(app.CSRFKey, app.Logger).Middleware)

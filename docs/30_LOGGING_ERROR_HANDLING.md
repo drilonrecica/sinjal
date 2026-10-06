@@ -43,6 +43,7 @@ Monitor failures should use stable kinds such as:
 - dns_no_answer
 - dns_mismatch
 - dns_error
+- heartbeat_missed
 - unknown
 
 Store human-readable details separately.

@@ -92,3 +92,7 @@ Development machine: Intel Core i5-7500 (4 cores), Linux, Go 1.27, `go test -ben
 Every result is written by the one processor goroutine in batched transactions; no worker writes to SQLite and no goroutine exists per monitor. Scenario 5 (rollups) is measured with its feature (M6).
 
 M3-12: `store.BenchmarkUptimeDay` (one monitor, last 24 hours, one incident, one daily window): 138 µs and 159 allocations. For 1,000 monitors that is about 140 ms, so the list does not show uptime and the detail header does (one read per header render).
+
+### M4
+
+M4-05: a heartbeat beat (`Engine.Beat`: token hash, one indexed `UPDATE … RETURNING`, two indexed reads, a scheduler command, a result to the processor) took about 200 µs each over 2,000 sequential beats on a real database file, the processor writing them at the same time. Beats are rare (one per monitor per interval) and arrive on HTTP handlers, not on the worker pool; no benchmark is kept for them.

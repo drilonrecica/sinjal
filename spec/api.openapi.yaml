@@ -52,6 +52,7 @@ paths:
   /api/v1/heartbeat/{token}:
     post:
       summary: Record heartbeat
+      description: The body is ignored. GET is accepted too, for clients that cannot POST.
       parameters:
         - in: path
           name: token
@@ -60,6 +61,14 @@ paths:
       responses:
         '204': { description: Recorded }
         '404': { description: Invalid token }
+        '429': { description: Too many requests from this client address }
+  /api/v1/heartbeat:
+    post:
+      summary: Record heartbeat, token in "Authorization: Bearer <token>"
+      responses:
+        '204': { description: Recorded }
+        '404': { description: Missing or invalid token }
+        '429': { description: Too many requests from this client address }
   /status/{slug}/api.json:
     get:
       summary: Public-safe status page JSON

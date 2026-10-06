@@ -279,6 +279,14 @@ State:
 
 Do not store arbitrary heartbeat payloads in v1.
 
+Implementation (M4-05):
+- token: 32 random bytes, base64url without padding (43 characters); only its SHA-256 is stored (`heartbeat_monitor_config.token_hash`). `store.SetHeartbeatToken` issues a new one and the old one stops working at once; the admin routes that reveal it once (create, regenerate with re-authentication) come with the form (M4-06)
+- endpoint: `GET|POST /api/v1/heartbeat/{token}`, or `POST /api/v1/heartbeat` with `Authorization: Bearer <token>`; `204` when recorded, `404` for an unknown token, `429` (with `Retry-After`) over 60 requests a minute from one client address, failed guesses included. The body is never read; the access log records the route pattern, never the token
+- a beat stores `last_beat_at`, hands a successful result to the result processor (so state, incidents and notifications follow the usual rules) and moves the monitor's deadline job a period ahead. A paused monitor's beat is recorded and changes nothing else
+- deadline: a period (`expected interval + grace`) after the last beat, or after the monitor was created or last resumed when that is later, so a beat from before a pause does not make a resumed monitor late at once
+- the deadline is a scheduler job (`07_SCHEDULER.md` "Heartbeat monitors"); when it finds no beat in time it stores a failure of kind `heartbeat_missed` ("no heartbeat since <time> (expected every 1m0s, grace 30s)"). The failure threshold and retry delay apply as for any check, so with the defaults (2, 5 s) the monitor is DOWN at the deadline plus 5 s
+- restart-safe: the deadline is computed from stored times, so a monitor that missed its deadline while Sinjal was stopped fails at once after the start
+
 ## TLS-only behavior
 
 No separate TLS monitor type in v1. TLS expiry is part of HTTPS monitoring.

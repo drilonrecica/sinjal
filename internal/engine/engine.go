@@ -114,7 +114,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	}()
 
 	for i, s := range schedules {
-		e.sch.Set(s.ID, s.Interval, startDelay(i, len(schedules)))
+		e.setSchedule(s, startDelay(i, len(schedules)))
 	}
 	e.log.Info("monitoring started", "monitors", len(schedules))
 	return nil
@@ -184,11 +184,11 @@ func (e *Engine) Resume(ctx context.Context, id string) (changed bool, err error
 	if err != nil || !changed {
 		return false, err
 	}
-	m, err := store.GetMonitor(ctx, e.db.Reader, id)
+	s, err := store.GetSchedule(ctx, e.db.Reader, id)
 	if err != nil {
 		return true, err
 	}
-	e.sch.Set(id, time.Duration(m.IntervalSeconds)*time.Second, 0)
+	e.setSchedule(s, 0)
 	e.updated(id)
 	return true, nil
 }
@@ -208,7 +208,8 @@ func (e *Engine) Delete(ctx context.Context, id string) error {
 
 // Schedule brings the schedule of a monitor in line with its row after it
 // was created or edited: an enabled monitor that is not paused is checked
-// at once and then every interval (docs/07: an edit applies promptly);
+// at once and then every interval (docs/07: an edit applies promptly), a
+// heartbeat monitor at its deadline;
 // anything else, including a monitor that no longer exists, is taken off
 // the schedule. The row is read under the pause/resume mutex, so an edit
 // racing a pause cannot leave a paused monitor scheduled.
@@ -224,9 +225,13 @@ func (e *Engine) Schedule(ctx context.Context, id string) error {
 		return err
 	case !m.Enabled || m.State == string(incident.Paused):
 		e.sch.Remove(id)
-	default:
-		e.sch.Set(id, time.Duration(m.IntervalSeconds)*time.Second, 0)
+		return nil
 	}
+	s, err := store.GetSchedule(ctx, e.db.Reader, id)
+	if err != nil {
+		return err
+	}
+	e.setSchedule(s, 0)
 	return nil
 }
 
@@ -252,6 +257,9 @@ func (e *Engine) run(ctx context.Context, id string) (results.Result, bool) {
 	m, err := store.GetMonitor(ctx, e.db.Reader, id)
 	if err == nil && m.State == string(incident.Paused) {
 		return results.Result{}, false
+	}
+	if err == nil && m.Type == "heartbeat" {
+		return e.heartbeat(ctx, m, started)
 	}
 	var c store.HTTPConfig
 	if err == nil {
