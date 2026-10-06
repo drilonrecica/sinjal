@@ -229,7 +229,12 @@ Success:
 
 Use explicit timeout.
 
-Resolution uses the stdlib `net.Resolver`; a configured resolver is used via a custom `Dial`.
+Resolution (amended at M4-04): `internal/monitor/dnscheck` sends one query itself with `golang.org/x/net/dns/dnsmessage`, not through `net.Resolver`. The stdlib resolver reports NXDOMAIN and an empty answer as the same error, answers A/AAAA from `/etc/hosts`, appends search domains and returns the name itself from `LookupCNAME` when there is no CNAME, which would hide exactly what a DNS monitor is meant to see.
+- the query is for the fully qualified name (no search list, no hosts file), recursion desired, EDNS0 with a 1232-byte UDP size; a truncated UDP answer is repeated over TCP
+- the reply must carry the query's id and question; anything else on the socket is ignored
+- resolver: the configured one (`IP` or `IP:port`, port 53 by default), else the `nameserver` lines of `/etc/resolv.conf` tried in order, each with an equal share of the time left (`127.0.0.1:53` when there are none)
+- the answer is every record of the query type in the answer section, whatever its owner name (an A query for an alias returns the target's addresses)
+- other error rcodes (SERVFAIL, REFUSED, ...) and an unreachable resolver are `dns_error`; no answer within the timeout is `timeout`; a check cancelled by shutdown is `unknown`
 
 Always a failure, even without expected values:
 - NXDOMAIN (`dns_nxdomain`)
@@ -247,7 +252,7 @@ Normalization before comparing (applied to both expected and returned values):
 - A/AAAA: parsed as `netip.Addr` and compared canonically (`2001:DB8::1` equals `2001:db8:0::1`); A accepts IPv4 only, AAAA IPv6 only
 - MX: expected value is `host` (matches any preference) or `pref host` (both must match)
 - TXT: the character-strings of one record are joined with no separator (as for SPF), then compared exactly and case-sensitively
-- CNAME: compared against the canonical name returned by the resolver (the chain is followed)
+- CNAME: compared against the CNAME target(s) in the answer; no further query follows the chain
 
 Failure kind `dns_mismatch`; the snippet lists missing expected values and the returned answers (capped).
 

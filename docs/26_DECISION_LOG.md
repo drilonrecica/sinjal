@@ -183,6 +183,7 @@ This summarizes the locked design rounds.
 - P0-11: account recovery is `sinjal reset-admin` (new printed password, TOTP cleared, sessions revoked, passkeys optionally removed, audited); host access is the trust boundary; no web recovery.
 - P0-12: uptime is time-weighted from incidents and pause intervals (new `monitor_pauses`); adjusted uptime also removes excluded maintenance time; no data on zero denominator; truncated display; pausing closes the active incident silently.
 - P0-13: DNS expected values use a per-monitor match mode (`all` default, `any`) with normalization of names, IPs, MX and TXT; NXDOMAIN/empty answers always fail.
+- P0-13 amendment (M4-04): the DNS check speaks DNS itself with `x/net/dns/dnsmessage` instead of `net.Resolver`, which cannot tell NXDOMAIN from an empty answer and consults `/etc/hosts` and search domains; resolver from config or `/etc/resolv.conf`.
 - P0-14: browser tests use chromedp in a separate dev-only `tests/browser` module, run via `make test-browser`, never in the product module; dev-only tools listed in 40.
 - P0-15: status pages show a 90-day adjusted uptime strip; unlisted URLs are `/s/{token}` (hashed, shown once, noindex); logos PNG/JPEG only; mapped hostnames serve only that page's public routes.
 - P0-16: config import matches by name/key/slug, modes `skip` (default) and `replace`, never deletes, mandatory dry-run preview, all-or-nothing transaction; secrets never imported.

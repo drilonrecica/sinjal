@@ -39,6 +39,10 @@ Monitor failures should use stable kinds such as:
 - json_assertion
 - permission
 - protocol
+- dns_nxdomain
+- dns_no_answer
+- dns_mismatch
+- dns_error
 - unknown
 
 Store human-readable details separately.
