@@ -45,8 +45,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "version":
 		fmt.Fprintf(stdout, "sinjal %s\n", version)
 		return 0
+	case "reset-admin":
+		return resetAdmin(context.Background(), args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "sinjal: unknown command %q\n\nusage: sinjal [serve|version]\n", cmd)
+		fmt.Fprintf(stderr, "sinjal: unknown command %q\n\nusage: sinjal [serve|version|reset-admin]\n", cmd)
 		return 2
 	}
 }

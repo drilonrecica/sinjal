@@ -391,3 +391,71 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("audit: %d succeeded, %d failed; want 1, 1", ok, failed)
 	}
 }
+
+// TestResetAdminWhileRunning: `sinjal reset-admin` recovers an account
+// against a live server with no restart. The old password and the old
+// session stop working at once, the new password works, and the audit
+// event is written.
+func TestResetAdminWhileRunning(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test builds and runs the binary")
+	}
+	dataDir := filepath.Join(t.TempDir(), "data")
+	s := start(t, dataDir)
+	createAdmin(t, s)
+	oldToken, _ := login(t, s, "admin", adminPassword)
+	if oldToken == "" {
+		t.Fatal("cannot sign in before the reset")
+	}
+	signedIn := func(token string) bool {
+		req, _ := http.NewRequest("GET", s.base+"/login", nil) // a valid session is redirected away
+		req.AddCookie(&http.Cookie{Name: "sinjal_session", Value: token})
+		resp, err := noRedirect.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode == http.StatusSeeOther
+	}
+	if !signedIn(oldToken) {
+		t.Fatal("the session is not valid before the reset")
+	}
+
+	cmd := exec.Command(binary(t), "reset-admin")
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "SINJAL_DATA_DIR=" + dataDir}
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("reset-admin: %v\n%s", err, stderr.String())
+	}
+	newPassword := strings.TrimSpace(string(out))
+
+	if signedIn(oldToken) {
+		t.Error("the old session survived the reset")
+	}
+	if tok, code := login(t, s, "admin", adminPassword); tok != "" || code != 401 {
+		t.Errorf("old password after reset: status %d, token issued %v", code, tok != "")
+	}
+	newToken, code := login(t, s, "admin", newPassword)
+	if newToken == "" || code != 303 {
+		t.Fatalf("new password: status %d, token issued %v", code, newToken != "")
+	}
+
+	if err := s.stop(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(s.logs.String(), newPassword) {
+		t.Error("the server log contains the new password")
+	}
+	d, err := db.Open(filepath.Join(dataDir, "sinjal.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	var n int
+	d.Reader.QueryRow(`SELECT COUNT(*) FROM audit_events WHERE event_type = 'admin_reset_cli'`).Scan(&n)
+	if n != 1 {
+		t.Errorf("admin_reset_cli events = %d, want 1", n)
+	}
+}

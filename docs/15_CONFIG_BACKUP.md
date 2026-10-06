@@ -126,6 +126,8 @@ sinjal reset-admin [--login <login>] [--remove-passkeys]
 - writes the audit event `admin_reset_cli`
 - safe while the server is running (e.g. `docker exec <container> /sinjal reset-admin`): it performs ordinary transactional DB writes, and the server never caches authentication state in memory
 
+Implemented in M1-15: stdout carries only the password (so `pw=$(sinjal reset-admin)` works), messages go to stderr, exit codes are 0 / 1 (failure) / 2 (usage).
+
 Do not grow a huge CLI framework.
 
 ## Automatic local backup

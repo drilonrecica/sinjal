@@ -192,7 +192,7 @@ Optional.
 
 Store encrypted secret.
 
-Provide recovery/reset flow requiring admin re-authentication.
+Recovery is the host-side `sinjal reset-admin` command (see *Account recovery*); there is no web flow.
 
 ### Implementation (M1-13)
 
@@ -214,6 +214,10 @@ There is no email or web-based recovery.
 A locked-out admin (lost password, TOTP device or passkeys) recovers with `sinjal reset-admin` on the host or inside the container (see `15_CONFIG_BACKUP.md`). Access to the host/container and `/data` is the trust boundary; anyone with it can already read the database and master key.
 
 Authentication state (users, password hashes, TOTP, passkeys, sessions) is always read from the database, never cached in process memory, so a CLI reset takes effect immediately.
+
+### Implementation (M1-15)
+
+`auth.ResetAdmin` (`internal/auth/reset.go`), called by `sinjal reset-admin` (`cmd/sinjal/reset.go`). One transaction: choose the admin (`--login`, or the only admin; several admins without `--login` is an error, and a viewer is never a target), store a new Argon2id hash of a 24-character random password, clear `totp_secret_enc` and `totp_last_step`, delete all of the user's sessions, delete passkeys only with `--remove-passkeys`, and write the audit event `admin_reset_cli` (metadata `passkeys_removed`, never the password). The password is the only line on stdout; the guidance goes to stderr. The command needs neither migrations nor the master key, and it refuses to create a database when `sinjal.db` is missing.
 
 ## Secrets at rest
 
