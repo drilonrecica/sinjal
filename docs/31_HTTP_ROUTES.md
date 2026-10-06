@@ -47,7 +47,7 @@ GET  /notifications/channels/new
 POST /notifications/channels
 GET  /notifications/channels/{id}/edit
 POST /notifications/channels/{id}
-POST /notifications/channels/{id}/test
+POST /notifications/channels/{id}/test   # 303 to …/edit?test=sent|failed
 POST /notifications/channels/{id}/delete
 
 GET  /notifications/profiles/new

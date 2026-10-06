@@ -192,3 +192,5 @@ This summarizes the locked design rounds.
 - P0-18: a check-only GitHub Actions workflow (fmt, vet, lint, race tests, stale templ check) on push to master; read-only permissions, SHA-pinned actions, no secrets, never publishes.
 - P0-20: real notification delivery is verified manually with owner test accounts supplied only via a local git-ignored `.env` (`SINJAL_TEST_*`); never in CI.
 - P0-21: logo is the "open ring" mark (continuity ring with one gap and an accent pip) plus an outlined lowercase Inter SemiBold wordmark; files in `docs/brand/`.
+- M5-09/M5-10: an outage reminder or TLS threshold that falls due while maintenance, a down parent or flapping (reminder only) suppresses it is recorded and not sent later, as quiet hours do; the next TLS threshold still warns.
+- M5-11: "Send test notification" redirects to the channel's edit page with the outcome (Post/Redirect/Get), so a reload never sends again; "Simulate incident" renders its result in the POST response because it stores nothing to redirect to (the browser asks before resubmitting).

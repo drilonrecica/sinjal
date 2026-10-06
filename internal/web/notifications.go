@@ -173,8 +173,19 @@ func (h *Notifications) editForm(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		h.fail(w, r, "loading a channel", err)
 	default:
-		h.renderForm(w, r, http.StatusOK, templates.ChannelForm{ID: c.ID, Type: c.Type, Name: c.Name, Enabled: c.Enabled,
-			Values: cfg.Fields(), SecretSet: cfg.SecretsSet(), Errors: map[string]string{}})
+		f := templates.ChannelForm{ID: c.ID, Type: c.Type, Name: c.Name, Enabled: c.Enabled,
+			Values: cfg.Fields(), SecretSet: cfg.SecretsSet(), Errors: map[string]string{}}
+		// The outcome of a test send just made (see test).
+		switch r.URL.Query().Get("test") {
+		case "sent":
+			f.Test = &templates.SendResult{Channel: c.Name}
+		case "failed":
+			f.Test = &templates.SendResult{Channel: c.Name, Error: c.LastError}
+			if f.Test.Error == "" {
+				f.Test.Error = "no error was recorded"
+			}
+		}
+		h.renderForm(w, r, http.StatusOK, f)
 	}
 }
 

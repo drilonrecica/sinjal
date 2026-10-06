@@ -232,8 +232,12 @@ func TestChannelSendTest(t *testing.T) {
 	id := e.addHookChannel(t, "Hook", good.URL+"/in", false) // disabled channels can be tested
 
 	rec := e.postAs(t, "a1", "/notifications/channels/"+id+"/test", url.Values{})
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Test notification sent to Hook") {
-		t.Fatalf("test = %d\n%s", rec.Code, rec.Body)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/notifications/channels/"+id+"/edit?test=sent" {
+		t.Fatalf("test = %d %q\n%s", rec.Code, rec.Header().Get("Location"), rec.Body)
+	}
+	// The page after the redirect shows the outcome; loading it sends nothing.
+	if body := e.getAs(t, "a1", "GET", rec.Header().Get("Location")).Body.String(); !strings.Contains(body, "Test notification sent to Hook") {
+		t.Fatalf("result page:\n%s", body)
 	}
 	got := good.got()
 	if len(got) != 1 || got[0]["event"] != "monitor.down" || got[0]["test"] != true || good.headers[0].Get("X-Token") != testSecret {
@@ -250,9 +254,15 @@ func TestChannelSendTest(t *testing.T) {
 	bad := newHook(t, 500)
 	failing := e.addHookChannel(t, "Broken", bad.URL, true)
 	rec = e.postAs(t, "a1", "/notifications/channels/"+failing+"/test", url.Values{})
-	body := rec.Body.String()
-	if rec.Code != 200 || !strings.Contains(body, "The test notification failed: webhook: 500 Internal Server Error") {
-		t.Fatalf("failing test = %d\n%s", rec.Code, body)
+	if rec.Code != 303 || !strings.HasSuffix(rec.Header().Get("Location"), "?test=failed") {
+		t.Fatalf("failing test = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	body := e.getAs(t, "a1", "GET", rec.Header().Get("Location")).Body.String()
+	if !strings.Contains(body, "The test notification failed: webhook: 500 Internal Server Error") {
+		t.Fatalf("failing result page:\n%s", body)
+	}
+	if n := len(bad.got()) + len(good.got()); n != 2 {
+		t.Errorf("%d sends; reloading a result page must send nothing", n)
 	}
 	if c, _ := store.GetChannelInfo(t.Context(), e.db.Reader, failing); c.HealthState != store.HealthFailed || c.LastError != "webhook: 500 Internal Server Error" {
 		t.Errorf("health %+v", c)

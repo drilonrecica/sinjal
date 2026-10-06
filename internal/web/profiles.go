@@ -235,7 +235,10 @@ func exampleEvent(kind notify.Kind, now time.Time) notify.Event {
 // test serves POST /notifications/channels/{id}/test: a [TEST] DOWN sent
 // through the channel as saved, also when it is disabled. It is recorded
 // like a delivery (event type test), so it moves the channel's health; it
-// belongs to no incident and is not retried.
+// belongs to no incident and is not retried. The answer redirects to the
+// edit page with the outcome (?test=sent|failed; a failure's error is the
+// channel's last error), so a reload does not send again. Only when the
+// attempt could not be recorded is the outcome rendered directly.
 func (h *Notifications) test(w http.ResponseWriter, r *http.Request) {
 	ctx, id := r.Context(), chi.URLParam(r, "id")
 	c, cfg, err := store.GetChannel(ctx, h.db.Reader, h.key, id)
@@ -259,6 +262,7 @@ func (h *Notifications) test(w http.ResponseWriter, r *http.Request) {
 		result.Error = errorText(sendErr)
 		a.Status, a.Error, outcome = store.DeliveryFailed, result.Error, "failed"
 	}
+	recorded := false
 	switch err := store.RecordDelivery(context.WithoutCancel(ctx), h.db, a); {
 	case errors.Is(err, store.ErrNotFound):
 		// Deleted while the test was on its way: there is nothing to show.
@@ -266,13 +270,22 @@ func (h *Notifications) test(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		h.log.Error("the test delivery could not be recorded", "channel_id", id, "error", err)
-	case h.events != nil:
-		h.events.PublishChannel(id)
+	default:
+		recorded = true
+		if h.events != nil {
+			h.events.PublishChannel(id)
+		}
 	}
 	cs, _ := SessionFromContext(ctx)
 	if err := audit.Record(ctx, h.db, audit.Event{UserID: cs.User.ID, Type: audit.ChannelTested, ObjectType: "notification_channel",
 		ObjectID: id, Metadata: map[string]string{"name": c.Name, "type": c.Type, "result": outcome}}, h.now()); err != nil {
 		h.log.Error("audit event not written", "event", audit.ChannelTested, "channel_id", id, "error", err)
+	}
+	if recorded {
+		// The outcome is the channel's own state now, so the edit page can
+		// show it after a redirect, and reloading it sends nothing again.
+		http.Redirect(w, r, "/notifications/channels/"+id+"/edit?test="+outcome, http.StatusSeeOther)
+		return
 	}
 	h.renderForm(w, r, http.StatusOK, templates.ChannelForm{ID: c.ID, Type: c.Type, Name: c.Name, Enabled: c.Enabled,
 		Values: cfg.Fields(), SecretSet: cfg.SecretsSet(), Errors: map[string]string{}, Test: result})
