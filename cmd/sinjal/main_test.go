@@ -124,6 +124,16 @@ func TestServeBootsAndStopsCleanly(t *testing.T) {
 		}
 	}
 
+	root, err := http.Get("http://" + addr + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ := io.ReadAll(root.Body)
+	root.Body.Close()
+	if root.StatusCode != http.StatusOK || !strings.Contains(string(page), `<main id="main"`) {
+		t.Errorf("GET / = %d, want 200 with the app shell", root.StatusCode)
+	}
+
 	for path, want := range map[string]string{"/healthz": "ok", "/readyz": "ready"} {
 		resp, err := http.Get("http://" + addr + path)
 		if err != nil {

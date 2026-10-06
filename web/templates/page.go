@@ -1,5 +1,7 @@
 package templates
 
+import "slices"
+
 // Built-in themes and densities (docs/05_THEMES.md, 04_DESIGN_SYSTEM.md).
 const (
 	DefaultTheme   = "carbon"
@@ -11,11 +13,15 @@ var (
 	densities = map[string]bool{"comfortable": true, "compact": true}
 )
 
-// Page is the per-request data the layout needs.
+// Page is the per-request data the layout needs. Styles and Scripts are
+// logical asset names (for example "css/shell.css") added after the base
+// stylesheets; scripts load with defer.
 type Page struct {
 	Title   string
 	Theme   string
 	Density string
+	Styles  []string
+	Scripts []string
 }
 
 // NewPage builds a Page. Unknown theme or density values fall back to the
@@ -38,4 +44,29 @@ func (p Page) ColorScheme() string {
 		return "light"
 	}
 	return "dark"
+}
+
+// withAssets returns a copy of p with extra stylesheets and scripts.
+func (p Page) withAssets(styles, scripts []string) Page {
+	p.Styles = slices.Concat(p.Styles, styles)
+	p.Scripts = slices.Concat(p.Scripts, scripts)
+	return p
+}
+
+// Section is one entry of the primary navigation (docs/03_INFORMATION_ARCHITECTURE.md).
+type Section struct {
+	Key   string
+	Label string
+	Path  string
+}
+
+// Sections lists the primary navigation in display order.
+var Sections = []Section{
+	{"overview", "Overview", "/"},
+	{"monitors", "Monitors", "/monitors"},
+	{"incidents", "Incidents", "/incidents"},
+	{"status-pages", "Status Pages", "/status-pages"},
+	{"notifications", "Notifications", "/notifications"},
+	{"maintenance", "Maintenance", "/maintenance"},
+	{"settings", "Settings", "/settings/general"},
 }

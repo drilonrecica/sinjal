@@ -39,3 +39,4 @@ imp-docs/
 /sinjal
 /dist/
 .dev-data/
+.playwright-mcp/

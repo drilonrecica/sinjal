@@ -13,6 +13,12 @@ templ Layout(page Page) {
 			<title>{ page.Title }</title>
 			<link rel="stylesheet" href={ assets.URL("css/tokens.css") }/>
 			<link rel="stylesheet" href={ assets.URL("css/base.css") }/>
+			for _, name := range page.Styles {
+				<link rel="stylesheet" href={ assets.URL(name) }/>
+			}
+			for _, name := range page.Scripts {
+				<script src={ assets.URL(name) } defer></script>
+			}
 		</head>
 		<body>
 			{ children... }

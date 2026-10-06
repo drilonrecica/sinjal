@@ -93,6 +93,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 	router := web.NewRouter(logger)
 	web.RegisterHealth(router, health)
 	web.RegisterStatic(router, assets.Default)
+	web.RegisterPages(router, logger)
 	srv := web.NewServer(cfg.Listen, router)
 	if err := web.Run(ctx, srv, ln, web.ShutdownGrace, logger); err != nil {
 		return fatalf(stderr, "http server: %v", err)
