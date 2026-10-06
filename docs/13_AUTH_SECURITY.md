@@ -40,6 +40,18 @@ Store:
 
 Parameters should be benchmarked on target hardware and documented. Avoid weak defaults.
 
+### Parameters (M1-04)
+
+Implemented in `internal/auth` (`HashPassword`, `VerifyPassword`) with `golang.org/x/crypto/argon2`.
+
+- Argon2id, v=19, **m=19456 KiB (19 MiB), t=2, p=1** (OWASP baseline), 16-byte salt from `crypto/rand`, 32-byte hash.
+- Stored as a PHC string: `$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>` (unpadded standard base64). Known vectors in the tests were computed independently with OpenSSL (Node `crypto.argon2Sync`).
+- Benchmark (`go test -bench . -benchmem ./internal/auth/`, Intel i5-7500 @ 3.4 GHz, Go 1.27): **~27 ms and 19 MiB allocated per hash or verify**. This is fast enough for logins and well above brute-force-relevant cost.
+- RAM budget (`18_PERFORMANCE.md`): at most **2 hashes run at once** (a package semaphore), so a login burst allocates at most ~38 MiB on top of the idle footprint. The memory is transient: the Go runtime returns freed heap to the OS in the background. The idle budget is unaffected because hashing only happens during login and password changes. Login rate limiting (M1-10) keeps the semaphore from being a practical bottleneck.
+- Verification uses the parameters stored in the hash, compares in constant time (`subtle.ConstantTimeCompare`), and rejects anything that is not a well-formed argon2id v=19 string (`ErrInvalidHash`, never a match). Stored parameters are bounded (m ≤ 256 MiB, t ≤ 16, p ≤ 8, salt 8–64 B, hash 16–64 B), so a tampered row cannot trigger a huge allocation.
+- Rehash on login: `VerifyPassword` returns `needsRehash` when a correct password's stored parameters, salt length or hash length differ from the current ones. The login flow (M1-10) then stores a fresh `HashPassword`.
+- If the parameters change, update this section with a new benchmark.
+
 ## Sessions
 
 Policy (decision P0-09). Applies to admins and viewers.
