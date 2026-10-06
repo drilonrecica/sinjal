@@ -153,3 +153,23 @@ func BenchmarkUptime(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkUptimeDay is the last 24 hours of a monitor with a little
+// history, what the detail header shows and what a list row would need.
+func BenchmarkUptimeDay(b *testing.B) {
+	d := testDB(b)
+	ctx := context.Background()
+	id := create(b, d, sample("api"))
+	addIncident(b, d, id, now.Add(time.Hour), now.Add(2*time.Hour), false)
+	if _, err := CreateMaintenance(ctx, d, maintenance.Window{Name: "nightly", Start: now.Add(2 * time.Hour), Duration: time.Hour,
+		Recurrence: maintenance.Daily, ExcludeUptime: true}, now); err != nil {
+		b.Fatal(err)
+	}
+	at := now.Add(24 * time.Hour)
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, _, err := Uptime(ctx, d.Reader, id, at.Add(-24*time.Hour), at, at, time.UTC); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

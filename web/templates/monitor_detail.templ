@@ -99,7 +99,9 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 					default:
 						<h2 id="tab-title">Overview</h2>
 						@facts(v.Overview)
-						@emptyNote("Uptime, the latency graph and the availability timeline arrive with stored history.")
+						<h3>Last 24 hours</h3>
+						@HistoryPanel(v.History)
+						<p class="tab-note"><a href={ templ.SafeURL(tabURL(v.Monitor.ID, "history")) }>Other ranges</a></p>
 				}
 			</section>
 		</div>

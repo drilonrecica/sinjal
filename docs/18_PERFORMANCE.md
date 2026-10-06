@@ -87,3 +87,5 @@ Development machine: Intel Core i5-7500 (4 cores), Linux, Go 1.27, `go test -ben
 | page weight | first-party + vendored JS, gzip -9 | 47.0 KB of the 100 KB budget: htmx 17.1, uPlot 22.3, SSE extension 2.8, chart.js 2.0, passkey.js 1.8, live.js 1.0. uPlot and chart.js load only on a History tab with data |
 
 Every result is written by the one processor goroutine in batched transactions; no worker writes to SQLite and no goroutine exists per monitor. Scenarios 5–7 (rollups, dashboard query, incident transaction) are measured with their features (M3, M6).
+
+M3-12: `store.BenchmarkUptimeDay` (one monitor, last 24 hours, one incident, one daily window): 138 µs and 159 allocations. For 1,000 monitors that is about 140 ms, so the list does not show uptime and the detail header does (one read per header render).

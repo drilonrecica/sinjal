@@ -93,7 +93,9 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 	withData := MonitorDetailView{Monitor: testMonitor, Tab: "history", History: HistoryView{Range: "the last 24 hours", RangeError: "x",
 		HasData: true, Summary: "s", Stats: []Fact{{"p95", "1 ms"}}, Uptime: "99.00%", Adjusted: "100.00%",
 		Series: `{"t":[1],"avg":[1],"max":[1],"fail":[0]}`, Overlays: `{"from":0,"to":1,"down":[],"maint":[],"paused":[],"marks":[]}`, Zone: "UTC",
-		Timeline: []TimelineSegment{{X: 0, W: 500, Class: "up", Title: "Up"}, {X: 500, W: 500, Class: "down", Title: "Down"}}, From: "a", To: "b"}}
+		Timeline: []TimelineSegment{{X: 0, W: 500, Class: "up", Title: "Up"}, {X: 500, W: 500, Class: "down", Title: "Down"}}, From: "a", To: "b",
+		Selector: true, MonitorID: "m1", FromValue: "2026-10-06T08:00", ToValue: "2026-10-06T09:00", MaxValue: "2026-10-06T09:00",
+		Presets: []RangeOption{{Label: "1 hour", Href: "/monitors/m1?tab=history&range=1h", Current: true}, {Label: "24 hours", Href: "/monitors/m1?tab=history&range=24h"}}}}
 	withData.Monitor.Sparkline = Sparkline{Points: "0,1 100,2", Failures: []float64{50}, Label: "l"}
 	pages["detail-history-data"] = MonitorDetail(page, withData)
 	for name, c := range pages {

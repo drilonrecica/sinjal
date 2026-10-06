@@ -17,6 +17,22 @@ type HistoryView struct {
 	Timeline   []TimelineSegment
 	From, To   string // the timeline's ends, local time
 	Zone       string // the instance time zone, for the chart's time axis
+
+	// The range selector, on the History tab only.
+	Selector   bool
+	MonitorID  string
+	Presets    []RangeOption
+	FromValue  string // datetime-local values of the shown range
+	ToValue    string
+	MaxValue   string // now: a range starts in the past
+	CustomOpen bool   // a custom range is shown, so its form starts open
+}
+
+// RangeOption is one preset of the range selector, a plain link.
+type RangeOption struct {
+	Label   string
+	Href    string
+	Current bool
 }
 
 // TimelineSegment is one stretch of the availability timeline, in a

@@ -87,7 +87,7 @@ func detailAssets(v MonitorDetailView) ([]string, []string) {
 	if v.Tab == "incidents" {
 		styles = append(styles, "css/incidents.css")
 	}
-	if v.Tab != "history" || !v.History.HasData {
+	if (v.Tab != "history" && v.Tab != "overview") || !v.History.HasData {
 		return styles, LiveScripts
 	}
 	return append(styles, "css/uplot.min.css"),

@@ -186,3 +186,8 @@
     gap: 0;
   }
 }
+
+.monitor-adjusted {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

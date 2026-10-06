@@ -29,9 +29,16 @@ const chartBuckets = 720
 const sparklinePoints = 30
 
 // historyView builds the History tab for the range asked for in the query.
-func (h *Monitors) historyView(r *http.Request, m store.Monitor) (templates.HistoryView, error) {
+//
+// With selector the tab offers the range selector; the Overview tab shows
+// the default range, whatever the query says, and no selector.
+func (h *Monitors) historyView(r *http.Request, m store.Monitor, selector bool) (templates.HistoryView, error) {
 	ctx, now := r.Context(), h.now()
-	rg := history.Parse(r.URL.Query(), now, h.loc)
+	query := r.URL.Query()
+	if !selector {
+		query = nil
+	}
+	rg := history.Parse(query, now, h.loc)
 	stats, points, err := store.LatencyHistory(ctx, h.db.Reader, m.ID, rg.From, rg.To, chartBuckets)
 	if err != nil {
 		return templates.HistoryView{}, err
@@ -52,6 +59,15 @@ func (h *Monitors) historyView(r *http.Request, m store.Monitor) (templates.Hist
 		From:       h.stamp(rg.From, now),
 		To:         h.stamp(rg.To, now),
 		Zone:       h.loc.String(),
+	}
+	if selector {
+		v.Selector, v.MonitorID = true, m.ID
+		const local = "2006-01-02T15:04"
+		v.FromValue, v.ToValue, v.MaxValue = rg.From.In(h.loc).Format(local), rg.To.In(h.loc).Format(local), now.In(h.loc).Format(local)
+		for _, p := range history.Presets {
+			v.Presets = append(v.Presets, templates.RangeOption{Label: p.Label,
+				Href: "/monitors/" + m.ID + "?tab=history&range=" + p.Key, Current: rg.Preset == p.Key})
+		}
 	}
 	if v.HasData {
 		v.Stats = latencyFacts(stats)

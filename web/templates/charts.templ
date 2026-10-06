@@ -3,6 +3,9 @@ package templates
 // HistoryPanel is the content of the History tab. Every figure is in the
 // text as well: the summary comes first and the chart points to it.
 templ HistoryPanel(v HistoryView) {
+	if v.Selector {
+		@RangeSelector(v)
+	}
 	<p class="history-range">Over { v.Range }</p>
 	if v.RangeError != "" {
 		<p class="auth-alert" role="alert">{ v.RangeError }</p>
@@ -51,6 +54,36 @@ templ HistoryPanel(v HistoryView) {
 	if len(v.Timeline) > 0 {
 		@AvailabilityTimeline(v)
 	}
+}
+
+// RangeSelector chooses the range: presets as links and a custom range as a
+// plain GET form, so it works without JavaScript and every range has an
+// address. Times are in the instance time zone.
+templ RangeSelector(v HistoryView) {
+	<nav class="range-picker" aria-label="History range">
+		<ul role="list">
+			for _, p := range v.Presets {
+				<li>
+					<a
+						class="range-link"
+						href={ templ.SafeURL(p.Href) }
+						if p.Current {
+							aria-current="true"
+						}
+					>{ p.Label }</a>
+				</li>
+			}
+		</ul>
+		<form class="range-custom" method="get" action={ templ.SafeURL("/monitors/" + v.MonitorID) }>
+			<input type="hidden" name="tab" value="history"/>
+			<label for="range-from">From</label>
+			<input id="range-from" name="from" type="datetime-local" value={ v.FromValue } max={ v.MaxValue } required/>
+			<label for="range-to">To</label>
+			<input id="range-to" name="to" type="datetime-local" value={ v.ToValue } max={ v.MaxValue } required/>
+			<button class="detail-button" type="submit">Show</button>
+			<span class="range-zone">{ v.Zone }</span>
+		</form>
+	</nav>
 }
 
 // AvailabilityTimeline is the range as a bar of states. It is SVG with a

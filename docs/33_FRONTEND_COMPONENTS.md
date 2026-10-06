@@ -27,6 +27,11 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 - incident timeline
 - diagnostics summary
 
+## History components
+
+- range selector (`RangeSelector`): preset links and a custom range form, both plain GET to `/monitors/{id}?tab=history`; on the History tab only
+- history panel (`HistoryPanel`): summary, figures, latency chart and availability timeline; on the History tab with the selector and on the Overview tab for the last 24 hours without it
+
 ## Incident components
 
 - incident list (`IncidentList`): one compact row per incident (status glyph and text, monitor, summary, start, duration, markers); the whole page body on `/incidents` and the monitor's Incidents tab; `data-live-incidents`, refetched from its own address on any `incident.*` event

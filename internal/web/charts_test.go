@@ -2,11 +2,13 @@ package web
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/incident"
+	"github.com/drilonrecica/sinjal/internal/maintenance"
 	"github.com/drilonrecica/sinjal/internal/store"
 )
 
@@ -158,3 +160,100 @@ func TestHistoryTab(t *testing.T) {
 		t.Errorf("header has no sparkline:\n%s", header)
 	}
 }
+
+// The History tab offers every preset as a link and a custom range as a
+// form that keeps what was asked for; the Overview tab shows the last
+// 24 hours without a selector, whatever the query says.
+func TestRangeSelectorAndOverviewGraph(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	id := e.addMonitor(t, "API", "https://api.example.com")
+	now := time.Now().Truncate(time.Second)
+	if _, err := e.db.Writer.Exec(`UPDATE monitors SET created_at = ? WHERE id = ?`, store.FormatTime(now.Add(-2*time.Hour)), id); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := e.db.Writer.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 20 {
+		r := store.CheckResult{MonitorID: id, CheckedAt: now.Add(-time.Duration(20-i) * time.Minute), Duration: 100 * time.Millisecond, Success: true}
+		if err := store.InsertCheckResult(t.Context(), tx, r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	history := e.getAs(t, "v1", "GET", "/monitors/"+id+"?tab=history&range=7d").Body.String()
+	for _, p := range []string{"1h", "24h", "7d", "30d", "90d", "1y"} {
+		if !strings.Contains(history, `href="/monitors/`+id+`?tab=history&amp;range=`+p+`"`) {
+			t.Errorf("no link for %s", p)
+		}
+	}
+	if !strings.Contains(history, `class="range-link" href="/monitors/`+id+`?tab=history&amp;range=7d" aria-current="true"`) ||
+		strings.Count(history, `aria-current="true"`) != 1 {
+		t.Error("the shown preset is not the only current one")
+	}
+	for _, want := range []string{`<form class="range-custom" method="get" action="/monitors/` + id + `"`,
+		`name="tab" value="history"`, `name="from" type="datetime-local"`, `name="to" type="datetime-local"`, "Over the last 7 days"} {
+		if !strings.Contains(history, want) {
+			t.Errorf("history tab lacks %q", want)
+		}
+	}
+
+	custom := e.getAs(t, "v1", "GET", "/monitors/"+id+"?tab=history&from=2026-01-01T08:00&to=2026-01-02T09:30").Body.String()
+	for _, want := range []string{`value="2026-01-01T08:00"`, `value="2026-01-02T09:30"`, "Over 1 Jan 2026 08:00 to 2 Jan 2026 09:30 UTC"} {
+		if !strings.Contains(custom, want) {
+			t.Errorf("custom range lacks %q", want)
+		}
+	}
+	if strings.Contains(custom, `aria-current="true"`) {
+		t.Error("a preset is marked current for a custom range")
+	}
+
+	overview := e.getAs(t, "v1", "GET", "/monitors/"+id+"?range=7d&from=2026-01-01T00:00&to=2026-01-02T00:00").Body.String()
+	for _, want := range []string{"Last 24 hours", "Over the last 24 hours", "data-chart", "/static/js/uplot.min.", `class="timeline"`, "tab=history"} {
+		if !strings.Contains(overview, want) {
+			t.Errorf("overview lacks %q", want)
+		}
+	}
+	if strings.Contains(overview, "range-custom") {
+		t.Error("the overview offers the range selector")
+	}
+}
+
+// The detail header shows the last 24 hours' uptime, raw and, when it
+// differs, adjusted for maintenance; the list leaves it out.
+func TestHeaderUptime(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	id := e.addMonitor(t, "API", "https://api.example.com")
+	now := time.Now().Truncate(time.Second)
+	if _, err := e.db.Writer.Exec(`UPDATE monitors SET created_at = ? WHERE id = ?`, store.FormatTime(now.Add(-2*time.Hour)), id); err != nil {
+		t.Fatal(err)
+	}
+	header := e.getAs(t, "v1", "GET", "/fragments/monitors/"+id+"/header").Body.String()
+	if !strings.Contains(header, "Uptime, 24 h") || !strings.Contains(header, "100.00%") {
+		t.Errorf("a monitor without outages is not at 100%%:\n%s", header)
+	}
+	if strings.Contains(header, "adjusted") {
+		t.Error("adjusted shown while equal")
+	}
+
+	e.addIncident(t, "i1", id, now.Add(-30*time.Minute), ptr(now.Add(-25*time.Minute)), false)
+	if _, err := store.CreateMaintenance(t.Context(), e.db, maintenance.Window{Name: "patch", Start: now.Add(-40 * time.Minute), Duration: 20 * time.Minute,
+		Recurrence: maintenance.None, ExcludeUptime: true}, now); err != nil {
+		t.Fatal(err)
+	}
+	header = e.getAs(t, "v1", "GET", "/fragments/monitors/"+id+"/header").Body.String()
+	if !regexp.MustCompile(`95\.8\d%`).MatchString(header) || !strings.Contains(header, "(100.00% adjusted)") {
+		t.Errorf("raw and adjusted uptime missing:\n%s", header)
+	}
+	if list := e.getAs(t, "v1", "GET", "/fragments/monitors").Body.String(); strings.Contains(list, "adjusted") || !strings.Contains(list, "<dt>Uptime</dt>") {
+		t.Errorf("the list shows uptime:\n%s", list)
+	}
+}
+
+func ptr[T any](v T) *T { return &v }

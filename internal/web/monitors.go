@@ -70,6 +70,8 @@ type viewInput struct {
 	Parent     string    // parent monitor's name
 	ParentDown bool      // the parent monitor is down
 	Recent     []float64 // durations for the sparkline; the detail header only
+	Uptime     string    // 24 hours, raw; the detail header only ("" reads as "—")
+	Adjusted   string    // the same with maintenance excluded
 	Admin      bool
 }
 
@@ -89,6 +91,12 @@ func monitorView(m store.Monitor, in viewInput, now time.Time) templates.Monitor
 		Tags:       in.Tags,
 		ParentDown: in.ParentDown,
 		Sparkline:  sparkline(in.Recent),
+	}
+	if in.Uptime != "" {
+		v.Uptime = in.Uptime
+		if in.Adjusted != in.Uptime {
+			v.UptimeAdjusted = in.Adjusted
+		}
 	}
 	if in.HasLatency {
 		v.Latency = formatLatency(in.Latency)
@@ -242,6 +250,14 @@ func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.Mo
 	if in.Recent, err = store.RecentDurations(ctx, q, id, sparklinePoints); err != nil {
 		return m, templates.MonitorView{}, err
 	}
+	// The list does not show uptime: reading it costs about 140 µs per
+	// monitor, 140 ms for 1,000, over the list's budget (docs/18).
+	now := h.now()
+	raw, adjusted, err := store.Uptime(ctx, q, id, now.Add(-24*time.Hour), now, now, h.loc)
+	if err != nil {
+		return m, templates.MonitorView{}, err
+	}
+	in.Uptime, in.Adjusted = raw.Percent(), adjusted.Percent()
 	if m.ParentMonitorID != "" {
 		p, err := store.GetMonitor(ctx, q, m.ParentMonitorID)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -249,7 +265,7 @@ func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.Mo
 		}
 		in.Parent, in.ParentDown = p.Name, p.State == "down"
 	}
-	return m, monitorView(m, in, h.now()), nil
+	return m, monitorView(m, in, now), nil
 }
 
 // fragment serves one component for the monitor named in the URL.

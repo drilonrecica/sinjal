@@ -13,8 +13,10 @@ type MonitorView struct {
 	Target    string // scheme://host of the checked address; admins only
 	Latency   string // "128 ms", or "—" before the first result
 	LastCheck string // "2m ago", or "never"
-	Uptime    string // placeholder until rollups exist
-	Parent    string // name of the parent monitor, if any
+	Uptime    string // the last 24 hours, raw; "—" in the list (not read per row) and without data
+	// UptimeAdjusted is the same with maintenance excluded; "" when it equals Uptime or is not read.
+	UptimeAdjusted string
+	Parent         string // name of the parent monitor, if any
 	// ParentDown: the parent is down, so this monitor's notifications are
 	// held back (docs/10_INCIDENTS.md "Parent dependency").
 	ParentDown bool
@@ -185,8 +187,13 @@ templ MonitorHeader(m MonitorView) {
 				<dd>{ m.LastCheck }</dd>
 			</div>
 			<div>
-				<dt>Uptime</dt>
-				<dd>{ m.Uptime }</dd>
+				<dt>Uptime, 24 h</dt>
+				<dd>
+					{ m.Uptime }
+					if m.UptimeAdjusted != "" {
+						<span class="monitor-adjusted">({ m.UptimeAdjusted } adjusted)</span>
+					}
+				</dd>
 			</div>
 		</dl>
 		@SparklineSVG(m.Sparkline)
