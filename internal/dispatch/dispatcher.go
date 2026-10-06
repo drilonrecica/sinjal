@@ -328,6 +328,9 @@ func (d *Dispatcher) event(ctx context.Context, in incident.Intent, kind notify.
 			end = *f.EndedAt
 		}
 		e.Duration = end.Sub(f.StartedAt)
+	case incident.IntentReminder:
+		e.Duration, e.Reason = in.At.Sub(f.StartedAt), f.Summary
+		return e, nil
 	default:
 		return e, nil
 	}

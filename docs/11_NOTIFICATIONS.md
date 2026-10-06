@@ -118,6 +118,8 @@ One optional reminder per active incident after a configured duration.
 
 Do not repeat forever.
 
+Implementation: the profile's `reminder_after_seconds` (none when NULL). The result processor decides it, like every other intent, on the first result of a monitor that is still DOWN at or after the incident's start plus that duration, so it comes at most one check interval late (a heartbeat monitor's job repeats every period while it is DOWN). The duration is read from the profile as it is at that moment, so a change applies to running incidents. `incidents.reminder_sent_at` is set in the same transaction: the reminder is decided once per incident, also across a restart, and a reminder that the maintenance window, the parent or flapping suppresses (recorded as `reminder: <reason>`) is not sent later. An incident that ends first gets none. The message (`36` "UNRESOLVED REMINDER") gives the duration so far and the confirming failure's reason; severity critical, so the quiet-hours bypass applies to it as to DOWN.
+
 ## Delivery retry
 
 Suggested:

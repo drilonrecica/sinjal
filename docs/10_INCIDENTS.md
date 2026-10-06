@@ -207,6 +207,7 @@ Kinds (`incident.IntentKind`):
 | `flapping` | the monitor started flapping |
 | `stable` | flapping ended while the monitor is not DOWN |
 | `tls_warning` | a certificate crossed a warning threshold (emitted from M5, which brings its dedupe state) |
+| `reminder` | the monitor is still DOWN when its profile's reminder duration has passed since the incident started; decided once per incident (`11_NOTIFICATIONS.md` "Outage reminder") |
 
 Suppression (`incident.Suppression`, a pure function of the kind and three conditions). One reason is recorded; when several apply the order is maintenance, parent, flapping:
 
@@ -214,7 +215,7 @@ Suppression (`incident.Suppression`, a pure function of the kind and three condi
 |---|---|
 | inside a maintenance window that suppresses notifications | every kind |
 | parent monitor is DOWN | every kind except `tls_warning` |
-| monitor is flapping | `down` and `recovery` |
+| monitor is flapping | `down`, `recovery` and `reminder` |
 
 What is kept:
 

@@ -33,6 +33,8 @@ func KindOf(k incident.IntentKind) Kind {
 		return KindStable
 	case incident.IntentTLSWarning:
 		return KindTLSWarning
+	case incident.IntentReminder:
+		return KindReminder
 	}
 	return KindDown
 }

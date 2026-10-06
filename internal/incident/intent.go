@@ -11,6 +11,7 @@ const (
 	IntentFlapping   IntentKind = "flapping"    // the monitor started flapping
 	IntentStable     IntentKind = "stable"      // flapping ended while not down
 	IntentTLSWarning IntentKind = "tls_warning" // a certificate is close to expiry
+	IntentReminder   IntentKind = "reminder"    // an incident is still open after the profile's reminder duration
 )
 
 // Reason is why an intent is not to be delivered; the empty Reason means
@@ -40,15 +41,16 @@ type Conditions struct {
 //	maintenance  suppresses every kind
 //	parent down  suppresses every kind except tls_warning, which is about
 //	             the monitor's own certificate
-//	flapping     suppresses down and recovery; the flapping notice itself
-//	             and what ends it (stable, down) are what flapping sends
+//	flapping     suppresses down, recovery and reminder; the flapping
+//	             notice itself and what ends it (stable, down) are what
+//	             flapping sends
 func Suppression(kind IntentKind, c Conditions) Reason {
 	switch {
 	case c.Maintenance:
 		return ByMaintenance
 	case c.ParentDown && kind != IntentTLSWarning:
 		return ByParent
-	case c.Flapping && (kind == IntentDown || kind == IntentRecovery):
+	case c.Flapping && (kind == IntentDown || kind == IntentRecovery || kind == IntentReminder):
 		return ByFlapping
 	}
 	return ""

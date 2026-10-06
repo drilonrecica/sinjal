@@ -807,3 +807,25 @@ func TestUnreadableConfigurationCountsAsFailure(t *testing.T) {
 		t.Errorf("health = %+v", c)
 	}
 }
+
+// A reminder says how long the outage has lasted and why, and is critical:
+// the bypass lets it through quiet hours.
+func TestReminderMessage(t *testing.T) {
+	e := newEnv(t)
+	p := e.profile("p", true, "11:00", "13:00", true)
+	ch := e.channel("hook", true)
+	e.route(p, ch, "critical")
+	m := e.monitor("API", p)
+	inc := e.outage(m)
+	disp := e.run(time.UTC)
+
+	disp.Enqueue(incident.Intent{Kind: incident.IntentReminder, MonitorID: m, IncidentID: inc, At: base.Add(62 * time.Minute)})
+	e.wait("the send", e.sentCount(1))
+	if got, want := e.sends()[0].msg.Text(), "API is still DOWN\nDuration: 1h 02m\nReason: timeout after 5s"; got != want {
+		t.Errorf("message:\n%s\nwant:\n%s", got, want)
+	}
+	e.wait("the timeline entry", func() bool {
+		return e.count(`SELECT COUNT(*) FROM incident_events WHERE incident_id = ? AND event_type = ? AND message = 'reminder via hook'`,
+			inc, incident.EventNotificationSent) == 1
+	})
+}

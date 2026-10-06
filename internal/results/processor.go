@@ -240,6 +240,9 @@ type monitorWork struct {
 	// pending is the active incident whose DOWN notification the parent or
 	// maintenance holds back; "" when there is none.
 	pending string
+	// reminder is the active incident's outage reminder while it is still
+	// to be decided; its IncidentID is "" otherwise.
+	reminder store.Reminder
 	// windows are the maintenance windows covering the monitor, read the
 	// first time this batch needs them.
 	windows     []maintenance.Window
@@ -399,6 +402,7 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 	case changed && w.state == incident.Down:
 		id, closed, err := store.CloseIncident(ctx, tx, r.MonitorID, r.CheckedAt, incident.EventRecovered)
 		if err == nil && closed {
+			w.reminder = store.Reminder{}
 			w.changed(ChangeClosed, id)
 			err = w.markOverlap(ctx, tx, r, id)
 		}
@@ -413,7 +417,25 @@ func apply(ctx context.Context, tx *sql.Tx, w *monitorWork, r *Result) error {
 		w.since = store.FormatTime(r.CheckedAt)
 	}
 	w.state, w.counters, w.retry = out.State, out.Counters, out.Retry
-	return nil
+	return w.remind(ctx, tx, r)
+}
+
+// remind decides the outage reminder of a monitor that is still down once
+// it is due (docs/11 "Outage reminder"). It is marked in the same
+// transaction, so it is decided once, also across a restart: delivered, or
+// suppressed and then not sent later. An incident opened in this batch is
+// read by the next one, at most one check later.
+func (w *monitorWork) remind(ctx context.Context, tx *sql.Tx, r *Result) error {
+	if w.state != incident.Down || w.reminder.IncidentID == "" || r.CheckedAt.Before(w.reminder.Due) {
+		return nil
+	}
+	id := w.reminder.IncidentID
+	w.reminder = store.Reminder{}
+	marked, err := store.MarkReminder(ctx, tx, id, r.CheckedAt)
+	if err != nil || !marked {
+		return err
+	}
+	return w.intend(ctx, tx, incident.IntentReminder, r, id)
 }
 
 // stored is t as the database keeps it: in whole seconds. Flapping is
@@ -598,6 +620,9 @@ func (p *Processor) load(ctx context.Context, tx *sql.Tx, id string) (*monitorWo
 	}
 	if w.state == incident.Down && !w.skip {
 		if w.pending, err = store.PendingDown(ctx, tx, id); err != nil {
+			return nil, err
+		}
+		if w.reminder, _, err = store.PendingReminder(ctx, tx, id); err != nil {
 			return nil, err
 		}
 	}

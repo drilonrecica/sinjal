@@ -178,6 +178,49 @@ func PendingDown(ctx context.Context, tx *sql.Tx, monitorID string) (string, err
 	return "", nil
 }
 
+// Reminder is a monitor's active incident whose outage reminder has not
+// been decided yet, and when it falls due.
+type Reminder struct {
+	IncidentID string
+	Due        time.Time // the incident's start plus the profile's reminder duration
+}
+
+// PendingReminder returns the reminder of the monitor's active incident if
+// its profile asks for one and it has not been decided; ok is false
+// otherwise. The duration is read from the profile as it is now, so a
+// change applies to running incidents too.
+func PendingReminder(ctx context.Context, tx *sql.Tx, monitorID string) (r Reminder, ok bool, err error) {
+	var started string
+	var after int64
+	err = tx.QueryRowContext(ctx, `SELECT i.id, i.started_at, p.reminder_after_seconds
+		FROM incidents i
+		JOIN monitors m ON m.id = i.monitor_id
+		JOIN notification_profiles p ON p.id = m.notification_profile_id
+		WHERE i.monitor_id = ? AND i.ended_at IS NULL AND i.reminder_sent_at IS NULL
+		  AND p.reminder_after_seconds > 0`, monitorID).Scan(&r.IncidentID, &started, &after)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Reminder{}, false, nil
+	}
+	if err != nil {
+		return Reminder{}, false, err
+	}
+	r.Due = parseTime(started).Add(time.Duration(after) * time.Second)
+	return r, true, nil
+}
+
+// MarkReminder records that an incident's reminder was decided, so it is
+// decided once (docs/11 "Outage reminder"). It reports false when it had
+// been already.
+func MarkReminder(ctx context.Context, tx *sql.Tx, incidentID string, at time.Time) (bool, error) {
+	res, err := tx.ExecContext(ctx, `UPDATE incidents SET reminder_sent_at = ? WHERE id = ? AND reminder_sent_at IS NULL`,
+		formatTime(at), incidentID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
+}
+
 // IncidentStart returns when an incident started.
 func IncidentStart(ctx context.Context, tx *sql.Tx, incidentID string) (time.Time, error) {
 	var started string

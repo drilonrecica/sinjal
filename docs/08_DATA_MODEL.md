@@ -150,7 +150,7 @@ Resolutions:
 - summary/cause
 - suppressed_by_parent flag
 - maintenance_overlap flag
-- notification state: down_notified_at, reminder_sent_at, recovery_notified_at (prevents duplicate notifications across restart; set by the dispatcher when it takes the notification on, before the first send, so NULL means it was never dispatched: suppressed, unrouted or not yet)
+- notification state: down_notified_at, reminder_sent_at, recovery_notified_at (prevents duplicate notifications across restart). `down_notified_at` and `recovery_notified_at` are set by the dispatcher when it takes the notification on, before the first send, so NULL means it was never dispatched: suppressed, unrouted or not yet. `reminder_sent_at` is set by the result processor when the reminder falls due, in the same transaction as the check that decides it, so the reminder is decided once whether it is then delivered, suppressed or unrouted
 - created_at
 
 Active incident has `ended_at = NULL`. At most one active incident per monitor (enforced by a partial unique index).
@@ -225,7 +225,7 @@ Stored form (`maintenance_windows`, `internal/store/maintenance.go`):
 - id
 - name
 - quiet-hours configuration
-- unresolved reminder interval optional
+- unresolved reminder interval optional (`reminder_after_seconds`; NULL: no reminder)
 - created/updated
 
 Routes:

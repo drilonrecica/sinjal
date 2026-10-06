@@ -213,7 +213,8 @@ func TestSeverityAndKind(t *testing.T) {
 		}
 	}
 	for in, out := range map[incident.IntentKind]Kind{incident.IntentDown: KindDown, incident.IntentRecovery: KindRecovery,
-		incident.IntentFlapping: KindFlapping, incident.IntentStable: KindStable, incident.IntentTLSWarning: KindTLSWarning} {
+		incident.IntentFlapping: KindFlapping, incident.IntentStable: KindStable, incident.IntentTLSWarning: KindTLSWarning,
+		incident.IntentReminder: KindReminder} {
 		if got := KindOf(in); got != out {
 			t.Errorf("KindOf(%s) = %s, want %s", in, got, out)
 		}
