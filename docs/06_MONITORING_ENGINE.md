@@ -118,6 +118,9 @@ For HTTPS:
 - warning thresholds configurable
 - sensible defaults: 30, 14, 7 days
 - warnings are not DOWN if the request succeeds
+- a warning is an indicator alongside UP, not a monitor state (there is no `DEGRADED` state)
+- the last observed certificate `not_after` is stored per monitor and drives the warning badge and the "TLS expiring" filter
+- crossing a threshold sends one `warning`-severity notification per threshold per certificate; a renewed certificate (new `not_after`) resets the thresholds
 - expired/invalid TLS that prevents the configured request from succeeding is a failure unless insecure TLS is explicitly enabled
 
 "Insecure skip verify" may exist only in Advanced with clear warning.

@@ -168,3 +168,6 @@ This summarizes the locked design rounds.
 - checksums/SBOM/signatures.
 - README + docs.
 - strict AGENTS.md.
+
+## Amendments (P0 decisions)
+- P0-01: no `DEGRADED` monitor state; TLS expiry is a warning indicator alongside UP; assertion failures are ordinary failures.

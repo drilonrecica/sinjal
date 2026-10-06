@@ -82,7 +82,7 @@ CREATE TABLE monitors (
   type TEXT NOT NULL CHECK (type IN ('http','tcp','icmp','dns','heartbeat')),
   enabled INTEGER NOT NULL DEFAULT 1,
   current_state TEXT NOT NULL DEFAULT 'pending'
-    CHECK (current_state IN ('up','pending','down','flapping','paused','degraded')),
+    CHECK (current_state IN ('up','pending','down','flapping','paused')),
   current_state_since TEXT NOT NULL,
   interval_seconds INTEGER NOT NULL DEFAULT 30,
   timeout_ms INTEGER NOT NULL DEFAULT 5000,

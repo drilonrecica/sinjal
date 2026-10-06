@@ -46,7 +46,7 @@ Always combine:
 
 Core semantics:
 - UP: positive/green family
-- DEGRADED/WARNING: amber family
+- WARNING (e.g. TLS expiring; an indicator, not a state): amber family
 - DOWN/CRITICAL: red family
 - PAUSED/UNKNOWN: neutral gray
 - PENDING: neutral/amber transitional

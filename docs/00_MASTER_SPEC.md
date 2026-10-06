@@ -74,7 +74,9 @@ Defaults are configurable per monitor, but the UI should present sensible defaul
 - FLAPPING
 - PAUSED
 
-`DEGRADED` may be used for warnings such as TLS expiry or assertion-specific conditions where the target is reachable but unhealthy. It must not blur the meaning of DOWN.
+There is no `DEGRADED` state. Conditions where the target is reachable but needs attention (v1: TLS certificate expiring soon) are shown as a **warning indicator alongside UP**, not as a monitor state. Warnings never change the monitor state, never open incidents, and never affect uptime.
+
+A failed assertion (status, text, JSON) is an ordinary check failure and follows the normal PENDING → DOWN path.
 
 ## Scheduling
 

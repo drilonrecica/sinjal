@@ -23,6 +23,10 @@ DOWN
 UP
 ```
 
+States: UP, PENDING, DOWN, FLAPPING, PAUSED. There is no `DEGRADED` state.
+
+Warnings (v1: TLS certificate expiring) are indicators alongside UP. They do not enter this state machine, do not open incidents, and do not affect uptime.
+
 ## Opening incident
 
 An incident opens only when the failure threshold is met.
