@@ -115,7 +115,13 @@ func freeAddr(t *testing.T) string {
 // ("KEY=value") and waits until /readyz answers 200.
 func start(t *testing.T, dataDir string, env ...string) *server {
 	t.Helper()
-	addr := freeAddr(t)
+	return startAt(t, dataDir, freeAddr(t), env...)
+}
+
+// startAt is start on a chosen listen address, for tests that must name
+// the port in SINJAL_BASE_URL.
+func startAt(t *testing.T, dataDir, addr string, env ...string) *server {
+	t.Helper()
 	logs := &lockedBuffer{}
 	cmd := exec.Command(binary(t), "serve")
 	cmd.Env = []string{

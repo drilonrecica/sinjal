@@ -60,6 +60,8 @@ Milestone 0 (`m0_test.go`): boot from an empty data directory; database file (06
 
 Milestone 1 (`m1_test.go`): startup refuses to run, and creates no key, when `master.key` is missing but encrypted data exists; proxy trust (scenario 19): `X-Forwarded-For` changes the logged `client_ip` only when the peer is in `SINJAL_TRUSTED_PROXIES`; initial setup: the setup link is logged once per start and rotates on restart, the old token is refused, the form creates the admin, then `/setup` is 404 and a restart logs no link; sessions: an expired session is deleted at startup, `POST /logout` deletes the live session and clears the cookie, and the token never reaches the logs.
 
+Auth (`auth_test.go`, M1-19), each on its own server: login rate limit (10 failures, then 429 even with the right password, blocked attempt not audited); CSRF rejection on a signed-in POST (no token, wrong token, another session's token, cross-site `Sec-Fetch-Site`, foreign `Origin`) with the session surviving; viewer mutation 403 on every admin action with a valid CSRF token (scenario 18); an expired session no longer authenticates and its cookie is cleared; a password change ends other sessions and rotates the current one; re-authentication enforced after the window, then unlocks after a correct password; passkey registration and password-less sign-in through `internal/auth/passkeytest`, finish not replayable; TOTP codes single-use, including the enrolment code. Each test asserts that the passwords, tokens and secrets it handled never reach the server log.
+
 ## UI/browser tests
 
 Small focused set only:
