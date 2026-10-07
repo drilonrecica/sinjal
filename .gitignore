@@ -40,3 +40,4 @@ imp-docs/
 /dist/
 .dev-data/
 .playwright-mcp/
+.igris/

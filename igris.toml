@@ -1,0 +1,45 @@
+plan = "tasks.md"
+backend = "herdr"
+default_mode = "default"
+needs_input_after = "30s"
+poll_interval = "2s"
+
+[models]
+  fable = "fable"
+  haiku = "haiku"
+  opus = "opus"
+  sonnet = "sonnet"
+
+[columns]
+
+[claude]
+  command = "claude"
+  extra_args = []
+
+[run]
+  verify = ""
+  verify_timeout = "15m0s"
+  verify_max_attempts = 3
+  commit = "ask"
+  commit_message = "{{.ID}}: {{.Title}}"
+  prompt_template = ""
+
+[adapt]
+  model = "sonnet"
+
+[tui]
+  mouse = true
+  theme = "auto"
+  [tui.rank_colors]
+
+[notify]
+  [notify.backend]
+    enabled = true
+  [notify.ntfy]
+    server = "https://ntfy.sh"
+    topic = ""
+    token = ""
+    events = ["needs_input", "session_lost", "phase_done", "phase_stuck", "run_error", "verify_failed_limit"]
+  [notify.discord]
+    webhook_url = ""
+    events = ["needs_input", "session_lost", "phase_done", "phase_stuck", "run_error", "verify_failed_limit"]
