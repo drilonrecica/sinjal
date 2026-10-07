@@ -41,3 +41,4 @@ imp-docs/
 .dev-data/
 .playwright-mcp/
 .igris/
+.claude/settings.local.json
