@@ -80,6 +80,7 @@ func newAppEnvAt(t testing.TB, baseURL string, trusted ...netip.Prefix) *appEnv 
 		Vault:    key,
 		Passkeys: auth.NewPasskeys(d, baseURL, logger),
 		Engine:   e.engine,
+		BaseURL:  baseURL,
 	})
 	e.h = r
 	return e

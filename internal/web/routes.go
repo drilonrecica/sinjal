@@ -29,6 +29,7 @@ type App struct {
 	Passkeys *auth.Passkeys
 	Engine   *engine.Engine // schedules monitors after they change; must be started
 	Timezone *time.Location // the instance time zone; nil is UTC
+	BaseURL  string         // SINJAL_BASE_URL; "" when unset
 }
 
 // Routes mounts the whole route table (docs/31_HTTP_ROUTES.md) on r, which
@@ -53,6 +54,7 @@ func Routes(r chi.Router, app App) {
 	notifications := NewNotifications(app.DB, app.Vault, app.Events, app.Timezone, app.Logger)
 	overview := NewOverview(app.DB, app.Timezone, app.Logger)
 	incidents := NewIncidents(app.DB, app.Events, app.Timezone, app.Logger)
+	statusPages := NewStatusPages(app.DB, app.BaseURL, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
 	RegisterHealth(r, app.Health)
@@ -92,6 +94,7 @@ func Routes(r chi.Router, app App) {
 				RegisterMaintenanceChanges(r, maint)
 				RegisterNotificationChanges(r, notifications)
 				RegisterIncidentChanges(r, incidents)
+				RegisterStatusPages(r, statusPages, recentAuth)
 			})
 		})
 	})

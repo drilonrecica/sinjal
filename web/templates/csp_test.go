@@ -99,7 +99,14 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		"profileDelete":   ProfileDeleteConfirm(page, DeleteConfirmView{ID: "p1", Name: "Ops"}, 2),
 		"simulation":      SimulationPage(page, SimulationView{ProfileID: "p1", Name: "Ops", Quiet: "q", Results: []SendResult{{Channel: "Mail", What: "[TEST] DOWN"}, {Channel: "Hook", What: "[TEST] RECOVERY", Error: "e"}}}),
 		"simulationNone":  SimulationPage(page, SimulationView{ProfileID: "p1", Name: "Ops"}),
-		"totpSetup":       TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
+		"statusPages": StatusPageList(page, StatusPageListView{Rows: []StatusPageRow{{ID: "s1", Title: "Main", Slug: "main", Visibility: "public", Address: "/status/main", Monitors: 2, Hosts: []string{"status.example.com"}},
+			{ID: "s2", Title: "Partners", Slug: "partners", Visibility: "unlisted", Monitors: 1}}}),
+		"statusPagesNone":  StatusPageList(page, StatusPageListView{}),
+		"statusPageForm":   StatusPageFormPage(page, testStatusPageForm),
+		"statusPageNew":    StatusPageFormPage(page, StatusPageForm{Visibility: "public", Theme: "paper", IncidentDays: "30", ShowPoweredBy: true, Origin: "https://x"}),
+		"statusPageToken":  StatusPageToken(page, StatusPageTokenView{ID: "s1", Title: "Main", URL: "https://x/s/abc", Regenerated: true}),
+		"statusPageDelete": StatusPageDeleteConfirm(page, DeleteConfirmView{ID: "s1", Name: "Main"}),
+		"totpSetup":        TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
 	}
 	for _, tab := range DetailTabs {
 		v := MonitorDetailView{Monitor: testMonitor, Admin: true, Tab: tab.Key,

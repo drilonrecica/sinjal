@@ -29,8 +29,8 @@ var navLinkRe = regexp.MustCompile(`<a class="nav-link" href="([^"]+)"( aria-cur
 func TestEverySectionRendersTheShell(t *testing.T) {
 	r, _ := pagesRouter()
 	for _, s := range templates.Sections {
-		if s.Key == "monitors" || s.Key == "maintenance" || s.Key == "incidents" || s.Key == "overview" || s.Key == "notifications" {
-			continue // real pages needing the database: see monitors_test.go, maintenance_test.go, incidents_test.go, overview_test.go, notifications_test.go
+		if s.Key == "monitors" || s.Key == "maintenance" || s.Key == "incidents" || s.Key == "overview" || s.Key == "notifications" || s.Key == "status-pages" {
+			continue // real pages needing the database: see monitors_test.go, maintenance_test.go, incidents_test.go, overview_test.go, notifications_test.go, statuspages_test.go
 		}
 		t.Run(s.Key, func(t *testing.T) {
 			rec := get(r, "GET", s.Path)
@@ -85,7 +85,7 @@ func TestEverySectionRendersTheShell(t *testing.T) {
 
 func TestSkipLinkComesFirstAndTargetsMain(t *testing.T) {
 	r, _ := pagesRouter()
-	body := get(r, "GET", "/status-pages").Body.String()
+	body := get(r, "GET", "/settings/general").Body.String()
 
 	firstLink := strings.Index(body, "<a ")
 	skip := strings.Index(body, `<a class="skip-link" href="#main">`)
@@ -103,7 +103,7 @@ func TestSkipLinkComesFirstAndTargetsMain(t *testing.T) {
 
 func TestShellLoadsHashedAssets(t *testing.T) {
 	r, _ := pagesRouter()
-	body := get(r, "GET", "/status-pages").Body.String()
+	body := get(r, "GET", "/settings/general").Body.String()
 
 	hrefs := regexp.MustCompile(`(?:href|src)="(/static/[^"]+)"`).FindAllStringSubmatch(body, -1)
 	var css, js int
@@ -132,9 +132,9 @@ func TestShellLoadsHashedAssets(t *testing.T) {
 
 func TestPagesHEAD(t *testing.T) {
 	r, _ := pagesRouter()
-	rec := get(r, "HEAD", "/status-pages")
+	rec := get(r, "HEAD", "/settings/general")
 	if rec.Code != 200 || rec.Body.Len() != 0 {
-		t.Errorf("HEAD /status-pages = %d with %d body bytes", rec.Code, rec.Body.Len())
+		t.Errorf("HEAD /settings/general = %d with %d body bytes", rec.Code, rec.Body.Len())
 	}
 }
 
@@ -143,7 +143,7 @@ func TestPagesRejectWritesAndUnknownPaths(t *testing.T) {
 	if rec := get(r, "GET", "/does-not-exist"); rec.Code != http.StatusNotFound {
 		t.Errorf("unknown path = %d, want 404", rec.Code)
 	}
-	if rec := get(r, "POST", "/status-pages"); rec.Code != http.StatusMethodNotAllowed {
+	if rec := get(r, "POST", "/settings/general"); rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("POST / = %d, want 405", rec.Code)
 	}
 }

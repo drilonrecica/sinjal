@@ -54,6 +54,11 @@ const (
 	ProfileDeleted   = "notification.profile_deleted"
 	ProfileSimulated = "notification.profile_simulated"
 
+	StatusPageCreated          = "status_page.created"
+	StatusPageUpdated          = "status_page.updated"
+	StatusPageDeleted          = "status_page.deleted"
+	StatusPageTokenRegenerated = "status_page.token_regenerated"
+
 	IncidentNoted = "incident.noted"
 )
 

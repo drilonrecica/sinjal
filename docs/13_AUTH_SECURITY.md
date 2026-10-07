@@ -130,7 +130,7 @@ At minimum:
 - password change
 - passkey deletion
 - TOTP reset
-- reveal/regenerate sensitive token
+- reveal/regenerate sensitive token (heartbeat push URL, unlisted status page address)
 - instance reset
 - restore backup
 - encryption-key operations

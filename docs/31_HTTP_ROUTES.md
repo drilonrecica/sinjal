@@ -40,7 +40,8 @@ GET  /status-pages/new
 POST /status-pages
 GET  /status-pages/{id}/edit
 POST /status-pages/{id}
-POST /status-pages/{id}/delete
+POST /status-pages/{id}/token   # new unlisted address, shown once; recent re-authentication
+POST /status-pages/{id}/delete   # without confirm=1 it asks first
 
 GET  /notifications
 GET  /notifications/channels/new

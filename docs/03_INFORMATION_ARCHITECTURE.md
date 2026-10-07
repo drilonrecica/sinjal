@@ -115,6 +115,10 @@ List, grouped by when a window applies:
 
 Create/edit (admin): one page, no dialog; start as a local date and time, duration in hours and minutes, once/daily/weekly with weekdays, the two effects, all monitors or chosen monitors and tags. Help text says that adjusted uptime is computed from the windows as they are now. Delete is on the edit page and asks first.
 
+## Status Pages
+
+Built (M7-02, `/status-pages`, admins only: the pages name hostnames, internal monitor names and the way into password and unlisted pages): the list shows each page's title, who may see it, its address (`/status/{slug}`; "Secret address, shown once" for an unlisted page), the number of monitors and its mapped hostnames, with Edit. Empty state explains what a status page is. Create and edit are one page without JavaScript: Page (title, address/slug, description), Access (the four modes with what each means, the page password), Appearance (theme, accent as #rrggbb checked for contrast against the theme's background and surface, "Powered by Sinjal", incident history days), Groups (one name per line, in order), Monitors (one row per monitor of the instance: show, **public name** — required, never prefilled with the monitor's own name — group, position, show latency) and Hostnames (one per line, normalized to lowercase; the instance's own base URL host and a host mapped to another page are refused). New groups become choices for a monitor after the first save. The page password is write-only (empty keeps the stored one; leaving password mode drops it). Choosing unlisted issues a secret address on save, shown **once** on a page of its own (also after "Issue a new address", which needs recent re-authentication and stops the old address at once); the edit page never shows it. Delete asks on a page of its own. Public rendering, access enforcement and hostname routing arrive with M7-04 to M7-06, and the logo upload with M7-03.
+
 ## Notifications
 
 Built (M5-11, `/notifications`; viewers read, admins change):

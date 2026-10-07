@@ -25,11 +25,11 @@ func pageFor(r *http.Request, title string) templates.Page {
 
 // RegisterPages mounts one placeholder page per primary navigation section
 // that has no page of its own yet. Real section pages replace these in their
-// own milestones: Overview, Monitors, Maintenance, Incidents and Notifications have their own handlers.
+// own milestones: Overview, Monitors, Maintenance, Incidents, Notifications and Status Pages have their own handlers.
 func RegisterPages(r chi.Router, logger *slog.Logger) {
 	log := logging.Sub(logger, "http")
 	for _, s := range templates.Sections {
-		if s.Key == "overview" || s.Key == "monitors" || s.Key == "maintenance" || s.Key == "incidents" || s.Key == "notifications" {
+		if s.Key == "overview" || s.Key == "monitors" || s.Key == "maintenance" || s.Key == "incidents" || s.Key == "notifications" || s.Key == "status-pages" {
 			continue
 		}
 		h := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

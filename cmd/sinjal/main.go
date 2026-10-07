@@ -154,6 +154,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		Passkeys: passkeys,
 		Timezone: cfg.Timezone,
 		Engine:   monitoring,
+		BaseURL:  cfg.BaseURL,
 	})
 
 	// Monitoring starts once the port is known to be free. Checks stop with

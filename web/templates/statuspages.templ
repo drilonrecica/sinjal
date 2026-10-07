@@ -1,0 +1,280 @@
+package templates
+
+import "strconv"
+
+// StatusPageList is the Status Pages page (docs/03 "Status Pages"): every
+// page with how it is reached. Admins only.
+templ StatusPageList(page Page, v StatusPageListView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/maintenance.css", "css/statuspages.css"}, nil), "status-pages") {
+		<div class="page-head">
+			<h1>Status Pages</h1>
+			<a class="action" href="/status-pages/new">New status page</a>
+		</div>
+		if len(v.Rows) == 0 {
+			<section class="empty-state" aria-labelledby="sp-empty-title">
+				<h2 id="sp-empty-title">No status pages</h2>
+				<p>A status page tells your users what is up. Choose the monitors it shows, under names that are safe to publish, and who may see it.</p>
+				<a class="action" href="/status-pages/new">New status page</a>
+			</section>
+		} else {
+			<ul class="maint-list sp-list" role="list">
+				for _, p := range v.Rows {
+					<li class="maint-row">
+						<div class="maint-main">
+							<span class="maint-name">{ p.Title }</span>
+							<span class="maint-schedule">{ VisibilityLabel(p.Visibility) }</span>
+						</div>
+						<ul class="maint-facts" role="list">
+							if p.Address != "" {
+								<li><a href={ templ.SafeURL(p.Address) }>{ p.Address }</a></li>
+							} else {
+								<li>Secret address, shown once</li>
+							}
+							<li>{ strconv.Itoa(p.Monitors) } { plural(p.Monitors, "monitor", "monitors") }</li>
+							for _, h := range p.Hosts {
+								<li>{ h }</li>
+							}
+						</ul>
+						<div class="maint-actions">
+							<a href={ templ.SafeURL("/status-pages/" + p.ID + "/edit") }>Edit<span class="visually-hidden">{ p.Title }</span></a>
+						</div>
+					</li>
+				}
+			</ul>
+		}
+	}
+}
+
+// StatusPageFormPage creates or edits a page. It works without JavaScript:
+// the password and the unlisted address only count in their own mode.
+templ StatusPageFormPage(page Page, f StatusPageForm) {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/monitor_form.css", "css/monitor_detail.css", "css/maintenance.css", "css/statuspages.css"}, nil), "status-pages") {
+		<div class="monitor-form-page">
+			<p class="crumb"><a href="/status-pages">Status Pages</a></p>
+			if f.Editing() {
+				<h1>Edit { f.Title }</h1>
+			} else {
+				<h1>New status page</h1>
+			}
+			if msg, ok := f.Errors["form"]; ok {
+				<p class="auth-alert" role="alert">{ msg }</p>
+			}
+			if items := f.summary(); len(items) > 0 {
+				<div class="form-summary" role="alert" aria-labelledby="summary-title">
+					<h2 id="summary-title">Fix { strconv.Itoa(len(items)) } { plural(len(items), "problem", "problems") } to save</h2>
+					<ul>
+						for _, it := range items {
+							<li><a href={ templ.SafeURL("#" + it.Field) }>{ it.Label }</a>: { it.Message }</li>
+						}
+					</ul>
+				</div>
+			}
+			<form class="monitor-form" method="post" action={ templ.SafeURL(f.Action()) } novalidate>
+				@CSRFField(page)
+				<fieldset class="form-section">
+					<legend>Page</legend>
+					@field("title", "Title", f.Errors) {
+						<input id="title" name="title" type="text" value={ f.Title } required maxlength="100" autocomplete="off" { fieldAttrs("title", f.Errors)... }/>
+					}
+					@field("slug", "Address", f.Errors) {
+						<input id="slug" name="slug" type="text" value={ f.Slug } required maxlength="64" autocomplete="off" spellcheck="false" { fieldAttrs("slug", f.Errors, "slug-hint")... }/>
+						<p id="slug-hint" class="auth-hint">Letters, digits and hyphens. The page is served at { f.Origin }/status/<code>address</code> unless it is unlisted.</p>
+					}
+					@field("description", "Description", f.Errors) {
+						<textarea id="description" name="description" rows="3" maxlength="500" { fieldAttrs("description", f.Errors, "description-hint")... }>{ f.Description }</textarea>
+						<p id="description-hint" class="auth-hint">Optional. Shown under the title, to everyone who can open the page.</p>
+					}
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Access</legend>
+					<fieldset class="maint-choice" id="visibility" { fieldAttrs("visibility", f.Errors)... }>
+						<legend class="visually-hidden">Who can see it</legend>
+						for _, o := range f.VisibilityOptions() {
+							@visibilityRadio(o, f.Visibility == o.Value)
+						}
+						if msg, ok := f.Errors["visibility"]; ok {
+							<p id="visibility-error" class="auth-error">{ msg }</p>
+						}
+					</fieldset>
+					@field("password", "Page password", f.Errors) {
+						<input id="password" name="password" type="password" autocomplete="new-password" maxlength="128" { fieldAttrs("password", f.Errors, "password-hint")... }/>
+						<p id="password-hint" class="auth-hint">
+							For password pages only, at least 8 characters.
+							if f.HasPassword {
+								A password is set; leave this empty to keep it.
+							}
+						</p>
+					}
+					if f.Visibility == "unlisted" && f.HasToken {
+						<p class="auth-hint">The secret address was shown when it was issued and cannot be shown again. Use "Issue a new address" below to replace it.</p>
+					} else if f.Visibility == "unlisted" || !f.Editing() {
+						<p class="auth-hint">Choosing unlisted issues a secret address when you save. It is shown once.</p>
+					}
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Appearance</legend>
+					@field("theme", "Theme", f.Errors) {
+						<select id="theme" name="theme" { fieldAttrs("theme", f.Errors)... }>
+							for _, o := range f.ThemeOptions() {
+								<option value={ o.Value } selected?={ f.Theme == o.Value }>{ o.Label }</option>
+							}
+						</select>
+					}
+					@field("accent", "Accent colour", f.Errors) {
+						<input id="accent" name="accent" type="text" value={ f.Accent } maxlength="7" autocomplete="off" spellcheck="false" placeholder="#3e67a8" { fieldAttrs("accent", f.Errors, "accent-hint")... }/>
+						<p id="accent-hint" class="auth-hint">Optional, as #rrggbb. It must be readable on the chosen theme.</p>
+					}
+					@checkbox("show_powered_by", "Show \"Powered by Sinjal\"", f.ShowPoweredBy, "")
+					@field("incident_days", "Incident history (days)", f.Errors) {
+						<input id="incident_days" name="incident_days" type="number" min="1" max="365" inputmode="numeric" value={ f.IncidentDays } { fieldAttrs("incident_days", f.Errors)... }/>
+					}
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Groups</legend>
+					@field("groups", "Groups, in order", f.Errors) {
+						<textarea id="groups" name="groups" rows="4" spellcheck="false" { fieldAttrs("groups", f.Errors, "groups-hint")... }>{ f.Groups }</textarea>
+						<p id="groups-hint" class="auth-hint">Optional. One name per line, shown in this order. A group you add here can be chosen for a monitor after you save.</p>
+					}
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Monitors</legend>
+					<p class="auth-hint" id="monitors">Tick the monitors to show and give each one a name for the public. The monitor's own name, address and settings are never published. Lower positions come first.</p>
+					if msg, ok := f.Errors["monitors"]; ok {
+						<p class="auth-error">{ msg }</p>
+					}
+					if len(f.Monitors) == 0 {
+						<p class="auth-hint">There are no monitors yet.</p>
+					}
+					<ul class="sp-monitors" role="list">
+						for _, m := range f.Monitors {
+							<li class="sp-monitor">
+								<div class="form-check">
+									<input id={ "m_show_" + m.ID } name={ "m_show_" + m.ID } type="checkbox" value="1" checked?={ m.Show }/>
+									<label for={ "m_show_" + m.ID }>Show <span class="sp-monitor-name">{ m.Name }</span></label>
+								</div>
+								<div class="auth-field">
+									<label for={ "m_name_" + m.ID }>Public name</label>
+									<input id={ "m_name_" + m.ID } name={ "m_name_" + m.ID } type="text" value={ m.DisplayName } maxlength="100" autocomplete="off" { fieldAttrs("m_name_" + m.ID, f.Errors)... }/>
+									if msg, ok := f.Errors["m_name_" + m.ID]; ok {
+										<p id={ "m_name_" + m.ID + "-error" } class="auth-error">{ msg }</p>
+									}
+								</div>
+								<div class="auth-field">
+									<label for={ "m_group_" + m.ID }>Group</label>
+									<select id={ "m_group_" + m.ID } name={ "m_group_" + m.ID } { fieldAttrs("m_group_" + m.ID, f.Errors)... }>
+										<option value="" selected?={ m.Group == "" }>No group</option>
+										for _, g := range f.GroupNames {
+											<option value={ g } selected?={ m.Group == g }>{ g }</option>
+										}
+									</select>
+									if msg, ok := f.Errors["m_group_" + m.ID]; ok {
+										<p id={ "m_group_" + m.ID + "-error" } class="auth-error">{ msg }</p>
+									}
+								</div>
+								<div class="auth-field">
+									<label for={ "m_order_" + m.ID }>Position</label>
+									<input id={ "m_order_" + m.ID } name={ "m_order_" + m.ID } type="number" min="0" max="9999" inputmode="numeric" value={ m.Order } { fieldAttrs("m_order_" + m.ID, f.Errors)... }/>
+									if msg, ok := f.Errors["m_order_" + m.ID]; ok {
+										<p id={ "m_order_" + m.ID + "-error" } class="auth-error">{ msg }</p>
+									}
+								</div>
+								<div class="form-check">
+									<input id={ "m_latency_" + m.ID } name={ "m_latency_" + m.ID } type="checkbox" value="1" checked?={ m.ShowLatency }/>
+									<label for={ "m_latency_" + m.ID }>Show latency</label>
+								</div>
+							</li>
+						}
+					</ul>
+				</fieldset>
+				<fieldset class="form-section">
+					<legend>Hostnames</legend>
+					@field("hosts", "Hostnames", f.Errors) {
+						<textarea id="hosts" name="hosts" rows="3" spellcheck="false" autocomplete="off" { fieldAttrs("hosts", f.Errors, "hosts-hint")... }>{ f.Hosts }</textarea>
+						<p id="hosts-hint" class="auth-hint">Optional. One per line, such as <code>status.example.com</code>. A request for that host shows this page and nothing else. Point DNS and TLS at Sinjal yourself; this instance's own address cannot be used.</p>
+					}
+				</fieldset>
+				<div class="form-actions">
+					<button class="auth-submit" type="submit">
+						if f.Editing() {
+							Save changes
+						} else {
+							Create page
+						}
+					</button>
+					<a href="/status-pages">Cancel</a>
+				</div>
+			</form>
+			if f.Editing() {
+				if f.Visibility == "unlisted" && f.HasToken {
+					<form class="maint-delete" method="post" action={ templ.SafeURL("/status-pages/" + f.ID + "/token") }>
+						@CSRFField(page)
+						<p class="auth-hint">Issuing a new address stops the old one working at once. You will be asked to confirm your password.</p>
+						<button class="detail-button" type="submit">Issue a new address</button>
+					</form>
+				}
+				<form class="maint-delete" method="post" action={ templ.SafeURL("/status-pages/" + f.ID + "/delete") }>
+					@CSRFField(page)
+					<button class="detail-button detail-button-danger" type="submit">Delete this page</button>
+				</form>
+			}
+		</div>
+	}
+}
+
+// StatusPageToken shows the secret address of an unlisted page right after
+// it was issued. It is the only place the address ever appears.
+templ StatusPageToken(page Page, t StatusPageTokenView) {
+	@Shell(page.withAssets([]string{"css/auth.css", "css/monitor_form.css"}, []string{"js/copy.js"}), "status-pages") {
+		<div class="monitor-form-page token-page">
+			<p class="crumb"><a href="/status-pages">Status Pages</a></p>
+			<h1>Address of { t.Title }</h1>
+			<p role="status">
+				if t.Regenerated {
+					A new address was issued. The old one has stopped working.
+				} else {
+					The page was saved.
+				}
+			</p>
+			<p class="auth-alert">This is the only time the address is shown: copy it now. If it is lost, issue a new one from the page's settings.</p>
+			<section class="form-section" aria-labelledby="addr-title">
+				<h2 id="addr-title">Secret address</h2>
+				<div class="token-box">
+					<code id="page-url">{ t.URL }</code>
+					<button type="button" class="token-copy" data-copy="page-url" hidden>Copy address</button>
+				</div>
+				<p class="auth-hint">Anyone who has it can open the page. It is not linked from anywhere and search engines are told to ignore it.</p>
+			</section>
+			<div class="form-actions">
+				<a class="auth-submit" href={ templ.SafeURL("/status-pages/" + t.ID + "/edit") }>Back to the page</a>
+			</div>
+		</div>
+	}
+}
+
+// StatusPageDeleteConfirm asks before a page is deleted.
+templ StatusPageDeleteConfirm(page Page, v DeleteConfirmView) {
+	@Shell(page.withAssets([]string{"css/monitors.css", "css/monitor_detail.css"}, nil), "status-pages") {
+		<div class="monitor-detail">
+			<p class="crumb"><a href="/status-pages">Status Pages</a></p>
+			<h1>Delete { v.Name }?</h1>
+			<p>The page, its groups and its hostname mappings are removed and its address stops working at once. Your monitors and their history are not touched.</p>
+			<div class="detail-actions">
+				<form method="post" action={ templ.SafeURL("/status-pages/" + v.ID + "/delete") }>
+					@CSRFField(page)
+					<input type="hidden" name="confirm" value="1"/>
+					<button class="detail-button detail-button-danger" type="submit">Delete page</button>
+				</form>
+				<a class="detail-button" href={ templ.SafeURL("/status-pages/" + v.ID + "/edit") }>Cancel</a>
+			</div>
+		</div>
+	}
+}
+
+// visibilityRadio is one access mode, its input labelled by id.
+templ visibilityRadio(o Option, checked bool) {
+	<div class="sp-radio">
+		<input id={ "visibility-" + o.Value } type="radio" name="visibility" value={ o.Value } checked?={ checked } aria-describedby={ "visibility-" + o.Value + "-hint" }/>
+		<label for={ "visibility-" + o.Value }>{ o.Label }</label>
+		<span id={ "visibility-" + o.Value + "-hint" } class="sp-hint">{ visibilityHint(o.Value) }</span>
+	</div>
+}

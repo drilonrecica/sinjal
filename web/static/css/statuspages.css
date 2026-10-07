@@ -1,0 +1,51 @@
+/* Status Pages admin: the list reuses the maintenance rows; the form adds
+ * one row per monitor. */
+
+.sp-list {
+  margin-bottom: var(--space-5);
+}
+
+.sp-monitors {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+.sp-monitor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-2) var(--space-3);
+  align-items: end;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.sp-monitor > .form-check:first-child {
+  grid-column: 1 / -1;
+}
+.sp-monitor-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.sp-radio {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+.sp-radio input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.sp-radio label {
+  font-weight: 600;
+}
+.sp-hint {
+  grid-column: 2;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
