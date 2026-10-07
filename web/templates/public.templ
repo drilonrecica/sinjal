@@ -1,10 +1,16 @@
 package templates
 
-import "github.com/drilonrecica/sinjal/internal/assets"
+import (
+	"strconv"
+
+	"github.com/drilonrecica/sinjal/internal/assets"
+)
 
 // PublicLayout is the document of a public status page: the page's own
 // theme and accent, the public stylesheet, no admin shell and no script.
-templ PublicLayout(page Page, accentCSS string, noIndex bool) {
+// refresh asks the browser to reload the page every PublicRefreshSeconds
+// (a plain meta refresh: the page has no script and never opens /events).
+templ PublicLayout(page Page, accentCSS string, noIndex bool, refresh bool) {
 	<!DOCTYPE html>
 	<html lang="en" data-theme={ page.Theme } data-density={ page.Density }>
 		<head>
@@ -13,6 +19,9 @@ templ PublicLayout(page Page, accentCSS string, noIndex bool) {
 			<meta name="color-scheme" content={ page.ColorScheme() }/>
 			if noIndex {
 				<meta name="robots" content="noindex, nofollow"/>
+			}
+			if refresh {
+				<meta http-equiv="refresh" content={ strconv.Itoa(PublicRefreshSeconds) }/>
 			}
 			<title>{ page.Title }</title>
 			<link rel="stylesheet" href={ assets.URL("css/tokens.css") }/>
@@ -33,7 +42,7 @@ templ PublicLayout(page Page, accentCSS string, noIndex bool) {
 // PublicStatusPage is a status page as its visitors see it (docs/12,
 // docs/33 "Status page components").
 templ PublicStatusPage(v PublicPage, theme string) {
-	@PublicLayout(publicPage(v.Title, theme), v.AccentCSS, v.NoIndex) {
+	@PublicLayout(publicPage(v.Title, theme), v.AccentCSS, v.NoIndex, true) {
 		<div class="public-page">
 			@publicHeader(v)
 			<main>
@@ -152,7 +161,7 @@ templ publicIncidents(v PublicPage) {
 
 // PublicPasswordPage asks for a page's password (docs/12 "Password-protected").
 templ PublicPasswordPage(v PublicPasswordView, theme string) {
-	@PublicLayout(publicPage(v.Title, theme), "", false) {
+	@PublicLayout(publicPage(v.Title, theme), "", false, false) {
 		<div class="public-page public-locked">
 			<main>
 				<h1>{ v.Title }</h1>
@@ -184,7 +193,7 @@ templ PublicPasswordPage(v PublicPasswordView, theme string) {
 
 // PublicMessagePage explains why a page cannot be shown here.
 templ PublicMessagePage(title, message, theme string) {
-	@PublicLayout(publicPage(title, theme), "", false) {
+	@PublicLayout(publicPage(title, theme), "", false, false) {
 		<div class="public-page public-locked">
 			<main>
 				<h1>{ title }</h1>

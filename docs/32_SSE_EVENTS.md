@@ -13,6 +13,8 @@ Public status pages may use either:
 - their own visibility-safe SSE stream later if needed, or
 - lightweight timed refresh/HTMX polling
 
+Implemented (M7-08): a plain 60 s meta refresh, so public pages carry no script at all.
+
 Do not expose admin events to public pages.
 
 ## Event names

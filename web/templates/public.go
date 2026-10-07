@@ -8,6 +8,11 @@ import "strconv"
 // figures only — never a monitor's own name, target, failure text or id
 // beyond what a link needs.
 
+// PublicRefreshSeconds is how often a status page reloads itself (docs/12,
+// docs/32). It matches the 10 s server cache closely enough that a visitor
+// sees a change within about a minute.
+const PublicRefreshSeconds = 60
+
 // Overall states of a public page, worst first.
 const (
 	OverallMajor       = "major"       // every service is down

@@ -205,3 +205,37 @@ func TestMappedHostFeeds(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicRefresh(t *testing.T) {
+	e := newAppEnv(t)
+	e.passwordPage(t, "partners")
+	e.mappedPage(t, store.StatusPageInput{Slug: "shop", Title: "Shop"})
+	const meta = `<meta http-equiv="refresh" content="60">`
+
+	for _, r := range []*http.Request{req("GET", "/status/shop", nil), onHost(req("GET", "/", nil), mappedHost)} {
+		rec := e.serve(r)
+		if rec.Code != 200 || !strings.Contains(rec.Body.String(), meta) {
+			t.Errorf("%s = %d, refresh missing", r.URL.Path, rec.Code)
+		}
+		// The page is script-free and never reads the admin stream.
+		for _, bad := range []string{"<script", "/events", "hx-", "EventSource"} {
+			if strings.Contains(rec.Body.String(), bad) {
+				t.Errorf("public page contains %q", bad)
+			}
+		}
+	}
+	// A locked page does not reload itself: it would discard what was typed.
+	if rec := e.serve(req("GET", "/status/partners", nil)); strings.Contains(rec.Body.String(), "refresh") {
+		t.Error("the password form refreshes")
+	}
+	// Admin events are not served to the public.
+	for _, host := range []string{"", mappedHost} {
+		r := req("GET", "/events", nil)
+		if host != "" {
+			r = onHost(r, host)
+		}
+		if rec := e.serve(r); rec.Code == 200 {
+			t.Errorf("/events on %q = 200 without a session", host)
+		}
+	}
+}
