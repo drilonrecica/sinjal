@@ -21,10 +21,10 @@ func renderString(t *testing.T, c templ.Component) string {
 // testStatusPageForm is an unlisted page being edited, with an error on
 // every kind of field, a group and two monitors.
 var testStatusPageForm = StatusPageForm{ID: "s1", Title: "Main", Slug: "main", Visibility: "unlisted", Theme: "paper", Accent: "#3e67a8",
-	IncidentDays: "30", HasPassword: true, HasToken: true, Groups: "Web", GroupNames: []string{"Web"}, Hosts: "status.example.com", Origin: "https://x",
+	IncidentDays: "30", HasPassword: true, HasToken: true, Logo: "0123456789abcdef0123456789abcdef.png", Groups: "Web", GroupNames: []string{"Web"}, Hosts: "status.example.com", Origin: "https://x",
 	Monitors: []StatusPageMonitorRow{{ID: "m1", Name: "API", Show: true, DisplayName: "Our API", Group: "Web", Order: "1", ShowLatency: true}, {ID: "m2", Name: "Site"}},
 	Errors: map[string]string{"form": "f", "title": "x", "slug": "x", "visibility": "x", "password": "x", "accent": "x", "incident_days": "x",
-		"groups": "x", "monitors": "x", "hosts": "x", "m_name_m1": "x", "m_group_m1": "x", "m_order_m1": "x"}}
+		"groups": "x", "monitors": "x", "hosts": "x", "logo": "x", "m_name_m1": "x", "m_group_m1": "x", "m_order_m1": "x"}}
 
 var (
 	inputRe = regexp.MustCompile(`<input\b[^>]*>`)

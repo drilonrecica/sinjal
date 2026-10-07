@@ -205,6 +205,34 @@ templ StatusPageFormPage(page Page, f StatusPageForm) {
 				</div>
 			</form>
 			if f.Editing() {
+				<section class="form-section sp-logo" aria-labelledby="logo-title">
+					<h2 id="logo-title" class="sp-logo-title">Logo</h2>
+					if f.Logo != "" {
+						<img class="sp-logo-image" src={ "/uploads/" + f.Logo } alt={ "Current logo of " + f.Title }/>
+					} else {
+						<p class="auth-hint">No logo.</p>
+					}
+					<form class="monitor-form" method="post" action={ templ.SafeURL("/status-pages/" + f.ID + "/logo") } enctype="multipart/form-data">
+						@CSRFField(page)
+						@field("logo", "Logo file", f.Errors) {
+							<input id="logo" name="logo" type="file" accept="image/png,image/jpeg" required { fieldAttrs("logo", f.Errors, "logo-hint")... }/>
+							<p id="logo-hint" class="auth-hint">PNG or JPEG, at most 512 KB and 1024 × 1024 pixels. It uploads on its own; unsaved changes above are not kept.</p>
+						}
+						<button class="detail-button" type="submit">
+							if f.Logo != "" {
+								Replace logo
+							} else {
+								Upload logo
+							}
+						</button>
+					</form>
+					if f.Logo != "" {
+						<form method="post" action={ templ.SafeURL("/status-pages/" + f.ID + "/logo/delete") }>
+							@CSRFField(page)
+							<button class="detail-button" type="submit">Remove logo</button>
+						</form>
+					}
+				</section>
 				if f.Visibility == "unlisted" && f.HasToken {
 					<form class="maint-delete" method="post" action={ templ.SafeURL("/status-pages/" + f.ID + "/token") }>
 						@CSRFField(page)

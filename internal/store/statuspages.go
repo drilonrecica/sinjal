@@ -431,3 +431,28 @@ func DeleteStatusPage(ctx context.Context, d *db.DB, id string) error {
 		return nil
 	})
 }
+
+// SetStatusPageLogo stores the file name of a page's logo ("" removes it)
+// and returns the name it replaces, for the caller to delete. ErrNotFound
+// when there is no such page.
+func SetStatusPageLogo(ctx context.Context, d *db.DB, id, name string, now time.Time) (previous string, err error) {
+	err = db.Retry(ctx, func() error {
+		tx, err := d.Writer.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		var old sql.NullString
+		if err := tx.QueryRowContext(ctx, `SELECT logo_path FROM status_pages WHERE id = ?`, id).Scan(&old); errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		} else if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE status_pages SET logo_path = ?, updated_at = ? WHERE id = ?`, nullable(name), formatTime(now), id); err != nil {
+			return err
+		}
+		previous = old.String
+		return tx.Commit()
+	})
+	return previous, err
+}

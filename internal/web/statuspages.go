@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -32,18 +33,19 @@ const statusPageFormMaxBody = 2 << 20
 type StatusPages struct {
 	db       *db.DB
 	baseHost string // host of the instance's own base URL, "" when unset
+	uploads  string // where logos are stored
 	log      *slog.Logger
 	now      func() time.Time
 }
 
 // NewStatusPages returns the status page admin handler. baseURL is
 // SINJAL_BASE_URL: its host may not be mapped to a page.
-func NewStatusPages(d *db.DB, baseURL string, logger *slog.Logger) *StatusPages {
+func NewStatusPages(d *db.DB, baseURL, uploads string, logger *slog.Logger) *StatusPages {
 	var host string
 	if u, err := url.Parse(baseURL); err == nil {
 		host = strings.ToLower(u.Hostname())
 	}
-	return &StatusPages{db: d, baseHost: host, log: logging.Sub(logger, "http"), now: time.Now}
+	return &StatusPages{db: d, baseHost: host, uploads: uploads, log: logging.Sub(logger, "http"), now: time.Now}
 }
 
 // RegisterStatusPages mounts the admin pages; they must sit behind
@@ -58,6 +60,8 @@ func RegisterStatusPages(r chi.Router, h *StatusPages, recent func(http.Handler)
 	r.Get("/status-pages/{id}/edit", h.editForm)
 	r.Post("/status-pages/{id}", h.update)
 	r.With(recent).Post("/status-pages/{id}/token", h.regenerateToken)
+	r.Post("/status-pages/{id}/logo", h.uploadLogo)
+	r.Post("/status-pages/{id}/logo/delete", h.removeLogo)
 	r.Post("/status-pages/{id}/delete", h.remove)
 }
 
@@ -104,7 +108,7 @@ func (h *StatusPages) editForm(w http.ResponseWriter, r *http.Request) {
 func formFromPage(p store.StatusPageDetail) templates.StatusPageForm {
 	f := templates.StatusPageForm{ID: p.ID, Title: p.Title, Slug: p.Slug, Description: p.Description, Visibility: p.Visibility,
 		Theme: p.Theme, Accent: p.Accent, IncidentDays: strconv.Itoa(p.IncidentDays), ShowPoweredBy: p.ShowPoweredBy,
-		HasPassword: p.HasPassword, HasToken: p.HasToken, Hosts: strings.Join(p.Hosts, "\n"), Errors: map[string]string{}}
+		HasPassword: p.HasPassword, HasToken: p.HasToken, Logo: p.LogoPath, Hosts: strings.Join(p.Hosts, "\n"), Errors: map[string]string{}}
 	groupName := map[string]string{}
 	var names []string
 	for _, g := range p.Groups {
@@ -190,7 +194,7 @@ func (h *StatusPages) parseForm(v url.Values, monitors []store.Monitor, old *sto
 		Accent: strings.TrimSpace(v.Get("accent")), IncidentDays: strings.TrimSpace(v.Get("incident_days")),
 		ShowPoweredBy: v.Get("show_powered_by") == "1", Groups: v.Get("groups"), Hosts: v.Get("hosts"), Errors: map[string]string{}}
 	if old != nil {
-		f.ID, f.HasPassword, f.HasToken = old.ID, old.HasPassword, old.HasToken
+		f.ID, f.HasPassword, f.HasToken, f.Logo = old.ID, old.HasPassword, old.HasToken, old.LogoPath
 	}
 	bad := func(k, msg string) { addErr(f.Errors, k, msg) }
 
@@ -454,6 +458,7 @@ func (h *StatusPages) remove(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, "deleting a status page", err)
 		return
 	}
+	h.dropLogo(p.LogoPath)
 	h.audit(r, audit.StatusPageDeleted, id, p.Title)
 	http.Redirect(w, r, "/status-pages", http.StatusSeeOther)
 }
@@ -466,5 +471,99 @@ func (h *StatusPages) audit(r *http.Request, typ, id, title string) {
 	ev := audit.Event{UserID: cs.User.ID, Type: typ, ObjectType: "status_page", ObjectID: id, Metadata: map[string]string{"name": title}}
 	if err := audit.Record(r.Context(), h.db, ev, h.now()); err != nil {
 		h.log.Error("audit event not written", "event", typ, "status_page_id", id, "error", err)
+	}
+}
+
+// logoMaxBody bounds the logo form: the file's own limit plus the form's
+// other parts. The CSRF middleware has already read it, up to its own cap.
+const logoMaxBody = 1 << 20
+
+// uploadLogo serves POST /status-pages/{id}/logo: a PNG or JPEG that passes
+// statuspage.CheckLogo is stored under a random name in the uploads
+// directory and replaces the page's logo; the old file is deleted. The
+// browser's file name and type are never used.
+func (h *StatusPages) uploadLogo(w http.ResponseWriter, r *http.Request) {
+	ctx, id := r.Context(), chi.URLParam(r, "id")
+	p, err := store.GetStatusPage(ctx, h.db.Reader, id)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		h.fail(w, r, "loading a status page", err)
+		return
+	}
+	reject := func(msg string) {
+		f := formFromPage(p)
+		f.Errors["logo"] = msg
+		h.renderForm(w, r, http.StatusUnprocessableEntity, f)
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, logoMaxBody)
+	file, _, err := r.FormFile("logo")
+	if err != nil {
+		reject("Choose a PNG or JPEG file.")
+		return
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, statuspage.MaxLogoBytes+1))
+	if err != nil {
+		h.fail(w, r, "reading an uploaded logo", err)
+		return
+	}
+	ext, err := statuspage.CheckLogo(data)
+	if errors.Is(err, statuspage.ErrLogo) {
+		reject(statuspage.LogoMessage(err))
+		return
+	}
+	name, err := statuspage.SaveLogo(h.uploads, data, ext)
+	if err != nil {
+		h.fail(w, r, "storing a logo", err)
+		return
+	}
+	previous, err := store.SetStatusPageLogo(ctx, h.db, id, name, h.now())
+	if err != nil {
+		h.dropLogo(name)
+		if errors.Is(err, store.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		h.fail(w, r, "saving a logo", err)
+		return
+	}
+	h.dropLogo(previous)
+	h.audit(r, audit.StatusPageUpdated, id, p.Title)
+	http.Redirect(w, r, "/status-pages/"+id+"/edit", http.StatusSeeOther)
+}
+
+// removeLogo serves POST /status-pages/{id}/logo/delete.
+func (h *StatusPages) removeLogo(w http.ResponseWriter, r *http.Request) {
+	ctx, id := r.Context(), chi.URLParam(r, "id")
+	p, err := store.GetStatusPage(ctx, h.db.Reader, id)
+	if err == nil {
+		var previous string
+		if previous, err = store.SetStatusPageLogo(ctx, h.db, id, "", h.now()); err == nil {
+			h.dropLogo(previous)
+		}
+	}
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		h.fail(w, r, "removing a logo", err)
+		return
+	}
+	h.audit(r, audit.StatusPageUpdated, id, p.Title)
+	http.Redirect(w, r, "/status-pages/"+id+"/edit", http.StatusSeeOther)
+}
+
+// dropLogo deletes a logo file that nothing refers to any more; a failure
+// only leaves an orphan, so it is logged.
+func (h *StatusPages) dropLogo(name string) {
+	if name == "" {
+		return
+	}
+	if err := statuspage.RemoveLogo(h.uploads, name); err != nil {
+		h.log.Error("logo file not removed", "file", name, "error", err)
 	}
 }

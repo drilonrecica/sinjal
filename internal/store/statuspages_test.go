@@ -260,3 +260,36 @@ func TestStatusPageDeleteCascades(t *testing.T) {
 		t.Errorf("second delete = %v, want ErrNotFound", err)
 	}
 }
+
+func TestStatusPageLogoPath(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	id, err := CreateStatusPage(ctx, d, pageInput("main"), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prev, err := SetStatusPageLogo(ctx, d, id, "a.png", now); err != nil || prev != "" {
+		t.Fatalf("first logo: %q, %v", prev, err)
+	}
+	if prev, err := SetStatusPageLogo(ctx, d, id, "b.jpg", now); err != nil || prev != "a.png" {
+		t.Fatalf("replace: %q, %v; want the previous name back", prev, err)
+	}
+	// Saving the page's settings leaves the logo alone.
+	in := pageInput("main")
+	in.Title = "Renamed"
+	if err := UpdateStatusPage(ctx, d, id, in, now); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := GetStatusPage(ctx, d.Reader, id); got.LogoPath != "b.jpg" || got.Title != "Renamed" {
+		t.Errorf("after a settings save: %+v", got.StatusPage)
+	}
+	if prev, err := SetStatusPageLogo(ctx, d, id, "", now); err != nil || prev != "b.jpg" {
+		t.Fatalf("remove: %q, %v", prev, err)
+	}
+	if got, _ := GetStatusPage(ctx, d.Reader, id); got.LogoPath != "" {
+		t.Errorf("logo after removal = %q", got.LogoPath)
+	}
+	if _, err := SetStatusPageLogo(ctx, d, "nope", "c.png", now); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown page = %v", err)
+	}
+}

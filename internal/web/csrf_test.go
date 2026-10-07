@@ -184,3 +184,17 @@ func TestCSRFTokenIsRendered(t *testing.T) {
 		t.Error("anonymous page renders a CSRF token")
 	}
 }
+
+func TestCSRFReadsTheTokenFromAMultipartBody(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "a1", "admin", "admin", "")
+	e.postAs(t, "a1", "/status-pages", pageForm("Main", "main"))
+	path := "/status-pages/" + e.pageID(t, "main") + "/logo"
+	png := pngBytes(t, 4, 4)
+	if rec := e.uploadAs(t, "a1", path, "l.png", png, true); rec.Code != http.StatusSeeOther {
+		t.Errorf("multipart with a token = %d", rec.Code)
+	}
+	if rec := e.uploadAs(t, "a1", path, "l.png", png, false); rec.Code != http.StatusForbidden {
+		t.Errorf("multipart without a token = %d, want 403", rec.Code)
+	}
+}

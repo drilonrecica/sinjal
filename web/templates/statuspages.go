@@ -65,6 +65,7 @@ type StatusPageForm struct {
 	ShowPoweredBy bool
 	HasPassword   bool   // a password is already stored
 	HasToken      bool   // an unlisted address was already issued
+	Logo          string // file name of the stored logo, or ""
 	Groups        string // one name per line
 	GroupNames    []string
 	Hosts         string // one hostname per line
@@ -117,12 +118,12 @@ func (StatusPageForm) ThemeOptions() []Option {
 }
 
 var statusPageFieldOrder = []string{"title", "slug", "description", "visibility", "password", "theme", "accent",
-	"incident_days", "groups", "monitors", "hosts"}
+	"incident_days", "groups", "monitors", "hosts", "logo"}
 
 var statusPageLabels = map[string]string{
 	"title": "Title", "slug": "Address", "description": "Description", "visibility": "Who can see it",
 	"password": "Page password", "theme": "Theme", "accent": "Accent colour", "incident_days": "Incident history",
-	"groups": "Groups", "monitors": "Monitors", "hosts": "Hostnames",
+	"groups": "Groups", "monitors": "Monitors", "hosts": "Hostnames", "logo": "Logo",
 }
 
 // summary lists the errors in page order, the monitors' own last.

@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -25,6 +26,13 @@ const (
 	CSRFFormField = "_csrf"
 	// csrfMaxForm caps a url-encoded body the middleware parses for the token.
 	csrfMaxForm = 64 << 10
+	// csrfMaxUpload caps a multipart body (the status page logo form) the
+	// middleware parses for the token; a larger one is refused with 413. The
+	// handler applies its own, tighter limit to the file.
+	csrfMaxUpload = 4 << 20
+	// csrfUploadMemory is how much of it is kept in memory; the rest spills
+	// to a temporary file that net/http removes after the request.
+	csrfUploadMemory = 1 << 20
 )
 
 // CSRF checks every state-changing request in its route group:
@@ -94,6 +102,19 @@ func (c *CSRF) Middleware(next http.Handler) http.Handler {
 				}
 				got = r.PostForm.Get(CSRFFormField)
 			}
+			if got == "" && isMultipartForm(r) {
+				r.Body = http.MaxBytesReader(w, r.Body, csrfMaxUpload)
+				if err := r.ParseMultipartForm(csrfUploadMemory); err != nil {
+					var tooLarge *http.MaxBytesError
+					if errors.As(err, &tooLarge) {
+						http.Error(w, "request too large", http.StatusRequestEntityTooLarge)
+					} else {
+						http.Error(w, "bad request", http.StatusBadRequest)
+					}
+					return
+				}
+				got = r.PostForm.Get(CSRFFormField)
+			}
 			if got == "" {
 				c.reject(w, r, "missing token")
 				return
@@ -136,6 +157,11 @@ func requestOrigin(r *http.Request) string {
 		scheme = "https"
 	}
 	return scheme + "://" + proxy.Host(r)
+}
+
+func isMultipartForm(r *http.Request) bool {
+	ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return ct == "multipart/form-data"
 }
 
 func isURLEncodedForm(r *http.Request) bool {

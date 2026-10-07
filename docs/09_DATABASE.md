@@ -174,6 +174,8 @@ All persistent data under one directory:
 
 Uploads are limited to status-page logos or similarly explicit assets.
 
+Logos (M7-03): `uploads/<32 hex>.<png|jpg>`, named with 128 random bits, mode 0600, never by the uploaded name. `status_pages.logo_path` holds the file name. A replaced or removed logo, and the logo of a deleted page, is deleted from disk after the database change; a failed deletion leaves an orphan that is logged. Backups include `uploads/` (M9).
+
 ## Backup consistency
 
 Use SQLite backup API or safe checkpoint/copy procedure. Do not copy a live DB file unsafely without accounting for WAL.

@@ -30,6 +30,7 @@ type App struct {
 	Engine   *engine.Engine // schedules monitors after they change; must be started
 	Timezone *time.Location // the instance time zone; nil is UTC
 	BaseURL  string         // SINJAL_BASE_URL; "" when unset
+	Uploads  string         // directory of uploaded files (the data directory's uploads/)
 }
 
 // Routes mounts the whole route table (docs/31_HTTP_ROUTES.md) on r, which
@@ -54,11 +55,12 @@ func Routes(r chi.Router, app App) {
 	notifications := NewNotifications(app.DB, app.Vault, app.Events, app.Timezone, app.Logger)
 	overview := NewOverview(app.DB, app.Timezone, app.Logger)
 	incidents := NewIncidents(app.DB, app.Events, app.Timezone, app.Logger)
-	statusPages := NewStatusPages(app.DB, app.BaseURL, app.Logger)
+	statusPages := NewStatusPages(app.DB, app.BaseURL, app.Uploads, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
 	RegisterHealth(r, app.Health)
 	RegisterStatic(r, app.Assets)
+	RegisterUploads(r, app.Uploads)
 	RegisterHeartbeat(r, NewHeartbeat(app.Engine, app.Logger))
 
 	r.Group(func(r chi.Router) {

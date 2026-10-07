@@ -155,6 +155,7 @@ func serve(ctx context.Context, stderr io.Writer) int {
 		Timezone: cfg.Timezone,
 		Engine:   monitoring,
 		BaseURL:  cfg.BaseURL,
+		Uploads:  filepath.Join(cfg.DataDir, "uploads"),
 	})
 
 	// Monitoring starts once the port is known to be free. Checks stop with

@@ -28,6 +28,7 @@ type appEnv struct {
 	engine   *engine.Engine
 	key      *vault.Key
 	logs     *lockedBuffer
+	uploads  string // the uploads directory
 }
 
 var testCSRFKey = []byte("0123456789abcdef0123456789abcdef")
@@ -51,6 +52,7 @@ func newAppEnvAt(t testing.TB, baseURL string, trusted ...netip.Prefix) *appEnv 
 		t.Fatal(err)
 	}
 	e := &appEnv{
+		uploads:  t.TempDir(),
 		db:       d,
 		sessions: auth.NewSessions(d, logger),
 		csrf:     NewCSRF(testCSRFKey, logger),
@@ -81,6 +83,7 @@ func newAppEnvAt(t testing.TB, baseURL string, trusted ...netip.Prefix) *appEnv 
 		Passkeys: auth.NewPasskeys(d, baseURL, logger),
 		Engine:   e.engine,
 		BaseURL:  baseURL,
+		Uploads:  e.uploads,
 	})
 	e.h = r
 	return e

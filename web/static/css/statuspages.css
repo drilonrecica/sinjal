@@ -49,3 +49,19 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+
+.sp-logo {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+.sp-logo-title {
+  font-size: 1rem;
+}
+.sp-logo-image {
+  max-width: 16rem;
+  max-height: 6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}

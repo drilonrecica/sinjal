@@ -41,6 +41,8 @@ POST /status-pages
 GET  /status-pages/{id}/edit
 POST /status-pages/{id}
 POST /status-pages/{id}/token   # new unlisted address, shown once; recent re-authentication
+POST /status-pages/{id}/logo     # multipart: PNG/JPEG logo, replaces the old one (docs/12 "Logo files")
+POST /status-pages/{id}/logo/delete
 POST /status-pages/{id}/delete   # without confirm=1 it asks first
 
 GET  /notifications
@@ -115,6 +117,12 @@ GET /fragments/monitors/{id}/header
 Do not put secrets or full diagnostic snippets in SSE payloads.
 
 ## Status pages
+
+Logos, public, no session (a public page shows its logo to everyone; the name is 128 random bits):
+
+```text
+GET /uploads/{name}   # name = 32 hex + .png|.jpg, anything else is 404; Content-Type from the extension, X-Content-Type-Options: nosniff, immutable cache
+```
 
 Path-based:
 
