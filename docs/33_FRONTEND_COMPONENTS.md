@@ -79,6 +79,8 @@ Separate public presentation components from admin components where privacy/bran
 - uptime strip
 - powered-by footer
 
+Implemented in `web/templates/public.templ` (M7-04): `PublicLayout` (own document: page theme, optional hashed accent style, no script), `PublicStatusPage`, `publicHeader`, `publicGroup`, `publicRow` (service row with the uptime strip) and `publicIncidents`; view types in `public.go` carry public names and figures only. Styles in `css/public.css`.
+
 ## JavaScript responsibilities
 
 Allowed:

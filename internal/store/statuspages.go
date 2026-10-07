@@ -9,6 +9,7 @@ import (
 
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/ids"
+	"github.com/drilonrecica/sinjal/internal/incident"
 	"github.com/drilonrecica/sinjal/internal/statuspage"
 )
 
@@ -152,8 +153,34 @@ func ListStatusPages(ctx context.Context, q querier) ([]StatusPageSummary, error
 
 // GetStatusPage returns a page with its contents, or ErrNotFound.
 func GetStatusPage(ctx context.Context, q querier, id string) (StatusPageDetail, error) {
+	return getStatusPage(ctx, q, `id = ?`, id)
+}
+
+// GetStatusPageBySlug returns the page at /status/{slug}, or ErrNotFound.
+func GetStatusPageBySlug(ctx context.Context, q querier, slug string) (StatusPageDetail, error) {
+	return getStatusPage(ctx, q, `slug = ?`, slug)
+}
+
+// GetStatusPageByTokenHash returns the unlisted page whose token hashes to
+// hash, or ErrNotFound. A page that is no longer unlisted has no token.
+func GetStatusPageByTokenHash(ctx context.Context, q querier, hash []byte) (StatusPageDetail, error) {
+	return getStatusPage(ctx, q, `unlisted_token_hash = ? AND visibility = 'unlisted'`, hash)
+}
+
+// StatusPageIDByHost returns the id of the page a normalized hostname is
+// mapped to, or ErrNotFound.
+func StatusPageIDByHost(ctx context.Context, q querier, host string) (string, error) {
+	var id string
+	err := q.QueryRowContext(ctx, `SELECT status_page_id FROM status_page_hosts WHERE hostname = ?`, host).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return id, err
+}
+
+func getStatusPage(ctx context.Context, q querier, where string, arg any) (StatusPageDetail, error) {
 	var d StatusPageDetail
-	p, err := scanStatusPage(q.QueryRowContext(ctx, `SELECT `+statusPageColumns+` FROM status_pages p WHERE id = ?`, id))
+	p, err := scanStatusPage(q.QueryRowContext(ctx, `SELECT `+statusPageColumns+` FROM status_pages p WHERE `+where, arg))
 	if errors.Is(err, sql.ErrNoRows) {
 		return d, ErrNotFound
 	}
@@ -161,6 +188,7 @@ func GetStatusPage(ctx context.Context, q querier, id string) (StatusPageDetail,
 		return d, err
 	}
 	d.StatusPage = p
+	id := p.ID
 
 	groups, err := q.QueryContext(ctx, `SELECT id, name FROM status_page_groups WHERE status_page_id = ? ORDER BY sort_order, name`, id)
 	if err != nil {
@@ -455,4 +483,78 @@ func SetStatusPageLogo(ctx context.Context, d *db.DB, id, name string, now time.
 		return tx.Commit()
 	})
 	return previous, err
+}
+
+// PageIncident is an incident as a status page shows it: under the
+// public name of its monitor, without its summary or failure kind.
+type PageIncident struct {
+	ID          string
+	MonitorID   string
+	DisplayName string
+	StartedAt   time.Time
+	EndedAt     *time.Time // nil while it is active
+	Notes       []PageNote // published notes only, oldest first
+}
+
+// PageNote is a published manual note.
+type PageNote struct {
+	Message string
+	At      time.Time
+}
+
+// ListPageIncidents returns, newest first, up to limit incidents of the
+// monitors on a page that are active or ended at or after since, each
+// with its published notes (docs/12 "Incident history").
+func ListPageIncidents(ctx context.Context, q querier, pageID string, since time.Time, limit int) ([]PageIncident, error) {
+	rows, err := q.QueryContext(ctx, `SELECT i.id, i.monitor_id, spm.display_name, i.started_at, i.ended_at
+		FROM incidents i JOIN status_page_monitors spm ON spm.monitor_id = i.monitor_id
+		WHERE spm.status_page_id = ? AND (i.ended_at IS NULL OR i.ended_at >= ?)
+		ORDER BY i.started_at DESC LIMIT ?`, pageID, formatTime(since), limit)
+	if err != nil {
+		return nil, err
+	}
+	var out []PageIncident
+	byID := map[string]int{}
+	for rows.Next() {
+		var in PageIncident
+		var started string
+		var ended sql.NullString
+		if err := rows.Scan(&in.ID, &in.MonitorID, &in.DisplayName, &started, &ended); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		in.StartedAt, in.EndedAt = parseTime(started), parseNullTime(ended)
+		byID[in.ID] = len(out)
+		out = append(out, in)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+
+	notes, err := q.QueryContext(ctx, `SELECT e.incident_id, COALESCE(e.message, ''), e.created_at
+		FROM incident_events e JOIN incidents i ON i.id = e.incident_id
+		JOIN status_page_monitors spm ON spm.monitor_id = i.monitor_id
+		WHERE spm.status_page_id = ? AND e.event_type = ? AND e.published = 1
+			AND (i.ended_at IS NULL OR i.ended_at >= ?)
+		ORDER BY e.id`, pageID, incident.EventManualNote, formatTime(since))
+	if err != nil {
+		return nil, err
+	}
+	defer notes.Close()
+	for notes.Next() {
+		var id, at string
+		var n PageNote
+		if err := notes.Scan(&id, &n.Message, &at); err != nil {
+			return nil, err
+		}
+		if i, ok := byID[id]; ok {
+			n.At = parseTime(at)
+			out[i].Notes = append(out[i].Notes, n)
+		}
+	}
+	return out, notes.Err()
 }

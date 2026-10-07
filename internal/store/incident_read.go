@@ -31,6 +31,9 @@ type IncidentEvent struct {
 	Type    string
 	Message string
 	At      time.Time
+	// Published: a manual note shown on the status pages of the
+	// incident's monitor (docs/12 "Incident history").
+	Published bool
 }
 
 // The suppression event's message is "<kind>: <reason>".
@@ -109,7 +112,7 @@ func GetIncident(ctx context.Context, q querier, id string) (IncidentRow, []Inci
 	if err != nil {
 		return r, nil, err
 	}
-	rows, err := q.QueryContext(ctx, `SELECT event_type, COALESCE(message, ''), created_at
+	rows, err := q.QueryContext(ctx, `SELECT event_type, COALESCE(message, ''), created_at, published
 		FROM incident_events WHERE incident_id = ? ORDER BY id`, id)
 	if err != nil {
 		return r, nil, err
@@ -119,7 +122,7 @@ func GetIncident(ctx context.Context, q querier, id string) (IncidentRow, []Inci
 	for rows.Next() {
 		var e IncidentEvent
 		var at string
-		if err := rows.Scan(&e.Type, &e.Message, &at); err != nil {
+		if err := rows.Scan(&e.Type, &e.Message, &at, &e.Published); err != nil {
 			return r, nil, err
 		}
 		e.At = parseTime(at)
@@ -130,8 +133,9 @@ func GetIncident(ctx context.Context, q querier, id string) (IncidentRow, []Inci
 
 // AddIncidentNote appends a manual note to an incident's timeline at now
 // and returns the incident's monitor, or ErrNotFound. A note may go on an
-// ended incident too.
-func AddIncidentNote(ctx context.Context, d *db.DB, id, message string, now time.Time) (monitorID string, err error) {
+// ended incident too. A published note is also shown on the status pages
+// of the monitor.
+func AddIncidentNote(ctx context.Context, d *db.DB, id, message string, published bool, now time.Time) (monitorID string, err error) {
 	err = db.Retry(ctx, func() error {
 		tx, err := d.Writer.BeginTx(ctx, nil)
 		if err != nil {
@@ -145,7 +149,8 @@ func AddIncidentNote(ctx context.Context, d *db.DB, id, message string, now time
 		if err != nil {
 			return err
 		}
-		if err := AddIncidentEvent(ctx, tx, id, incident.EventManualNote, message, now); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO incident_events (incident_id, event_type, message, published, created_at)
+			VALUES (?, ?, ?, ?, ?)`, id, incident.EventManualNote, message, b2i(published), formatTime(now)); err != nil {
 			return err
 		}
 		return tx.Commit()

@@ -33,6 +33,8 @@ type IncidentEventView struct {
 	Time    string
 	At      string
 	Note    bool
+	// Published: a note shown on the status pages of the monitor.
+	Published bool
 }
 
 // IncidentDetailView is the page of one incident.

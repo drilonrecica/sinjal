@@ -132,14 +132,28 @@ func TestIncidentNotes(t *testing.T) {
 		t.Fatalf("note = %d %s", rec.Code, rec.Header().Get("Location"))
 	}
 	var msg string
-	if err := e.db.Reader.QueryRow(`SELECT message FROM incident_events WHERE event_type = 'manual_note'`).Scan(&msg); err != nil || msg != "<b>rebooted</b> the router\nat 10:00" {
-		t.Fatalf("stored %q, %v", msg, err)
+	var published bool
+	if err := e.db.Reader.QueryRow(`SELECT message, published FROM incident_events WHERE event_type = 'manual_note'`).Scan(&msg, &published); err != nil ||
+		msg != "<b>rebooted</b> the router\nat 10:00" || published {
+		t.Fatalf("stored %q published %v, %v", msg, published, err)
 	}
 	body := e.getAs(t, "v1", "GET", "/incidents/i1").Body.String()
+	if strings.Contains(body, "On status pages") {
+		t.Error("an unpublished note is marked as published")
+	}
+	if rec := e.postAs(t, "a1", "/incidents/i1/note", url.Values{"note": {"fixed"}, "publish": {"1"}}); rec.Code != 303 {
+		t.Fatalf("published note = %d", rec.Code)
+	}
+	if err := e.db.Reader.QueryRow(`SELECT published FROM incident_events WHERE message = 'fixed'`).Scan(&published); err != nil || !published {
+		t.Fatalf("published = %v, %v", published, err)
+	}
+	if !strings.Contains(e.getAs(t, "v1", "GET", "/incidents/i1").Body.String(), "On status pages") {
+		t.Error("a published note is not marked")
+	}
 	if !strings.Contains(body, "&lt;b&gt;rebooted&lt;/b&gt; the router") || strings.Contains(body, "<b>rebooted") {
 		t.Errorf("note not escaped:\n%s", body)
 	}
-	if err := e.db.Reader.QueryRow(`SELECT COUNT(*) FROM audit_events WHERE event_type = 'incident.noted' AND object_id = 'i1' AND user_id = 'a1'`).Scan(&n); err != nil || n != 1 {
+	if err := e.db.Reader.QueryRow(`SELECT COUNT(*) FROM audit_events WHERE event_type = 'incident.noted' AND object_id = 'i1' AND user_id = 'a1'`).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("%d audit rows, %v", n, err)
 	}
 	waitUntil(t, "the event", func() bool {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func pageInput(slug string) StatusPageInput {
@@ -291,5 +292,94 @@ func TestStatusPageLogoPath(t *testing.T) {
 	}
 	if _, err := SetStatusPageLogo(ctx, d, "nope", "c.png", now); !errors.Is(err, ErrNotFound) {
 		t.Errorf("unknown page = %v", err)
+	}
+}
+
+func TestStatusPageLookups(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	api := create(t, d, sample("api"))
+	in := pageInput("main")
+	in.Monitors = []StatusPageMonitorInput{{MonitorID: api, DisplayName: "API"}}
+	in.Hosts = []string{"status.example.com"}
+	id, err := CreateStatusPage(ctx, d, in, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := GetStatusPageBySlug(ctx, d.Reader, "main"); err != nil || p.ID != id || len(p.Monitors) != 1 || len(p.Hosts) != 1 {
+		t.Errorf("by slug = %+v, %v", p, err)
+	}
+	if _, err := GetStatusPageBySlug(ctx, d.Reader, "other"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown slug = %v", err)
+	}
+	if got, err := StatusPageIDByHost(ctx, d.Reader, "status.example.com"); err != nil || got != id {
+		t.Errorf("by host = %q, %v", got, err)
+	}
+	if _, err := StatusPageIDByHost(ctx, d.Reader, "other.example.com"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown host = %v", err)
+	}
+
+	hash := []byte("0123456789abcdef0123456789abcdef")
+	u := pageInput("secret")
+	u.Visibility, u.TokenHash = "unlisted", hash
+	uid, err := CreateStatusPage(ctx, d, u, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := GetStatusPageByTokenHash(ctx, d.Reader, hash); err != nil || p.ID != uid {
+		t.Errorf("by token = %+v, %v", p, err)
+	}
+	if _, err := GetStatusPageByTokenHash(ctx, d.Reader, []byte("wrong")); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown token = %v", err)
+	}
+}
+
+func TestListPageIncidents(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	api, db, other := create(t, d, sample("api")), create(t, d, sample("db")), create(t, d, sample("other"))
+	in := pageInput("main")
+	in.Monitors = []StatusPageMonitorInput{{MonitorID: api, DisplayName: "Public API"}, {MonitorID: db, DisplayName: "Database"}}
+	page, err := CreateStatusPage(ctx, d, in, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	since := now.Add(-30 * 24 * time.Hour)
+	old := seedIncident(t, d.Writer, api, since.Add(-2*time.Hour), since.Add(-time.Hour), false) // ended before the window
+	spans := seedIncident(t, d.Writer, api, since.Add(-time.Hour), since.Add(time.Hour), false)  // started before, ended inside
+	recent := seedIncident(t, d.Writer, db, now.Add(-2*time.Hour), now.Add(-time.Hour), false)
+	active := seedIncident(t, d.Writer, api, now.Add(-time.Minute), time.Time{}, false)
+	seedIncident(t, d.Writer, other, now.Add(-time.Hour), time.Time{}, false) // not on the page
+	for _, n := range []struct {
+		id, msg   string
+		published bool
+	}{{recent, "private note", false}, {recent, "we restarted the database", true}, {old, "old", true}} {
+		if _, err := AddIncidentNote(ctx, d, n.id, n.msg, n.published, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := ListPageIncidents(ctx, d.Reader, page, since, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, in := range got {
+		ids = append(ids, in.ID)
+	}
+	if want := []string{active, recent, spans}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("incidents = %v, want %v", ids, want)
+	}
+	if got[0].DisplayName != "Public API" || got[0].EndedAt != nil || got[1].DisplayName != "Database" {
+		t.Errorf("rows = %+v", got)
+	}
+	if len(got[1].Notes) != 1 || got[1].Notes[0].Message != "we restarted the database" || len(got[0].Notes) != 0 {
+		t.Errorf("notes = %+v / %+v, want only the published one", got[1].Notes, got[0].Notes)
+	}
+	if got, _ := ListPageIncidents(ctx, d.Reader, page, since, 1); len(got) != 1 || got[0].ID != active {
+		t.Errorf("limit 1 = %+v", got)
+	}
+	if got, err := ListPageIncidents(ctx, d.Reader, "nope", since, 50); err != nil || got != nil {
+		t.Errorf("unknown page = %+v, %v", got, err)
 	}
 }

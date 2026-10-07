@@ -111,6 +111,11 @@ templ IncidentDetail(page Page, v IncidentDetailView) {
 					@CSRFField(page)
 					<label for="note">Add a note</label>
 					<textarea id="note" name="note" rows="3" maxlength={ strconv.Itoa(v.NoteMax) } required></textarea>
+					<label class="incident-publish">
+						<input type="checkbox" name="publish" value="1"/>
+						Show on status pages
+					</label>
+					<p class="incident-publish-hint">Visitors of the status pages that show this monitor will read it. A note cannot be unpublished later.</p>
 					if v.Error != "" {
 						<p class="auth-error" role="alert">{ v.Error }</p>
 					}
@@ -147,6 +152,9 @@ templ IncidentTimeline(v IncidentDetailView) {
 					<span class="incident-event-label">{ e.Label }</span>
 					if e.Message != "" {
 						if e.Note {
+							if e.Published {
+								<span class="incident-published">On status pages</span>
+							}
 							<p class="incident-note-text">{ e.Message }</p>
 						} else {
 							<span class="incident-event-message">{ e.Message }</span>

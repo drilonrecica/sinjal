@@ -56,6 +56,7 @@ func Routes(r chi.Router, app App) {
 	overview := NewOverview(app.DB, app.Timezone, app.Logger)
 	incidents := NewIncidents(app.DB, app.Events, app.Timezone, app.Logger)
 	statusPages := NewStatusPages(app.DB, app.BaseURL, app.Uploads, app.Logger)
+	public := NewPublic(app.DB, app.Timezone, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
 
 	RegisterHealth(r, app.Health)
@@ -69,6 +70,7 @@ func Routes(r chi.Router, app App) {
 		RegisterLogin(r, login)
 		RegisterPasskeyLogin(r, passkeys)
 		RegisterLogout(r, app.Sessions, app.Logger)
+		RegisterPublic(r, public) // status pages decide access themselves
 
 		// Signed-in users: admins and viewers.
 		r.Group(func(r chi.Router) {

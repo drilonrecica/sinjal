@@ -64,6 +64,18 @@ Do not expose by default:
 - every bar has a text tooltip/label (date, uptime, incident count); color is never the only signal
 - the headline uptime figure for a page uses the same 90-day adjusted value
 
+Implementation (M7-04): one read of a monitor's intervals covers the 90 local days (midnights from the calendar, so a daylight-saving day has 23 or 25 hours); each day is then computed in memory. A day is **up** at 100 % adjusted, **partial** with some downtime at or above 95 %, **down** below 95 %; **maintenance** when it has time but none left after excluded maintenance; **no data** with no time at all (before creation, fully paused). The bar's tooltip reads e.g. "Sat 28 Mar 2026: 99.30% uptime, 1 incident"; the strip is one `role="img"` with a text summary (days without incidents, with downtime, in maintenance, without data) for assistive technology. The page's headline figure is the adjusted 90-day uptime of all its services together (time-weighted).
+
+## Rendering (M7-04)
+
+`GET /status/{slug}` renders with separate public templates (`web/templates/public.templ`, `css/public.css`): no admin shell, no script, the page's own theme (never the visitor's) and accent.
+
+- Overall status, worst first, paused services not counted: **Major outage** (every service down), **Partial outage** (some down), **Degraded performance** (pending or flapping), **Under maintenance** (a window covers a service now), **All systems operational**; "No services are monitored" when nothing is counted.
+- A service shows its public name, its state in words with a glyph (Operational, Down, Checking, Unstable, Not monitored, Maintenance), the strip, its 90-day adjusted uptime and, when "show latency" is on, the last check's duration.
+- Incidents of the page's services that are active or ended within `incident_days`, newest first (at most 50): the service's public name, started, how long it was (or has been) down, and its published notes. Never shown: the monitor's own name, its target (URL, host, IP, port), the incident summary or failure kind, check errors or response snippets, ids.
+- "Powered by sinjal" is a small low-contrast footer, removed with the page setting.
+- The figures are kept in memory for 10 s per page and shared by its visitors; saving the page (any admin change moves `updated_at`) makes the next visit read them again. Responses are `Cache-Control: no-store`.
+
 ## Groups
 
 Static ordered groups.
@@ -107,6 +119,8 @@ Default public history: 30 days.
 Configurable per page.
 
 Manual incident note may be shown when explicitly published: each manual note has a `published` flag (default off); only published notes of incidents of monitors on the page are shown.
+
+The note form on an incident has a "Show on status pages" checkbox, off by default (M7-04). The choice is made when the note is written and cannot be changed later; the timeline marks published notes "On status pages".
 
 ## Custom hostnames
 

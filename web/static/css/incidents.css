@@ -107,6 +107,21 @@
 .incident-note .detail-button {
   justify-self: start;
 }
+.incident-publish {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.incident-publish-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.incident-published {
+  font-size: var(--text-sm);
+  color: var(--accent);
+  font-weight: 600;
+}
 
 /* On a narrow screen the time and duration go under the summary instead of
  * squeezing it into a column of single words. */

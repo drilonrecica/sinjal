@@ -1,0 +1,151 @@
+package templates
+
+import "github.com/drilonrecica/sinjal/internal/assets"
+
+// PublicLayout is the document of a public status page: the page's own
+// theme and accent, the public stylesheet, no admin shell and no script.
+templ PublicLayout(page Page, accentCSS string, noIndex bool) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme={ page.Theme } data-density={ page.Density }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="color-scheme" content={ page.ColorScheme() }/>
+			if noIndex {
+				<meta name="robots" content="noindex, nofollow"/>
+			}
+			<title>{ page.Title }</title>
+			<link rel="stylesheet" href={ assets.URL("css/tokens.css") }/>
+			<link rel="stylesheet" href={ assets.URL("css/base.css") }/>
+			for _, name := range page.Styles {
+				<link rel="stylesheet" href={ assets.URL(name) }/>
+			}
+			if accentCSS != "" {
+				@templ.Raw("<style>" + accentCSS + "</style>")
+			}
+		</head>
+		<body class="public">
+			{ children... }
+		</body>
+	</html>
+}
+
+// PublicStatusPage is a status page as its visitors see it (docs/12,
+// docs/33 "Status page components").
+templ PublicStatusPage(v PublicPage, theme string) {
+	@PublicLayout(publicPage(v.Title, theme), v.AccentCSS, v.NoIndex) {
+		<div class="public-page">
+			@publicHeader(v)
+			<main>
+				<section class={ "public-overall", "public-overall-" + v.Overall } aria-labelledby="overall">
+					<h2 id="overall"><span class="public-glyph" aria-hidden="true">{ overallGlyph(v.Overall) }</span> { v.OverallText }</h2>
+					<p class="public-overall-meta">
+						<span>{ v.Uptime } uptime over 90 days</span>
+						<span>Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time></span>
+					</p>
+				</section>
+				for _, g := range v.Groups {
+					@publicGroup(g)
+				}
+				@publicIncidents(v)
+			</main>
+			if v.PoweredBy {
+				<footer class="public-footer">Powered by <a href="https://github.com/drilonrecica/sinjal">sinjal</a></footer>
+			}
+		</div>
+	}
+}
+
+templ publicHeader(v PublicPage) {
+	<header class="public-header">
+		if v.Logo != "" {
+			<img class="public-logo" src={ v.Logo } alt=""/>
+		}
+		<div>
+			<h1>{ v.Title }</h1>
+			if v.Description != "" {
+				<p class="public-description">{ v.Description }</p>
+			}
+		</div>
+	</header>
+}
+
+templ publicGroup(g PublicGroup) {
+	<section class="public-group" aria-label={ groupLabel(g) }>
+		if g.Name != "" {
+			<h2 class="public-group-name">{ g.Name }</h2>
+		}
+		<ul class="public-services" role="list">
+			for _, row := range g.Rows {
+				@publicRow(row)
+			}
+		</ul>
+	</section>
+}
+
+templ publicRow(row PublicRow) {
+	<li class="public-service" data-state={ row.State }>
+		<div class="public-service-head">
+			<span class="public-service-name">{ row.Name }</span>
+			<span class="public-service-state">
+				<span class="public-glyph" aria-hidden="true">{ publicStateGlyph(row.State) }</span>
+				{ publicStateLabel(row.State) }
+			</span>
+		</div>
+		// role="img": assistive technology reads the strip's summary, not 90
+		// bars; each bar's own words are its tooltip.
+		<ol class="public-strip" role="img" aria-label={ row.StripText }>
+			for _, d := range row.Days {
+				<li class={ "public-day", "public-day-" + d.Class } title={ d.Label }></li>
+			}
+		</ol>
+		<p class="public-service-meta">
+			<span>90 days ago</span>
+			<span>
+				{ row.Uptime } uptime
+				if row.Latency != "" {
+					· { row.Latency }
+				}
+			</span>
+			<span>Today</span>
+		</p>
+	</li>
+}
+
+templ publicIncidents(v PublicPage) {
+	<section class="public-incidents" aria-labelledby="incidents">
+		<h2 id="incidents">Incidents</h2>
+		if len(v.Incidents) == 0 {
+			<p class="public-quiet">No incidents in the last { pluralDays(v.IncidentDays) }.</p>
+		} else {
+			<ol class="public-incident-list" role="list">
+				for _, in := range v.Incidents {
+					<li class="public-incident" data-active?={ in.Active }>
+						<p class="public-incident-head">
+							<span class="public-incident-service">{ in.Service }</span>
+							if in.Active {
+								<span class="public-incident-state">Ongoing</span>
+							} else {
+								<span class="public-incident-state">Resolved</span>
+							}
+						</p>
+						<p class="public-incident-when">
+							Started <time datetime={ in.StartedAt }>{ in.Started }</time>,
+							if in.Active {
+								down for { in.Duration } so far
+							} else {
+								down for { in.Duration }
+							}
+						</p>
+						for _, n := range in.Notes {
+							<div class="public-note">
+								<time datetime={ n.At }>{ n.Time }</time>
+								<p>{ n.Message }</p>
+							</div>
+						}
+					</li>
+				}
+			</ol>
+		}
+	</section>
+}

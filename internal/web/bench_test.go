@@ -60,3 +60,69 @@ func BenchmarkMonitorListPage(b *testing.B) {
 	}
 	b.ReportMetric(float64(size)/1024, "KiB/page")
 }
+
+// BenchmarkStatusPage builds a 25-service page whose monitors had an
+// incident every few days for 90 days: cold (every figure read) and as a
+// visitor gets it within the cache TTL.
+func BenchmarkStatusPage(b *testing.B) {
+	e := newAppEnv(b)
+	now := time.Now()
+	var mons []store.StatusPageMonitorInput
+	var ids []string
+	for i := 0; i < 25; i++ {
+		id, err := store.CreateMonitor(b.Context(), e.db, store.MonitorInput{Name: fmt.Sprintf("monitor %d", i), Enabled: true,
+			HTTP: store.HTTPConfig{URL: "https://x.example.com/"}}, now.AddDate(0, 0, -120))
+		if err != nil {
+			b.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	tx, err := e.db.Writer.Begin()
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i, id := range ids {
+		for d := 0; d < 90; d += 3 {
+			start := now.AddDate(0, 0, -d).Add(-time.Duration(i) * time.Minute)
+			if _, err := tx.Exec(`INSERT INTO incidents (id, monitor_id, started_at, ended_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+				fmt.Sprintf("i%02d%029d", i, d), id, store.FormatTime(start), store.FormatTime(start.Add(7*time.Minute)), store.FormatTime(start)); err != nil {
+				b.Fatal(err)
+			}
+		}
+		mons = append(mons, store.StatusPageMonitorInput{MonitorID: id, DisplayName: fmt.Sprintf("Service %d", i), ShowLatency: i%2 == 0, Sort: i})
+	}
+	if err := tx.Commit(); err != nil {
+		b.Fatal(err)
+	}
+	id, err := store.CreateStatusPage(b.Context(), e.db, store.StatusPageInput{Slug: "bench", Title: "Bench", Visibility: "public",
+		Theme: "paper", IncidentDays: 30, Monitors: mons}, now)
+	if err != nil {
+		b.Fatal(err)
+	}
+	p, err := store.GetStatusPage(b.Context(), e.db.Reader, id)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.Run("cold", func(b *testing.B) {
+		h := NewPublic(e.db, time.UTC, quietLoggerOnly())
+		b.ReportAllocs()
+		for b.Loop() {
+			if _, err := h.build(b.Context(), p, now); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("cached", func(b *testing.B) {
+		b.ReportAllocs()
+		size := 0
+		for b.Loop() {
+			rec := e.serve(req("GET", "/status/bench", nil))
+			if rec.Code != 200 {
+				b.Fatalf("status %d", rec.Code)
+			}
+			size = rec.Body.Len()
+		}
+		b.ReportMetric(float64(size), "bytes/page")
+	})
+}

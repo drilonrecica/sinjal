@@ -25,6 +25,7 @@ var publicRoutes = map[string]bool{
 	"/login/passkey/begin":      true, // sign-in with a passkey
 	"/login/passkey/finish":     true,
 	"/logout":                   true, // ends the caller's own session; harmless without one
+	"/status/{slug}":            true, // status pages enforce their own visibility (docs/12)
 }
 
 // State-changing routes a viewer may use: they act only on the caller's own

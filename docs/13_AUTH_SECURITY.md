@@ -378,7 +378,7 @@ Notes:
 - htmx is configured with `<meta name="htmx-config">`: `includeIndicatorStyles:false` (its injected `<style>` would be blocked; the indicator rules are in `base.css`), `allowEval:false`, `allowScriptTags:false`.
 - `templates.TestPagesNeedNoInlineCode` renders every page and fails on inline `<script>`, `<style>`, `style=`, `on*=` handlers or `javascript:` URLs. New pages must be added to it.
 - No HSTS: TLS terminates at the reverse proxy, which owns that decision for its domain.
-- Status pages (M7) may need their own policy (accent colour, embedding); that is decided there.
+- Status pages (M7-04): a page with a custom accent carries one inline `<style>` (`html[data-theme]{--accent:…;--accent-contrast:…}`, generated only from a checked `#rrggbb`). Its response replaces `style-src 'self'` with `style-src 'self' 'sha256-…'` for exactly that text (`middleware.CSPWithStyleHash`); nothing else inline is admitted and `unsafe-inline` is never used. A page without an accent sends the default policy. Status pages are not embeddable (`frame-ancestors 'none'` stays). The CSP test strips only that exact block before checking the public page.
 
 ## Audit log
 

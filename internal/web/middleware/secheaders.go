@@ -1,6 +1,9 @@
 package middleware
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // ContentSecurityPolicy allows only Sinjal's own bundled assets: no inline
 // script or style, no eval, no CDNs, no framing, forms post only to Sinjal.
@@ -10,6 +13,13 @@ import "net/http"
 const ContentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self'; " +
 	"img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; " +
 	"form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+
+// CSPWithStyleHash is ContentSecurityPolicy that also admits the one
+// inline style whose CSP hash source is given (for example
+// 'sha256-…'): a status page's accent colour (docs/13 "Security headers").
+func CSPWithStyleHash(hash string) string {
+	return strings.Replace(ContentSecurityPolicy, "style-src 'self';", "style-src 'self' "+hash+";", 1)
+}
 
 // PermissionsPolicy turns off powerful features Sinjal never uses. WebAuthn
 // (publickey-credentials-*) keeps its default of self for passkeys.

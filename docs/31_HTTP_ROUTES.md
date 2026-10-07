@@ -33,7 +33,7 @@ POST /monitors/{id}/delete
 
 GET  /incidents
 GET  /incidents/{id}
-POST /incidents/{id}/note
+POST /incidents/{id}/note      # publish=1 also shows it on status pages
 
 GET  /status-pages
 GET  /status-pages/new
@@ -124,7 +124,7 @@ Logos, public, no session (a public page shows its logo to everyone; the name is
 GET /uploads/{name}   # name = 32 hex + .png|.jpg, anything else is 404; Content-Type from the extension, X-Content-Type-Options: nosniff, immutable cache
 ```
 
-Path-based:
+Path-based (M7-04: `GET|HEAD /status/{slug}` renders public pages, in the session group outside `RequireAuth`; see `12_STATUS_PAGES.md` "Rendering"):
 
 ```text
 GET /status/{slug}

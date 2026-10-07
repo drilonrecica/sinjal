@@ -92,7 +92,7 @@ func TestGetIncidentAndNotes(t *testing.T) {
 	m := create(t, d, sample("api"))
 	id := seedIncident(t, d.Writer, m, now, now.Add(time.Hour), false)
 
-	monitor, err := AddIncidentNote(ctx, d, id, "rebooted the router", now.Add(2*time.Hour))
+	monitor, err := AddIncidentNote(ctx, d, id, "rebooted the router", false, now.Add(2*time.Hour))
 	if err != nil || monitor != m {
 		t.Fatalf("AddIncidentNote = %q, %v", monitor, err)
 	}
@@ -110,14 +110,20 @@ func TestGetIncidentAndNotes(t *testing.T) {
 	if want := []string{incident.EventDetected, incident.EventDeclaredDown, incident.EventRecovered, incident.EventManualNote}; !reflect.DeepEqual(types, want) {
 		t.Fatalf("events = %v, want %v", types, want)
 	}
-	if last := events[3]; last.Message != "rebooted the router" || !last.At.Equal(now.Add(2*time.Hour)) {
+	if last := events[3]; last.Message != "rebooted the router" || !last.At.Equal(now.Add(2*time.Hour)) || last.Published {
 		t.Fatalf("note = %+v", last)
+	}
+	if _, err := AddIncidentNote(ctx, d, id, "fixed upstream", true, now.Add(3*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, events, _ = GetIncident(ctx, d.Reader, id); len(events) != 5 || !events[4].Published {
+		t.Fatalf("published note = %+v", events)
 	}
 
 	if _, _, err := GetIncident(ctx, d.Reader, "missing"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("GetIncident(missing) = %v", err)
 	}
-	if _, err := AddIncidentNote(ctx, d, "missing", "x", now); !errors.Is(err, ErrNotFound) {
+	if _, err := AddIncidentNote(ctx, d, "missing", "x", false, now); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("AddIncidentNote(missing) = %v", err)
 	}
 }

@@ -171,7 +171,7 @@ func (h *Incidents) detailView(r *http.Request, id, noteError string) (templates
 		}
 		v.Events = append(v.Events, templates.IncidentEventView{
 			Label: label, Message: e.Message, Time: clockText(e.At, now, h.loc), At: rfc3339(e.At),
-			Note: e.Type == incident.EventManualNote,
+			Note: e.Type == incident.EventManualNote, Published: e.Published,
 		})
 	}
 	return v, nil
@@ -232,7 +232,8 @@ func (h *Incidents) note(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	monitorID, err := store.AddIncidentNote(r.Context(), h.db, id, msg, h.now())
+	published := r.PostFormValue("publish") == "1"
+	monitorID, err := store.AddIncidentNote(r.Context(), h.db, id, msg, published, h.now())
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		http.NotFound(w, r)

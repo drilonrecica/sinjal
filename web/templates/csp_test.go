@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/a-h/templ"
@@ -126,16 +127,34 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		Presets: []RangeOption{{Label: "1 hour", Href: "/monitors/m1?tab=history&range=1h", Current: true}, {Label: "24 hours", Href: "/monitors/m1?tab=history&range=24h"}}}}
 	withData.Monitor.Sparkline = Sparkline{Points: "0,1 100,2", Failures: []float64{50}, Label: "l"}
 	pages["detail-history-data"] = MonitorDetail(page, withData)
+	pages["public"] = PublicStatusPage(testPublicPage, "paper")
+	pages["publicEmpty"] = PublicStatusPage(PublicPage{Title: "Empty", Overall: OverallNone, Uptime: "—", IncidentDays: 1}, "terminal")
 	for name, c := range pages {
 		var buf bytes.Buffer
 		if err := c.Render(context.Background(), &buf); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if m := cspViolation(buf.String()); m != "" {
+		html := buf.String()
+		// A status page's accent is the one inline style; its response CSP
+		// admits exactly this text by hash (web.Public.render).
+		if name == "public" {
+			block := "<style>" + testPublicPage.AccentCSS + "</style>"
+			if strings.Count(html, block) != 1 {
+				t.Fatalf("public page lacks its accent style")
+			}
+			html = strings.Replace(html, block, "", 1)
+		}
+		if m := cspViolation(html); m != "" {
 			t.Errorf("%s contains CSP-blocked inline code %q", name, m)
 		}
 	}
 }
+
+var testPublicPage = PublicPage{Title: "Acme", Description: "d", Logo: "/uploads/x.png", Overall: OverallPartial, OverallText: "Partial outage",
+	Uptime: "99.90%", IncidentDays: 30, PoweredBy: true, NoIndex: true, AccentCSS: "html[data-theme]{--accent:#3e67a8;--accent-contrast:#ffffff}",
+	Groups: []PublicGroup{{Name: "Web", Rows: []PublicRow{{Name: "API", State: StateDown, Latency: "80 ms", Uptime: "99.00%",
+		Days: []PublicDay{{Class: DayUp, Label: "a"}, {Class: DayMaintenance, Label: "b"}}, StripText: "s"}}}, {Rows: []PublicRow{{Name: "DB", State: StateMaintenance}}}},
+	Incidents: []PublicIncident{{Service: "API", Active: true, Started: "s", Duration: "5m", Notes: []PublicNote{{Message: "m", Time: "t"}}}, {Service: "DB"}}}
 
 var testIncidents = IncidentListView{Fragment: "/fragments/incidents", ShowMonitor: true, Limit: 100, More: true,
 	Rows: []IncidentRowView{
