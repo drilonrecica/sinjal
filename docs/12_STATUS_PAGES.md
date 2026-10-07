@@ -29,6 +29,8 @@ Separate page password. No full user account required.
 ### Unlisted
 Tokenized/unguessable URL and no navigation/index link.
 
+How each mode is enforced (M7-05) is in `13_AUTH_SECURITY.md` "Status page access": login with return for authenticated pages, a password form and a page-scoped signed cookie (7 days, invalidated by a password change, rate-limited attempts) for password pages, the token address with noindex headers for unlisted pages.
+
 Unlisted is not a substitute for strong authentication for highly sensitive information.
 
 URL shape (decision P0-15):

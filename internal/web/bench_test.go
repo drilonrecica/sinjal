@@ -105,7 +105,7 @@ func BenchmarkStatusPage(b *testing.B) {
 	}
 
 	b.Run("cold", func(b *testing.B) {
-		h := NewPublic(e.db, time.UTC, quietLoggerOnly())
+		h := NewPublic(e.db, nil, time.UTC, quietLoggerOnly())
 		b.ReportAllocs()
 		for b.Loop() {
 			if _, err := h.build(b.Context(), p, now); err != nil {

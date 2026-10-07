@@ -39,17 +39,18 @@ func TestEveryInputHasALabel(t *testing.T) {
 	signedIn := page
 	signedIn.Admin = true
 	views := map[string]string{
-		"setup":      renderString(t, Setup(page, SetupForm{Token: "t"}, 12)),
-		"login":      renderString(t, Login(page, LoginForm{})),
-		"loginTOTP":  renderString(t, LoginTOTP(page, LoginTOTPForm{Challenge: "c"})),
-		"reauth":     renderString(t, Reauth(page, ReauthForm{Login: "admin", TOTP: true})),
-		"settings":   renderString(t, SettingsAuth(signedIn, SettingsAuthView{MinPassword: 12})),
-		"totpSetup":  renderString(t, TOTPSetup(signedIn, TOTPSetupView{Pending: "p"})),
-		"account":    renderString(t, AccountPassword(signedIn, PasswordForm{}, 12)),
-		"monitor":    renderString(t, MonitorFormPage(signedIn, testMonitorForm)),
-		"profile":    renderString(t, ProfileFormPage(signedIn, testProfileForm)),
-		"statusPage": renderString(t, StatusPageFormPage(signedIn, testStatusPageForm)),
-		"channel":    renderString(t, ChannelFormPage(signedIn, ChannelForm{ID: "c1", Type: "smtp", Values: map[string]string{}, SecretSet: map[string]bool{"password": true}})),
+		"setup":        renderString(t, Setup(page, SetupForm{Token: "t"}, 12)),
+		"login":        renderString(t, Login(page, LoginForm{})),
+		"loginTOTP":    renderString(t, LoginTOTP(page, LoginTOTPForm{Challenge: "c"})),
+		"reauth":       renderString(t, Reauth(page, ReauthForm{Login: "admin", TOTP: true})),
+		"settings":     renderString(t, SettingsAuth(signedIn, SettingsAuthView{MinPassword: 12})),
+		"totpSetup":    renderString(t, TOTPSetup(signedIn, TOTPSetupView{Pending: "p"})),
+		"account":      renderString(t, AccountPassword(signedIn, PasswordForm{}, 12)),
+		"monitor":      renderString(t, MonitorFormPage(signedIn, testMonitorForm)),
+		"profile":      renderString(t, ProfileFormPage(signedIn, testProfileForm)),
+		"statusPage":   renderString(t, StatusPageFormPage(signedIn, testStatusPageForm)),
+		"pagePassword": renderString(t, PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "paper")),
+		"channel":      renderString(t, ChannelFormPage(signedIn, ChannelForm{ID: "c1", Type: "smtp", Values: map[string]string{}, SecretSet: map[string]bool{"password": true}})),
 	}
 	for name, html := range views {
 		labelled := map[string]bool{}

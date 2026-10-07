@@ -195,6 +195,37 @@
   overflow-wrap: anywhere;
 }
 
+.public-locked main {
+  max-width: 24rem;
+  gap: var(--space-4);
+}
+.public-password {
+  display: grid;
+  gap: var(--space-2);
+}
+.public-password input {
+  font: inherit;
+  padding: var(--space-2);
+  color: var(--text);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+.public-password button {
+  justify-self: start;
+  font: inherit;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-4);
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.public-error {
+  color: var(--status-down);
+}
+
 /* Small, low contrast, non-dominant (docs/02 "Status-page branding"). */
 .public-footer {
   text-align: center;

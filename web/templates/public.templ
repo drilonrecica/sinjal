@@ -149,3 +149,35 @@ templ publicIncidents(v PublicPage) {
 		}
 	</section>
 }
+
+// PublicPasswordPage asks for a page's password (docs/12 "Password-protected").
+templ PublicPasswordPage(v PublicPasswordView, theme string) {
+	@PublicLayout(publicPage(v.Title, theme), "", false) {
+		<div class="public-page public-locked">
+			<main>
+				<h1>{ v.Title }</h1>
+				<form class="public-password" method="post" action={ templ.SafeURL(v.Action) }>
+					if v.CSRFToken != "" {
+						<input type="hidden" name="_csrf" value={ v.CSRFToken }/>
+					}
+					<label for="password">This page is protected. Enter its password to see it.</label>
+					<input
+						id="password"
+						name="password"
+						type="password"
+						autocomplete="current-password"
+						required
+						if v.Error != "" {
+							aria-invalid="true"
+							aria-describedby="password-error"
+						}
+					/>
+					if v.Error != "" {
+						<p id="password-error" class="public-error" role="alert">{ v.Error }</p>
+					}
+					<button type="submit">Open the page</button>
+				</form>
+			</main>
+		</div>
+	}
+}

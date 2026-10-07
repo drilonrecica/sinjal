@@ -91,6 +91,16 @@ type PublicNote struct {
 	At      string
 }
 
+// PublicPasswordView is the form that opens a password-protected page.
+// Action is the page's own address; CSRFToken is set for signed-in
+// visitors, whose posts need it.
+type PublicPasswordView struct {
+	Title     string
+	Action    string
+	Error     string
+	CSRFToken string
+}
+
 // publicStateLabel is the visible state of a service.
 func publicStateLabel(state string) string {
 	switch state {

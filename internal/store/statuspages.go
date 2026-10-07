@@ -178,6 +178,17 @@ func StatusPageIDByHost(ctx context.Context, q querier, host string) (string, er
 	return id, err
 }
 
+// StatusPagePasswordHash returns the page password's Argon2id hash, "" when
+// the page has none, or ErrNotFound. Only the password check reads it.
+func StatusPagePasswordHash(ctx context.Context, q querier, id string) (string, error) {
+	var h sql.NullString
+	err := q.QueryRowContext(ctx, `SELECT password_hash FROM status_pages WHERE id = ?`, id).Scan(&h)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return h.String, err
+}
+
 func getStatusPage(ctx context.Context, q querier, where string, arg any) (StatusPageDetail, error) {
 	var d StatusPageDetail
 	p, err := scanStatusPage(q.QueryRowContext(ctx, `SELECT `+statusPageColumns+` FROM status_pages p WHERE `+where, arg))

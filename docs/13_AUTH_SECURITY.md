@@ -311,6 +311,15 @@ HTMX does not remove CSRF requirements.
 - Rate limit: 10 failed checks per (client IP, lower-cased login) per 15 minutes; then 429 with `Retry-After` and no hash computed, even for the right password. The limiter (`internal/ratelimit`) holds at most 4096 keys and evicts the oldest. A success resets the key. Blocked attempts are logged, not audited.
 - CSRF: an anonymous login POST gets the origin check (M1-08), which also stops login CSRF.
 
+## Status page access
+
+Implementation (M7-05, `internal/web/pageaccess.go`). Access is decided before anything of the page is read for the response (the figure cache included):
+- **Public**: anyone.
+- **Authenticated**: a session of any role (admin or viewer); without one, GET/HEAD answer 303 to `/login?next=<the page path>`, and the login returns there (`safeNext`).
+- **Password**: without a valid page cookie, 401 with a password form (`no-store`). The form posts to the page's own address; the post goes through the session group's CSRF middleware (an anonymous post gets the origin check, a signed-in visitor's form carries the token). The password is checked with `auth.VerifyPassword` against the page's Argon2id hash. Rate limit as for sign-in: 10 failures per (client IP, page) per 15 minutes, checked before hashing; then 429 with `Retry-After: 900`; at most 4096 keys; success resets. A refusal is logged (client IP, page id), never the password, and not audited. Admins need the password too.
+- The page cookie `sinjal_page` is `<expiry>.<HMAC-SHA256>` over the page id, the expiry and the stored password hash, with a key derived from the master key (`PageKeyLabel`, "sinjal status page v1"). Path is the page's address (`/status/{slug}`, `/` on a mapped hostname), so it is sent to that page only; `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS, 7 days. Changing the page password invalidates every cookie at once; a cookie never opens another page.
+- **Unlisted**: only `/s/{token}` (the stored SHA-256 of the 128-bit token, and the page must still be unlisted); `/status/{slug}` answers 404 for it. Responses carry `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` and a robots meta tag. The access log records the route pattern, never the token.
+
 ## Proxy trust
 
 Never trust all `X-Forwarded-*` headers unconditionally.

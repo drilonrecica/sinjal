@@ -132,7 +132,7 @@ GET /status/{slug}/api.json
 GET /status/{slug}/feed.xml
 ```
 
-Unlisted:
+Unlisted (M7-05: `GET|HEAD /s/{token}`; `POST /status/{slug}` is the page password form; access rules in `13_AUTH_SECURITY.md` "Status page access"):
 
 ```text
 GET /s/{token}

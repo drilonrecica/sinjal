@@ -128,6 +128,7 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 	withData.Monitor.Sparkline = Sparkline{Points: "0,1 100,2", Failures: []float64{50}, Label: "l"}
 	pages["detail-history-data"] = MonitorDetail(page, withData)
 	pages["public"] = PublicStatusPage(testPublicPage, "paper")
+	pages["publicPassword"] = PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "carbon")
 	pages["publicEmpty"] = PublicStatusPage(PublicPage{Title: "Empty", Overall: OverallNone, Uptime: "—", IncidentDays: 1}, "terminal")
 	for name, c := range pages {
 		var buf bytes.Buffer

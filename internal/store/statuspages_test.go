@@ -383,3 +383,24 @@ func TestListPageIncidents(t *testing.T) {
 		t.Errorf("unknown page = %+v, %v", got, err)
 	}
 }
+
+func TestStatusPagePasswordHash(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	in := pageInput("p")
+	in.Visibility, in.PasswordHash = "password", "$argon2id$x"
+	id, err := CreateStatusPage(ctx, d, in, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h, err := StatusPagePasswordHash(ctx, d.Reader, id); err != nil || h != "$argon2id$x" {
+		t.Errorf("hash = %q, %v", h, err)
+	}
+	pub, _ := CreateStatusPage(ctx, d, pageInput("q"), now)
+	if h, err := StatusPagePasswordHash(ctx, d.Reader, pub); err != nil || h != "" {
+		t.Errorf("public page hash = %q, %v", h, err)
+	}
+	if _, err := StatusPagePasswordHash(ctx, d.Reader, "nope"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown = %v", err)
+	}
+}

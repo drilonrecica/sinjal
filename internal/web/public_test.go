@@ -152,9 +152,8 @@ func TestPublicPageOptions(t *testing.T) {
 
 func TestPublicPageNotServed(t *testing.T) {
 	e := newAppEnv(t)
-	e.addPage(t, store.StatusPageInput{Slug: "auth", Title: "A", Visibility: "authenticated"})
 	e.addPage(t, store.StatusPageInput{Slug: "secret", Title: "S", Visibility: "unlisted", TokenHash: []byte("0123456789abcdef0123456789abcdef")})
-	for _, path := range []string{"/status/nope", "/status/secret", "/status/-bad-", "/status/auth"} {
+	for _, path := range []string{"/status/nope", "/status/secret", "/status/-bad-"} {
 		if rec := e.serve(req("GET", path, nil)); rec.Code != 404 {
 			t.Errorf("GET %s = %d, want 404", path, rec.Code)
 		}
@@ -204,7 +203,7 @@ func TestPublicStrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := NewPublic(e.db, loc, quietLoggerOnly())
+	h := NewPublic(e.db, nil, loc, quietLoggerOnly())
 	v, err := h.build(ctx, p, now)
 	if err != nil {
 		t.Fatal(err)
@@ -294,7 +293,7 @@ func TestPublicCache(t *testing.T) {
 	m := e.addMonitor(t, "x", "https://x.example.com/")
 	e.exec(t, `UPDATE monitors SET current_state = 'up'`)
 	id := e.addPage(t, store.StatusPageInput{Slug: "c", Title: "C", Monitors: []store.StatusPageMonitorInput{{MonitorID: m, DisplayName: "Thing"}}})
-	h := NewPublic(e.db, time.UTC, quietLoggerOnly())
+	h := NewPublic(e.db, nil, time.UTC, quietLoggerOnly())
 	now := time.Now()
 	h.now = func() time.Time { return now }
 	read := func() string {

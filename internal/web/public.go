@@ -18,6 +18,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/incident"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/maintenance"
+	"github.com/drilonrecica/sinjal/internal/ratelimit"
 	"github.com/drilonrecica/sinjal/internal/statuspage"
 	"github.com/drilonrecica/sinjal/internal/store"
 	"github.com/drilonrecica/sinjal/internal/web/middleware"
@@ -42,30 +43,37 @@ const (
 // only what a page shows: public names and figures, never a monitor's own
 // name, target, failure text or snippet.
 type Public struct {
-	db    *db.DB
-	loc   *time.Location
-	log   *slog.Logger
-	now   func() time.Time
-	cache pageCache
+	db      *db.DB
+	key     []byte // signs page cookies (PageKeyLabel)
+	limiter *ratelimit.Limiter
+	loc     *time.Location
+	log     *slog.Logger
+	now     func() time.Time
+	cache   pageCache
 }
 
-// NewPublic returns the public status page handler; loc nil means UTC.
-func NewPublic(d *db.DB, loc *time.Location, logger *slog.Logger) *Public {
+// NewPublic returns the public status page handler; key signs the cookies
+// of password-protected pages; loc nil means UTC.
+func NewPublic(d *db.DB, key []byte, loc *time.Location, logger *slog.Logger) *Public {
 	if loc == nil {
 		loc = time.UTC
 	}
-	return &Public{db: d, loc: loc, log: logging.Sub(logger, "http"), now: time.Now, cache: pageCache{entries: map[string]cachedPage{}}}
+	return &Public{db: d, key: key, limiter: ratelimit.New(pageMaxFailures, pageWindow, pageTrackedKeys), loc: loc,
+		log: logging.Sub(logger, "http"), now: time.Now, cache: pageCache{entries: map[string]cachedPage{}}}
 }
 
-// RegisterPublic mounts the path-based pages. They sit in the session
-// group, outside RequireAuth.
+// RegisterPublic mounts the path-based and unlisted pages. They sit in
+// the session group, outside RequireAuth: each page enforces its own
+// visibility (pageaccess.go). POST is the page password form.
 func RegisterPublic(r chi.Router, h *Public) {
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
 		r.Method(method, "/status/{slug}", http.HandlerFunc(h.bySlug))
+		r.Method(method, "/s/{token}", http.HandlerFunc(h.byToken))
 	}
+	r.Post("/status/{slug}", h.bySlug)
 }
 
-// bySlug serves GET /status/{slug}.
+// bySlug serves /status/{slug}: every page but an unlisted one.
 func (h *Public) bySlug(w http.ResponseWriter, r *http.Request) {
 	slug, ok := statuspage.NormalizeSlug(chi.URLParam(r, "slug"))
 	if !ok {
@@ -81,12 +89,33 @@ func (h *Public) bySlug(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, "loading a status page", err)
 		return
 	}
-	if p.Visibility != statuspage.Public {
-		// The other modes are enforced in M7-05; until then they are not served.
+	if p.Visibility == statuspage.Unlisted {
 		http.NotFound(w, r)
 		return
 	}
-	h.render(w, r, p)
+	h.serve(w, r, p, pageAccess{base: "/status/" + slug})
+}
+
+// byToken serves /s/{token}: an unlisted page by its secret address. The
+// token is never logged: the access log records the route pattern, not
+// the path (middleware.AccessLog).
+func (h *Public) byToken(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "token")
+	hash, ok := statuspage.HashToken(token)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := store.GetStatusPageByTokenHash(r.Context(), h.db.Reader, hash)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		h.fail(w, r, "loading a status page", err)
+		return
+	}
+	h.serve(w, r, p, pageAccess{base: "/s/" + token})
 }
 
 // render writes the page. Its CSP admits the page's accent style by hash
@@ -127,6 +156,7 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	v := templates.PublicPage{
 		Title: p.Title, Description: p.Description, IncidentDays: p.IncidentDays, PoweredBy: p.ShowPoweredBy,
 		Generated: clockText(now, now, h.loc), GeneratedAt: rfc3339(now), AccentCSS: accentCSS(p.Accent),
+		NoIndex: p.Visibility == statuspage.Unlisted,
 	}
 	if p.LogoPath != "" {
 		v.Logo = "/uploads/" + p.LogoPath
