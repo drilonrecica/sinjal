@@ -72,7 +72,7 @@ func TestMappedHostServesNothingElse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/readyz", "/login", "/setup", "/events", "/api/v1/status", "/status/shop", "/s/x", "/monitors", "/api.json", "/feed.xml"} {
+	for _, path := range []string{"/readyz", "/login", "/setup", "/events", "/api/v1/status", "/status/shop", "/s/x", "/monitors", "/status/shop/api.json", "/s/x/feed.xml"} {
 		if rec := e.serve(onHost(req("GET", path, nil), mappedHost)); rec.Code != http.StatusNotFound {
 			t.Errorf("GET %s on a mapped host = %d, want 404", path, rec.Code)
 		}

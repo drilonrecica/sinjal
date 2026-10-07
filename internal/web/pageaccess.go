@@ -38,7 +38,17 @@ const (
 type pageAccess struct {
 	base   string // "/status/{slug}", "/s/{token}" or "/" on a mapped hostname
 	mapped bool   // served at / of a mapped hostname, which has no sessions
+	kind   int    // kindHTML (the page), kindJSON or kindFeed
 }
+
+// What a request for a page asks for. The same access rules decide all of
+// them; only the refusal differs, because a machine reader has no use for
+// a form or a redirect.
+const (
+	kindHTML = iota
+	kindJSON
+	kindFeed
+)
 
 // serve answers a request for page p: it enforces the page's visibility,
 // then renders it. Nothing about the page is read for the response before
@@ -47,6 +57,13 @@ func (h *Public) serve(w http.ResponseWriter, r *http.Request, p store.StatusPag
 	switch p.Visibility {
 	case statuspage.Public, statuspage.Unlisted:
 	case statuspage.Authenticated:
+		if at.kind != kindHTML {
+			if _, ok := SessionFromContext(r.Context()); !ok || at.mapped {
+				refuse(w, "sign in to see this page")
+				return
+			}
+			break
+		}
 		if at.mapped {
 			h.signInElsewhere(w, r, p)
 			return
@@ -60,7 +77,7 @@ func (h *Public) serve(w http.ResponseWriter, r *http.Request, p store.StatusPag
 			return
 		}
 	case statuspage.Password:
-		if r.Method == http.MethodPost {
+		if r.Method == http.MethodPost && at.kind == kindHTML {
 			h.unlock(w, r, p, at)
 			return
 		}
@@ -70,6 +87,10 @@ func (h *Public) serve(w http.ResponseWriter, r *http.Request, p store.StatusPag
 			return
 		}
 		if !ok {
+			if at.kind != kindHTML {
+				refuse(w, "this page needs its password")
+				return
+			}
 			h.passwordForm(w, r, p, at, http.StatusUnauthorized, "")
 			return
 		}
@@ -85,7 +106,21 @@ func (h *Public) serve(w http.ResponseWriter, r *http.Request, p store.StatusPag
 		w.Header().Set("X-Robots-Tag", "noindex, nofollow")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 	}
-	h.render(w, r, p)
+	switch at.kind {
+	case kindJSON:
+		h.writeJSON(w, r, p)
+	case kindFeed:
+		h.writeFeed(w, r, p, at)
+	default:
+		h.render(w, r, p)
+	}
+}
+
+// refuse answers a machine reader that may not see a page: 401 and a
+// plain line, never the page's content, a form or a redirect.
+func refuse(w http.ResponseWriter, msg string) {
+	w.Header().Set("Cache-Control", "no-store")
+	http.Error(w, msg, http.StatusUnauthorized)
 }
 
 // signInElsewhere answers an authenticated page on a mapped hostname.

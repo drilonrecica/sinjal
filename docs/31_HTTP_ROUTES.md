@@ -132,6 +132,8 @@ GET /status/{slug}/api.json
 GET /status/{slug}/feed.xml
 ```
 
+`api.json` and `feed.xml` (M7-07) are `GET|HEAD` only and enforce the same access as the page, answering a refusal with 401 and a plain line (no form, no redirect); see `12_STATUS_PAGES.md` "JSON endpoint".
+
 Unlisted (M7-05: `GET|HEAD /s/{token}`; `POST /status/{slug}` is the page password form; access rules in `13_AUTH_SECURITY.md` "Status page access"):
 
 ```text
@@ -143,7 +145,7 @@ GET /s/{token}/feed.xml
 Custom hostname (M7-06, `internal/web/hosts.go`; details in `12_STATUS_PAGES.md` "Custom hostnames"):
 - same page can render at `/`
 - access is selected by configured hostname mapping
-- mapped hostnames serve only that page's public routes, static assets and `/healthz`; all other routes return 404 (see `12_STATUS_PAGES.md`)
+- mapped hostnames serve only that page's public routes (`/`, `/api.json`, `/feed.xml`), static assets and `/healthz`; all other routes return 404 (see `12_STATUS_PAGES.md`)
 
 Do not create conflicting host mappings.
 

@@ -146,7 +146,7 @@ Everything else (admin UI, `/login`, `/setup`, `/events`, `/api/v1/*`, other pag
 
 Reverse proxy/Coolify/Caddy handles TLS.
 
-Implementation (M7-06, `internal/web/hosts.go`): `HostRouter` runs before the route table. It takes the trusted Host (`proxy.Host`: `X-Forwarded-Host` only from a peer in `SINJAL_TRUSTED_PROXIES`, otherwise the request's own `Host`), lowercases it, drops the port, IPv6 brackets and a trailing dot, and looks it up in `status_page_hosts` (one primary-key read per request, about 14 µs). The base URL's own host is never looked up. A mapped hostname is answered by a separate small table that has only `GET|HEAD|POST /` (the page; POST is its password form, origin-checked), `GET|HEAD /healthz`, `/static/*` and `/uploads/{name}`; everything else is 404, `/readyz` included. `/api.json` and `/feed.xml` join it with M7-07.
+Implementation (M7-06, `internal/web/hosts.go`): `HostRouter` runs before the route table. It takes the trusted Host (`proxy.Host`: `X-Forwarded-Host` only from a peer in `SINJAL_TRUSTED_PROXIES`, otherwise the request's own `Host`), lowercases it, drops the port, IPv6 brackets and a trailing dot, and looks it up in `status_page_hosts` (one primary-key read per request, about 14 µs). The base URL's own host is never looked up. A mapped hostname is answered by a separate small table that has only `GET|HEAD|POST /` (the page; POST is its password form, origin-checked), `GET|HEAD /healthz`, `/static/*` and `/uploads/{name}`; everything else is 404, `/readyz` included. `/api.json` and `/feed.xml` are served too (M7-07).
 
 On a mapped hostname the page's own access rules apply, with two differences (owner decisions, M7-06):
 - there are no sessions there (session cookies belong to the instance's own host), so an **authenticated** page answers 303 to `SINJAL_BASE_URL/status/{slug}`, where signing in returns to it; without a base URL it answers 403 "Sign in to Sinjal to see this page";
@@ -167,8 +167,12 @@ Example fields:
 
 Do not expose internal IDs unnecessarily.
 
+Implementation (M7-07, `internal/web/publicfeed.go`): `api.json` is built from the same cached view as the HTML page (so it shows exactly what the page shows) and has `page{title,description}`, `overall_status{state,text}`, `generated_at`, `uptime_90d`, `components[]{key,name,group,status,latency_ms,uptime_90d}` and `incidents[]{key,component,active,started_at,ended_at,notes[{at,message}]}`; `component` is the key of the incident's service. Keys are opaque: `HMAC-SHA256(page key, kind|page id|id)` as 16 lowercase base32 characters, stable for a page, different on every page, not reversible; no monitor, incident or page id is exposed. `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
+
 ## RSS/Atom
 
 Expose incident feed where page visibility permits.
 
 For password/authenticated pages, do not create a public feed that bypasses access rules.
+
+Implementation (M7-07): `feed.xml` is Atom, one entry per incident listed on the page (title "<service>: ongoing|resolved", id from the opaque incident key, published notes in the content). Both formats go through the page's access code (`Public.serve`): public and unlisted pages are open (unlisted also sends `noindex` and `no-referrer` and exists only under its token), a password page answers **401 with a plain line** (no form, no redirect) until the request carries its page cookie, an authenticated page answers 401 without a session (also on a mapped hostname, where there are no sessions). The password cookie of a path-based page covers its `api.json` and `feed.xml` (same path prefix).

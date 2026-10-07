@@ -26,6 +26,10 @@ var publicRoutes = map[string]bool{
 	"/login/passkey/finish":     true,
 	"/logout":                   true, // ends the caller's own session; harmless without one
 	"/status/{slug}":            true, // status pages enforce their own visibility (docs/12); POST is the page password
+	"/status/{slug}/api.json":   true, // api.json and feed.xml follow the page's own rules (docs/12)
+	"/status/{slug}/feed.xml":   true,
+	"/s/{token}/api.json":       true,
+	"/s/{token}/feed.xml":       true,
 	"/s/{token}":                true, // unlisted pages: the 128-bit path token is the access
 }
 

@@ -61,7 +61,7 @@ func requestHost(r *http.Request) string {
 }
 
 // mappedRoutes is everything a mapped hostname serves: the page at /,
-// the health check, the static assets and the uploads (logos). Anything
+// its api.json and feed.xml, the health check, the static assets and the uploads (logos). Anything
 // else, the admin UI, /login, /events, /api/v1 and other pages included,
 // is 404. The page's api.json and feed.xml join it with M7-07. There is
 // no session here: session cookies belong to the instance's own host.
@@ -72,6 +72,10 @@ func mappedRoutes(app App, csrf *CSRF, public *Public) http.Handler {
 	}
 	RegisterStatic(r, app.Assets)
 	RegisterUploads(r, app.Uploads)
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		r.Method(method, "/api.json", public.byHostAs(kindJSON))
+		r.Method(method, "/feed.xml", public.byHostAs(kindFeed))
+	}
 	r.Group(func(r chi.Router) {
 		r.Use(csrf.Middleware) // the password form: an anonymous post gets the origin check
 		for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost} {

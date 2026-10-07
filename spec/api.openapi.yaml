@@ -72,20 +72,77 @@ paths:
   /status/{slug}/api.json:
     get:
       summary: Public-safe status page JSON
+      description: >
+        Follows the page's access rules (also at /s/{token}/api.json and, on a
+        mapped hostname, /api.json). Components and incidents carry opaque keys,
+        never internal ids. A password or authenticated page answers 401 without
+        its cookie or a session.
       parameters:
         - in: path
           name: slug
           required: true
           schema: { type: string }
       responses:
-        '200': { description: Public status representation }
+        '200':
+          description: Public status representation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [page, overall_status, generated_at, uptime_90d, components, incidents]
+                properties:
+                  page:
+                    type: object
+                    required: [title]
+                    properties: { title: { type: string }, description: { type: string } }
+                  overall_status:
+                    type: object
+                    properties: { state: { type: string }, text: { type: string } }
+                  generated_at: { type: string, format: date-time }
+                  uptime_90d: { type: string }
+                  components:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, name, status, uptime_90d]
+                      properties:
+                        key: { type: string }
+                        name: { type: string }
+                        group: { type: string }
+                        status: { type: string }
+                        latency_ms: { type: integer }
+                        uptime_90d: { type: string }
+                  incidents:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, component, active, started_at, notes]
+                      properties:
+                        key: { type: string }
+                        component: { type: string, description: Key of the component }
+                        active: { type: boolean }
+                        started_at: { type: string, format: date-time }
+                        ended_at: { type: string, format: date-time }
+                        notes:
+                          type: array
+                          items:
+                            type: object
+                            properties: { at: { type: string, format: date-time }, message: { type: string } }
+        '401': { description: The page needs its password or a session }
+        '404': { description: Unknown page }
   /status/{slug}/feed.xml:
     get:
-      summary: Incident feed
+      summary: Incident feed (Atom)
+      description: Same access rules as api.json (also at /s/{token}/feed.xml and /feed.xml on a mapped hostname).
       parameters:
         - in: path
           name: slug
           required: true
           schema: { type: string }
       responses:
-        '200': { description: RSS or Atom feed }
+        '200':
+          description: Atom feed, one entry per incident on the page
+          content:
+            application/atom+xml: {}
+        '401': { description: The page needs its password or a session }
+        '404': { description: Unknown page }

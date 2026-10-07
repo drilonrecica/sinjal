@@ -75,6 +75,15 @@ func RegisterPublic(r chi.Router, h *Public) {
 		r.Method(method, "/s/{token}", http.HandlerFunc(h.byToken))
 	}
 	r.Post("/status/{slug}", h.bySlug)
+	for _, f := range []struct {
+		name string
+		kind int
+	}{{"api.json", kindJSON}, {"feed.xml", kindFeed}} {
+		for _, method := range []string{http.MethodGet, http.MethodHead} {
+			r.Method(method, "/status/{slug}/"+f.name, h.bySlugAs(f.kind))
+			r.Method(method, "/s/{token}/"+f.name, h.byTokenAs(f.kind))
+		}
+	}
 }
 
 // bySlug serves /status/{slug}: every page but an unlisted one.
@@ -136,6 +145,8 @@ func (h *Public) render(w http.ResponseWriter, r *http.Request, p store.StatusPa
 	render(w, r, h.log, http.StatusOK, templates.PublicStatusPage(v, p.Theme))
 }
 
+func isNotFound(err error) bool { return errors.Is(err, store.ErrNotFound) }
+
 func (h *Public) fail(w http.ResponseWriter, r *http.Request, what string, err error) {
 	h.log.Error("status page request failed", "route", r.URL.Path, "while", what, "error", err)
 	http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -176,7 +187,7 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	var total incident.Ratio
 	states := map[string]int{}
 	for _, pm := range p.Monitors {
-		row, adjusted, err := h.row(ctx, pm, days, now)
+		row, adjusted, err := h.row(ctx, p.ID, pm, days, now)
 		if err != nil {
 			return v, err
 		}
@@ -211,8 +222,11 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 		if in.EndedAt != nil {
 			end = *in.EndedAt
 		}
-		pi := templates.PublicIncident{Service: in.DisplayName, Active: in.EndedAt == nil,
+		pi := templates.PublicIncident{Key: h.opaqueKey(p.ID, "incident", in.ID), Service: in.DisplayName, Active: in.EndedAt == nil,
 			Started: clockText(in.StartedAt, now, h.loc), StartedAt: rfc3339(in.StartedAt), Duration: formatSince(end.Sub(in.StartedAt))}
+		if in.EndedAt != nil {
+			pi.EndedAt = rfc3339(*in.EndedAt)
+		}
 		for _, n := range in.Notes {
 			pi.Notes = append(pi.Notes, templates.PublicNote{Message: n.Message, Time: clockText(n.At, now, h.loc), At: rfc3339(n.At)})
 		}
@@ -223,8 +237,8 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 
 // row builds one service: its state, latency and uptime strip, from one
 // read of its intervals over the strip's 90 days.
-func (h *Public) row(ctx context.Context, pm store.StatusPageMonitor, days []time.Time, now time.Time) (templates.PublicRow, incident.Ratio, error) {
-	row := templates.PublicRow{Name: pm.DisplayName}
+func (h *Public) row(ctx context.Context, pageID string, pm store.StatusPageMonitor, days []time.Time, now time.Time) (templates.PublicRow, incident.Ratio, error) {
+	row := templates.PublicRow{Name: pm.DisplayName, Key: h.opaqueKey(pageID, "component", pm.MonitorID)}
 	m, err := store.GetMonitor(ctx, h.db.Reader, pm.MonitorID)
 	if err != nil {
 		return row, incident.Ratio{}, err
@@ -243,6 +257,7 @@ func (h *Public) row(ctx context.Context, pm store.StatusPageMonitor, days []tim
 			return row, incident.Ratio{}, err
 		} else if ok {
 			row.Latency = strconv.FormatInt(d.Milliseconds(), 10) + " ms"
+			row.LatencyMS, row.HasLatency = d.Milliseconds(), true
 		}
 	}
 	_, adjusted := store.UptimeOf(iv, from, to, now)

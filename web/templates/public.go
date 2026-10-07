@@ -66,6 +66,11 @@ type PublicRow struct {
 	Uptime    string // 90-day adjusted
 	Days      []PublicDay
 	StripText string // a text summary of the strip for screen readers
+
+	// Not shown in HTML; for api.json (internal/web/publicfeed.go).
+	Key        string // opaque, stable per page; not an id
+	LatencyMS  int64
+	HasLatency bool
 }
 
 // PublicDay is one bar of the uptime strip.
@@ -82,6 +87,10 @@ type PublicIncident struct {
 	StartedAt string
 	Duration  string // "so far" while active
 	Notes     []PublicNote
+
+	// Not shown in HTML; for api.json and feed.xml.
+	Key     string // opaque, stable per page; not an id
+	EndedAt string // RFC 3339, "" while active
 }
 
 // PublicNote is a published manual note.
