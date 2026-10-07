@@ -126,6 +126,20 @@ func BenchmarkStatusPage(b *testing.B) {
 		}
 		b.ReportMetric(float64(size), "bytes/page")
 	})
+	for _, f := range []string{"api.json", "feed.xml"} {
+		b.Run(f, func(b *testing.B) {
+			b.ReportAllocs()
+			size := 0
+			for b.Loop() {
+				rec := e.serve(req("GET", "/status/bench/"+f, nil))
+				if rec.Code != 200 {
+					b.Fatalf("status %d", rec.Code)
+				}
+				size = rec.Body.Len()
+			}
+			b.ReportMetric(float64(size), "bytes/doc")
+		})
+	}
 }
 
 // BenchmarkHostRouter is the cost every request pays for custom hostnames:

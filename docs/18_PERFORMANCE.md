@@ -102,6 +102,8 @@ M4-05: a heartbeat beat (`Engine.Beat`: token hash, one indexed `UPDATE … RETU
 
 M7-04: `web.BenchmarkStatusPage` (a public page of 25 services, each with an incident every three days over 90 days): building the page cold (25 monitor reads, 25 interval reads over 90 days, 2,250 strip days, the incident list) 19.5 ms, 4.6 MB, 24,000 allocations; a visit within the 10 s cache, through the whole handler, 2.2–2.9 ms. The page is 245 KB of HTML uncompressed (about 100 bytes per strip day, very repetitive); one label per bar, no duplicate hidden text. Inside the 50 ms page budget cold and cached.
 
+M7-10: `api.json` (25 services, 10 KB) 0.26 ms and `feed.xml` (14 KB) 0.39 ms per request through the whole handler from the cached view, `BenchmarkStatusPage/api.json|feed.xml`; a cold build is the 19 ms above.
+
 M7-06: `web.BenchmarkHostRouter` (what every request pays for custom hostnames: one primary-key read of the request's host): 14 µs, 20 allocations. No cache: mappings change in the admin and must apply at once.
 
 ### M6 (M6-08)
