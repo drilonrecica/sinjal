@@ -90,10 +90,16 @@ Development machine: Intel Core i5-7500 (4 cores), Linux, Go 1.27, `go test -ben
 | 6 monitor list page | `web.BenchmarkMonitorListPage` (`GET /monitors` as an admin through the whole handler, session included; same data) | 24 ms, 96,000 allocations, 8 MB, 953 KiB of HTML per page: inside the 50 ms budget. The page is large uncompressed, which gzip and a 1,000-row list make acceptable; pagination or filtering would be a UX decision, not a performance one (M3-14); 26–30 ms after M4-06 (`store.Targets`, a UNION over the five config tables) |
 | page weight | first-party + vendored JS, gzip -9 | 47.0 KB of the 100 KB budget: htmx 17.1, uPlot 22.3, SSE extension 2.8, chart.js 2.0, passkey.js 1.8, live.js 1.0. uPlot and chart.js load only on a History tab with data |
 
-Every result is written by the one processor goroutine in batched transactions; no worker writes to SQLite and no goroutine exists per monitor. Scenario 5 (rollups) is measured with its feature (M6).
+Every result is written by the one processor goroutine in batched transactions; no worker writes to SQLite and no goroutine exists per monitor. Scenario 5 (rollups) is measured with its feature (M6): see M6-08 below.
 
 M3-12: `store.BenchmarkUptimeDay` (one monitor, last 24 hours, one incident, one daily window): 138 µs and 159 allocations. For 1,000 monitors that is about 140 ms, so the list does not show uptime and the detail header does (one read per header render).
 
 ### M4
 
 M4-05: a heartbeat beat (`Engine.Beat`: token hash, one indexed `UPDATE … RETURNING`, two indexed reads, a scheduler command, a result to the processor) took about 200 µs each over 2,000 sequential beats on a real database file, the processor writing them at the same time. Beats are rare (one per monitor per interval) and arrive on HTTP handlers, not on the worker pool; no benchmark is kept for them.
+
+### M6 (M6-08)
+
+| Scenario | Benchmark | Result |
+|---|---|---|
+| 5 rollup aggregation | `retention.BenchmarkRollup` (one daily run over one monitor with a backlog in two tiers: three days of raw results at 30 s, 8,640 rows into 5-minute buckets, and ten days of 5-minute buckets, 2,880 into hourly buckets; fresh database per iteration, seeding outside the timer) | 45 ms per run for 11,516 source rows rolled and 1,104 buckets written (about 4 µs per source row), 3.2 MB and 107,000 allocations. Each step is its own transaction of at most a day of source (`retention.Slice`), so the writer is never held longer than one slice; the daily run is off every hot path. Steady state is one day of backlog per monitor, so 1,000 monitors cost about 1,000 × 15 ms ≈ 15 s of writer time spread over the run, in slices. There is no numeric budget for scenario 5; recorded for comparison |
