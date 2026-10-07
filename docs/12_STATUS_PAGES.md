@@ -146,6 +146,14 @@ Everything else (admin UI, `/login`, `/setup`, `/events`, `/api/v1/*`, other pag
 
 Reverse proxy/Coolify/Caddy handles TLS.
 
+Implementation (M7-06, `internal/web/hosts.go`): `HostRouter` runs before the route table. It takes the trusted Host (`proxy.Host`: `X-Forwarded-Host` only from a peer in `SINJAL_TRUSTED_PROXIES`, otherwise the request's own `Host`), lowercases it, drops the port, IPv6 brackets and a trailing dot, and looks it up in `status_page_hosts` (one primary-key read per request, about 14 µs). The base URL's own host is never looked up. A mapped hostname is answered by a separate small table that has only `GET|HEAD|POST /` (the page; POST is its password form, origin-checked), `GET|HEAD /healthz`, `/static/*` and `/uploads/{name}`; everything else is 404, `/readyz` included. `/api.json` and `/feed.xml` join it with M7-07.
+
+On a mapped hostname the page's own access rules apply, with two differences (owner decisions, M7-06):
+- there are no sessions there (session cookies belong to the instance's own host), so an **authenticated** page answers 303 to `SINJAL_BASE_URL/status/{slug}`, where signing in returns to it; without a base URL it answers 403 "Sign in to Sinjal to see this page";
+- an **unlisted** page is served at `/` with the same `noindex` and `no-referrer` headers: mapping a hostname to it is the admin's explicit choice. Its `/status/{slug}` path still does not serve it.
+
+A password page's cookie has Path `/` on its hostname.
+
 ## JSON endpoint
 
 Provide a small public representation appropriate to page visibility.

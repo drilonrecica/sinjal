@@ -238,10 +238,10 @@ func TestUnlistedPage(t *testing.T) {
 		t.Error("the token reached the log")
 	}
 	other := "a"
-	if token[25] == 'a' {
+	if token[10] == 'a' {
 		other = "b"
 	}
-	for _, path := range []string{"/status/hidden", "/s/" + strings.ToUpper(token), "/s/abc", "/s/" + token[:25] + other} {
+	for _, path := range []string{"/status/hidden", "/s/" + strings.ToUpper(token), "/s/abc", "/s/" + token[:10] + other + token[11:]} {
 		if rec := e.serve(req("GET", path, nil)); rec.Code != 404 {
 			t.Errorf("GET %s = %d, want 404", path, rec.Code)
 		}

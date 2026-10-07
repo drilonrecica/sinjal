@@ -36,7 +36,8 @@ const (
 // pageAccess is where a page is being served: its base path, which is
 // also the password form's action and the cookie's path.
 type pageAccess struct {
-	base string // "/status/{slug}", "/s/{token}" or "/" on a mapped hostname
+	base   string // "/status/{slug}", "/s/{token}" or "/" on a mapped hostname
+	mapped bool   // served at / of a mapped hostname, which has no sessions
 }
 
 // serve answers a request for page p: it enforces the page's visibility,
@@ -46,6 +47,10 @@ func (h *Public) serve(w http.ResponseWriter, r *http.Request, p store.StatusPag
 	switch p.Visibility {
 	case statuspage.Public, statuspage.Unlisted:
 	case statuspage.Authenticated:
+		if at.mapped {
+			h.signInElsewhere(w, r, p)
+			return
+		}
 		if _, ok := SessionFromContext(r.Context()); !ok {
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
 				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -81,6 +86,20 @@ func (h *Public) serve(w http.ResponseWriter, r *http.Request, p store.StatusPag
 		w.Header().Set("Referrer-Policy", "no-referrer")
 	}
 	h.render(w, r, p)
+}
+
+// signInElsewhere answers an authenticated page on a mapped hostname.
+// Sessions belong to the instance's own host and /login is not served on
+// mapped names, so the visitor is sent to the page on the base URL, where
+// the normal sign-in returns to it; without a base URL there is nowhere
+// to send them.
+func (h *Public) signInElsewhere(w http.ResponseWriter, r *http.Request, p store.StatusPageDetail) {
+	if h.baseURL == "" {
+		render(w, r, h.log, http.StatusForbidden, templates.PublicMessagePage(p.Title,
+			"Sign in to Sinjal to see this page. It is not available at this address.", p.Theme))
+		return
+	}
+	http.Redirect(w, r, h.baseURL+"/status/"+p.Slug, http.StatusSeeOther)
 }
 
 // unlocked reports whether the request carries a valid cookie for p.

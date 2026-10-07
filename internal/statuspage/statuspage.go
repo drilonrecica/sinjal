@@ -102,10 +102,11 @@ func NewToken() (token string, hash []byte, err error) {
 }
 
 // HashToken returns the stored hash of a presented token, or false when it
-// cannot be a token Sinjal issued.
+// cannot be a token Sinjal issued. The last of the 26 characters carries
+// two unused bits, so only the one spelling NewToken produces is accepted.
 func HashToken(token string) ([]byte, bool) {
 	raw, err := tokenEncoding.DecodeString(strings.ToUpper(token))
-	if err != nil || len(raw) != tokenBytes || strings.ToLower(token) != token {
+	if err != nil || len(raw) != tokenBytes || strings.ToLower(tokenEncoding.EncodeToString(raw)) != token {
 		return nil, false
 	}
 	h := sha256.Sum256(raw)

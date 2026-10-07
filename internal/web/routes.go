@@ -38,6 +38,8 @@ type App struct {
 //
 //   - Health checks, static assets and machine endpoints (heartbeat push)
 //     need no session and no CSRF check.
+//   - A request for a hostname mapped to a status page never reaches this
+//     table: it is served by mappedRoutes (only that page and its assets).
 //   - Every browser route sits in the session group: LoadSession, then CSRF
 //     on every state-changing request. Inside it, setup/login/logout are
 //     public; everything else requires a session (RequireAuth), and every
@@ -56,16 +58,20 @@ func Routes(r chi.Router, app App) {
 	overview := NewOverview(app.DB, app.Timezone, app.Logger)
 	incidents := NewIncidents(app.DB, app.Events, app.Timezone, app.Logger)
 	statusPages := NewStatusPages(app.DB, app.BaseURL, app.Uploads, app.Logger)
-	public := NewPublic(app.DB, app.Vault.Derive(PageKeyLabel), app.Timezone, app.Logger)
+	public := NewPublic(app.DB, app.BaseURL, app.Vault.Derive(PageKeyLabel), app.Timezone, app.Logger)
 	recentAuth := RequireRecentAuth(app.Logger, time.Now)
+	csrf := NewCSRF(app.CSRFKey, app.Logger)
 
+	// A mapped hostname is answered by its own small table (hosts.go);
+	// chi needs middleware before the first route.
+	r.Use(HostRouter(app.DB, statusPages.baseHost, mappedRoutes(app, csrf, public), app.Logger))
 	RegisterHealth(r, app.Health)
 	RegisterStatic(r, app.Assets)
 	RegisterUploads(r, app.Uploads)
 	RegisterHeartbeat(r, NewHeartbeat(app.Engine, app.Logger))
 
 	r.Group(func(r chi.Router) {
-		r.Use(LoadSession(app.Sessions, app.Logger), NewCSRF(app.CSRFKey, app.Logger).Middleware)
+		r.Use(LoadSession(app.Sessions, app.Logger), csrf.Middleware)
 		RegisterSetup(r, app.Setup)
 		RegisterLogin(r, login)
 		RegisterPasskeyLogin(r, passkeys)

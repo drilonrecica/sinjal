@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -105,7 +106,7 @@ func BenchmarkStatusPage(b *testing.B) {
 	}
 
 	b.Run("cold", func(b *testing.B) {
-		h := NewPublic(e.db, nil, time.UTC, quietLoggerOnly())
+		h := NewPublic(e.db, "", nil, time.UTC, quietLoggerOnly())
 		b.ReportAllocs()
 		for b.Loop() {
 			if _, err := h.build(b.Context(), p, now); err != nil {
@@ -125,4 +126,23 @@ func BenchmarkStatusPage(b *testing.B) {
 		}
 		b.ReportMetric(float64(size), "bytes/page")
 	})
+}
+
+// BenchmarkHostRouter is the cost every request pays for custom hostnames:
+// one primary-key lookup of the request's host (here an unmapped one, the
+// common case for the admin UI), measured on /healthz-sized work.
+func BenchmarkHostRouter(b *testing.B) {
+	e := newAppEnv(b)
+	if _, err := store.CreateStatusPage(b.Context(), e.db, store.StatusPageInput{Slug: "p", Title: "P", Visibility: "public",
+		Theme: "paper", IncidentDays: 30, Hosts: []string{"status.example.com"}}, time.Now()); err != nil {
+		b.Fatal(err)
+	}
+	next := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+	h := HostRouter(e.db, "localhost", next, quietLoggerOnly())(next)
+	r := req("GET", "/", nil)
+	r.Host = "other.example.com"
+	b.ReportAllocs()
+	for b.Loop() {
+		h.ServeHTTP(nil, r)
+	}
 }

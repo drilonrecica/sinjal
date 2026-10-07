@@ -1,6 +1,7 @@
 package statuspage
 
 import (
+	"bytes"
 	"os"
 	"regexp"
 	"strings"
@@ -71,6 +72,19 @@ func TestHashTokenRejectsWhatWasNeverIssued(t *testing.T) {
 		if _, ok := HashToken(in); ok {
 			t.Errorf("HashToken(%q) accepted", in)
 		}
+	}
+	// The last character's two unused bits: no other spelling gives the
+	// same 128 bits, so a token has one address.
+	want, _ := HashToken(token)
+	const alphabet = "abcdefghijklmnopqrstuvwxyz234567"
+	same := 0
+	for _, c := range alphabet {
+		if h, ok := HashToken(token[:25] + string(c)); ok && bytes.Equal(h, want) {
+			same++
+		}
+	}
+	if same != 1 {
+		t.Errorf("%d spellings open the same page, want only the issued one", same)
 	}
 }
 

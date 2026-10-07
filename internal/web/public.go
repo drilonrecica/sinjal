@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +45,7 @@ const (
 // name, target, failure text or snippet.
 type Public struct {
 	db      *db.DB
+	baseURL string // SINJAL_BASE_URL without a trailing slash, "" when unset
 	key     []byte // signs page cookies (PageKeyLabel)
 	limiter *ratelimit.Limiter
 	loc     *time.Location
@@ -52,13 +54,15 @@ type Public struct {
 	cache   pageCache
 }
 
-// NewPublic returns the public status page handler; key signs the cookies
-// of password-protected pages; loc nil means UTC.
-func NewPublic(d *db.DB, key []byte, loc *time.Location, logger *slog.Logger) *Public {
+// NewPublic returns the public status page handler. baseURL is
+// SINJAL_BASE_URL, where authenticated pages on mapped hostnames send
+// their visitors; key signs the cookies of password-protected pages; loc
+// nil means UTC.
+func NewPublic(d *db.DB, baseURL string, key []byte, loc *time.Location, logger *slog.Logger) *Public {
 	if loc == nil {
 		loc = time.UTC
 	}
-	return &Public{db: d, key: key, limiter: ratelimit.New(pageMaxFailures, pageWindow, pageTrackedKeys), loc: loc,
+	return &Public{db: d, baseURL: strings.TrimSuffix(baseURL, "/"), key: key, limiter: ratelimit.New(pageMaxFailures, pageWindow, pageTrackedKeys), loc: loc,
 		log: logging.Sub(logger, "http"), now: time.Now, cache: pageCache{entries: map[string]cachedPage{}}}
 }
 

@@ -140,7 +140,7 @@ GET /s/{token}/api.json
 GET /s/{token}/feed.xml
 ```
 
-Custom hostname:
+Custom hostname (M7-06, `internal/web/hosts.go`; details in `12_STATUS_PAGES.md` "Custom hostnames"):
 - same page can render at `/`
 - access is selected by configured hostname mapping
 - mapped hostnames serve only that page's public routes, static assets and `/healthz`; all other routes return 404 (see `12_STATUS_PAGES.md`)

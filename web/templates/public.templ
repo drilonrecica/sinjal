@@ -181,3 +181,15 @@ templ PublicPasswordPage(v PublicPasswordView, theme string) {
 		</div>
 	}
 }
+
+// PublicMessagePage explains why a page cannot be shown here.
+templ PublicMessagePage(title, message, theme string) {
+	@PublicLayout(publicPage(title, theme), "", false) {
+		<div class="public-page public-locked">
+			<main>
+				<h1>{ title }</h1>
+				<p>{ message }</p>
+			</main>
+		</div>
+	}
+}

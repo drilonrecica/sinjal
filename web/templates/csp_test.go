@@ -129,6 +129,7 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 	pages["detail-history-data"] = MonitorDetail(page, withData)
 	pages["public"] = PublicStatusPage(testPublicPage, "paper")
 	pages["publicPassword"] = PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "carbon")
+	pages["publicMessage"] = PublicMessagePage("P", "m", "midnight")
 	pages["publicEmpty"] = PublicStatusPage(PublicPage{Title: "Empty", Overall: OverallNone, Uptime: "—", IncidentDays: 1}, "terminal")
 	for name, c := range pages {
 		var buf bytes.Buffer

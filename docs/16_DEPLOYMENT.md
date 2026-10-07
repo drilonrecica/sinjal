@@ -162,6 +162,13 @@ Custom status-page hostnames depend on reverse proxy DNS/TLS configuration.
 
 Sinjal only maps trusted Host to configured page.
 
+Set-up for a custom status hostname (M7-06):
+1. Point the name's DNS at the reverse proxy and give the proxy a certificate for it.
+2. Proxy the name to Sinjal like the main address, keeping the `Host` header (or sending it as `X-Forwarded-Host` from an address listed in `SINJAL_TRUSTED_PROXIES`).
+3. Add the name under Hostnames on the status page's edit page. The page then answers at `https://<name>/`; the admin UI and every other route answer 404 there.
+
+Set `SINJAL_BASE_URL` too: an authenticated page on a custom hostname sends its visitors there to sign in.
+
 ## Timezone
 
 Persist timestamps UTC.

@@ -329,6 +329,8 @@ Configuration:
 
 Host header/custom hostname routing must be validated.
 
+Custom hostnames (M7-06) are matched on `proxy.Host` only: a spoofed `X-Forwarded-Host` from an untrusted peer is ignored, so it cannot select a page, and the instance's own base-URL host is never treated as a mapped one. A mapped hostname serves only its page, health, static assets and logos; no session is ever loaded there.
+
 ### Implementation (M1-07)
 
 `internal/web/proxy` resolves every request once (router middleware, right after the request ID) into client IP, scheme and host. All code reads them through `proxy.ClientIP`, `proxy.IsHTTPS` and `proxy.Host`, never `RemoteAddr`, `r.TLS` or `r.Host` directly.

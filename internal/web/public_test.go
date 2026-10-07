@@ -203,7 +203,7 @@ func TestPublicStrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := NewPublic(e.db, nil, loc, quietLoggerOnly())
+	h := NewPublic(e.db, "", nil, loc, quietLoggerOnly())
 	v, err := h.build(ctx, p, now)
 	if err != nil {
 		t.Fatal(err)
@@ -293,7 +293,7 @@ func TestPublicCache(t *testing.T) {
 	m := e.addMonitor(t, "x", "https://x.example.com/")
 	e.exec(t, `UPDATE monitors SET current_state = 'up'`)
 	id := e.addPage(t, store.StatusPageInput{Slug: "c", Title: "C", Monitors: []store.StatusPageMonitorInput{{MonitorID: m, DisplayName: "Thing"}}})
-	h := NewPublic(e.db, nil, time.UTC, quietLoggerOnly())
+	h := NewPublic(e.db, "", nil, time.UTC, quietLoggerOnly())
 	now := time.Now()
 	h.now = func() time.Time { return now }
 	read := func() string {
