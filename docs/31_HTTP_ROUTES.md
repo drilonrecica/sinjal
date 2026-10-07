@@ -178,6 +178,10 @@ Heartbeat token endpoints are machine endpoints and use token authentication rat
 - `POST /incidents/{id}/note` (M3-11): admin only. A note is trimmed, 1–1,000 characters; otherwise 422 with the page and the message. It becomes a `manual_note` event, is audited (`incident.noted`), sends `incident.updated` and answers 303 to the incident. Unknown id: 404.
 - `GET|HEAD /` and `/fragments/overview` (M3 follow-up): admins and viewers; the problem strip, the monitors by state and the latest incidents; the fragment is the page body alone, refreshed on `incident.*`, `monitor.created|deleted`, and every minute; `no-store`. `GET /fragments/incidents?limit=n` (1–100) shortens the ended part of the list; anything else is the default 100.
 
+## Implemented (M7)
+
+- `GET|HEAD /api/v1/status`, `/api/v1/monitors`, `/api/v1/monitors/{id}` and `POST /api/v1/monitors/{id}/pause|resume` (M7-09, `docs/14_API.md` "Admin API"): JSON only, their own session group (`LoadSession`, `RegisterAPI`), 401 JSON when not signed in, reads for viewers, POSTs for admins with the `X-Sinjal-Request: 1` header and the Origin check instead of the form token. Not on mapped hostnames.
+
 ## Implemented (M4)
 
 - `GET|POST /api/v1/heartbeat/{token}`, `POST /api/v1/heartbeat` with `Authorization: Bearer <token>` (M4-05): machine endpoints outside the session group (no session, no CSRF). 204 when the beat is recorded, 404 for a missing, malformed or unknown token, 429 with `Retry-After: 60` over 60 requests a minute from one client address; `Cache-Control: no-store`; the body is not read. The route table guard lists them as public.

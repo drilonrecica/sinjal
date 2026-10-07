@@ -5,50 +5,116 @@ info:
   description: Small automation/status API for Sinjal.
 servers:
   - url: /
+components:
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, description: "unauthenticated, forbidden, cross_origin, missing_header, monitor_not_found or internal" }
+            message: { type: string }
+    Monitor:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { type: string }
+        state: { type: string, enum: [up, down, pending, paused, flapping] }
+        enabled: { type: boolean }
+        state_since: { type: string, format: date-time }
+        interval_seconds: { type: integer }
+        last_check_at: { type: [string, 'null'], format: date-time }
+        last_success_at: { type: [string, 'null'], format: date-time }
+        last_failure_at: { type: [string, 'null'], format: date-time }
+        tls_not_after: { type: [string, 'null'], format: date-time }
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: sinjal_session
+  parameters:
+    MonitorID:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+    RequestHeader:
+      in: header
+      name: X-Sinjal-Request
+      required: true
+      description: Must be "1" on state changes (with the same-origin check, the API's CSRF protection).
+      schema: { type: string, enum: ['1'] }
 paths:
   /api/v1/status:
     get:
-      summary: Get authenticated instance summary
+      summary: Instance summary (admin, viewer)
+      security: [{ session: [] }]
       responses:
         '200':
-          description: Instance summary
+          description: Overall status, counts by state and the monitors that need attention
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded, down] }
+                  generated_at: { type: string, format: date-time }
+                  monitors: { type: integer }
+                  counts: { type: object, additionalProperties: { type: integer } }
+                  problems: { type: array, items: { $ref: '#/components/schemas/Monitor' } }
+        '401': { description: 'Not signed in', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/monitors:
     get:
-      summary: List monitors
+      summary: List monitors (admin, viewer)
+      security: [{ session: [] }]
       responses:
         '200':
-          description: Monitor list
+          description: Monitors in name order
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  monitors: { type: array, items: { $ref: '#/components/schemas/Monitor' } }
+        '401': { description: 'Not signed in', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/monitors/{id}:
     get:
-      summary: Get monitor
+      summary: Get monitor (admin, viewer)
+      security: [{ session: [] }]
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/MonitorID'
       responses:
-        '200': { description: Monitor }
-        '404': { description: Not found }
+        '200': { description: Monitor, content: { application/json: { schema: { $ref: '#/components/schemas/Monitor' } } } }
+        '401': { description: 'Not signed in', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: 'monitor_not_found', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/monitors/{id}/pause:
     post:
-      summary: Pause monitor
+      summary: Pause monitor (admin)
+      security: [{ session: [] }]
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/MonitorID'
+        - $ref: '#/components/parameters/RequestHeader'
       responses:
-        '204': { description: Paused }
+        '204': { description: Paused (also when it already was) }
+        '401': { description: 'Not signed in', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: 'Viewer, cross-origin request or missing header', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: 'monitor_not_found', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/monitors/{id}/resume:
     post:
-      summary: Resume monitor
+      summary: Resume monitor (admin)
+      security: [{ session: [] }]
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/MonitorID'
+        - $ref: '#/components/parameters/RequestHeader'
       responses:
-        '204': { description: Resumed }
+        '204': { description: Resumed (also when it already was) }
+        '401': { description: 'Not signed in', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: 'Viewer, cross-origin request or missing header', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: 'monitor_not_found', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/heartbeat/{token}:
     post:
       summary: Record heartbeat
@@ -64,7 +130,7 @@ paths:
         '429': { description: Too many requests from this client address }
   /api/v1/heartbeat:
     post:
-      summary: Record heartbeat, token in "Authorization: Bearer <token>"
+      summary: 'Record heartbeat, token in "Authorization: Bearer <token>"'
       responses:
         '204': { description: Recorded }
         '404': { description: Missing or invalid token }

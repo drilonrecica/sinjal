@@ -68,6 +68,23 @@ func guardViolations(t *testing.T, e *appEnv, router chi.Routes) []string {
 		}
 		path := routeParamRe.ReplaceAllString(route, "x")
 
+		// The admin API answers in JSON: 401 for everyone anonymous, and
+		// a viewer may read but not change (with the API header, so the
+		// refusal is the role's, not the missing header's).
+		if strings.HasPrefix(route, "/api/v1/") {
+			if rec := e.serve(req(method, path, nil)); method != http.MethodOptions && rec.Code != 401 {
+				bad = append(bad, fmt.Sprintf("%s %s anonymous = %d, want 401", method, route, rec.Code))
+			}
+			if !isSafeMethod(method) {
+				r := withCookie(req(method, path, nil), cookie)
+				r.Header.Set(APIHeader, apiHeaderValue)
+				if rec := e.serve(r); rec.Code != 403 {
+					bad = append(bad, fmt.Sprintf("%s %s as viewer = %d, want 403", method, route, rec.Code))
+				}
+			}
+			return nil
+		}
+
 		rec := e.serve(req(method, path, url.Values{}))
 		if isSafeMethod(method) {
 			if loc := rec.Header().Get("Location"); method != http.MethodOptions && (rec.Code != 303 || !strings.HasPrefix(loc, "/login")) {

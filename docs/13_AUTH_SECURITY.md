@@ -123,7 +123,8 @@ Two roles: `admin` changes everything, `viewer` only reads. Enforcement is by pl
     - `RequireAdmin` group: every state-changing app route. A viewer gets 403 ("Your account can view Sinjal but not change it."), logged at WARN.
 - Pages render with the signed-in user's theme and density.
 - The CSRF token is read from the `X-CSRF-Token` header, or from the `_csrf` field of a url-encoded body (64 KiB cap) or, for the one upload form (status page logo, M7-03), of a multipart body (4 MiB cap, answered 413 above it; at most 1 MiB is held in memory).
-- `TestRouteTableGuards` walks the production table with `chi.Walk` and probes every route: non-public pages must redirect anonymous users, non-public state changes must answer 401 anonymously and 403 to a viewer with a valid CSRF token. The only exceptions are the explicit `publicRoutes` and `viewerMutations` lists in the test (own session/account actions: re-authentication and changing one's own password). `TestRouteTableGuardsCatchOmissions` mounts unguarded routes and shows the check reports them.
+- The admin API (`/api/v1/status`, `/monitors…`, M7-09) is outside this group: it replaces the token with the `X-Sinjal-Request: 1` header plus the same Origin check (`apiGuard`), and answers 401/403 as JSON.
+- `TestRouteTableGuards` walks the production table with `chi.Walk` and probes every route: non-public pages must redirect anonymous users, non-public state changes must answer 401 anonymously and 403 to a viewer with a valid CSRF token. `/api/v1/*` routes are probed for 401 JSON anonymously and 403 to a viewer's POST. The only exceptions are the explicit `publicRoutes` and `viewerMutations` lists in the test (own session/account actions: re-authentication and changing one's own password). `TestRouteTableGuardsCatchOmissions` mounts unguarded routes and shows the check reports them.
 
 ## Re-authentication actions
 

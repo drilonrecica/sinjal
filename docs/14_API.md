@@ -45,6 +45,21 @@ GET  /status/{slug}/feed.xml
 
 Creation/editing may remain normal application endpoints in v1 unless a concrete automation need exists.
 
+## Admin API (M7-09)
+
+`internal/web/api.go`. Session auth (the browser cookie). The routes sit in their own session group (`LoadSession`, no form CSRF), never redirect, and always answer JSON.
+
+| Route | Who | Answer |
+| --- | --- | --- |
+| `GET /api/v1/status` | admin, viewer | `status` (`ok`, `degraded`, `down`), `generated_at`, `monitors`, `counts` by state (`up`, `down`, `flapping`, `pending`, `paused`), `problems` (down and flapping monitors) |
+| `GET /api/v1/monitors` | admin, viewer | `{"monitors": [...]}` in name order |
+| `GET /api/v1/monitors/{id}` | admin, viewer | `id`, `name`, `type`, `state`, `enabled`, `state_since`, `interval_seconds`, `last_check_at`, `last_success_at`, `last_failure_at`, `tls_not_after` |
+| `POST /api/v1/monitors/{id}/pause`, `…/resume` | admin | 204; doing it twice is fine, and only a real change is audited (`monitor.paused`, `monitor.resumed`, the same events as the buttons) |
+
+A monitor's target, configuration, failure text and snippets are not in the API (a target can carry secrets).
+
+CSRF-equivalent protection for the two POSTs: the request must carry `X-Sinjal-Request: 1` (a custom header cannot be sent cross-site without a CORS preflight, which Sinjal never answers) and pass the same Origin check as the app's own state changes (`Sec-Fetch-Site`, else `Origin`; neither header means a script, which passes). Order of checks: sign-in (401), then Origin and header (403), then role (403). Times are UTC RFC 3339. Not served on mapped status page hostnames.
+
 ## Error format
 
 JSON errors should be consistent:
@@ -57,6 +72,8 @@ JSON errors should be consistent:
   }
 }
 ```
+
+Codes: `unauthenticated` (401), `forbidden` (403, viewer), `cross_origin` and `missing_header` (403), `monitor_not_found` (404), `internal` (500).
 
 Do not expose internal stack traces.
 

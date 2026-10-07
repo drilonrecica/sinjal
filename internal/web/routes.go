@@ -70,6 +70,12 @@ func Routes(r chi.Router, app App) {
 	RegisterUploads(r, app.Uploads)
 	RegisterHeartbeat(r, NewHeartbeat(app.Engine, app.Logger))
 
+	// The admin API answers in JSON and has its own CSRF rule (api.go).
+	r.Group(func(r chi.Router) {
+		r.Use(LoadSession(app.Sessions, app.Logger))
+		RegisterAPI(r, NewAPI(monitors))
+	})
+
 	r.Group(func(r chi.Router) {
 		r.Use(LoadSession(app.Sessions, app.Logger), csrf.Middleware)
 		RegisterSetup(r, app.Setup)
