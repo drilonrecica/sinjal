@@ -1,11 +1,14 @@
-/* Application shell: sidebar navigation + main region. Token-driven; flat
- * surfaces and hairline borders rather than cards and gradients. */
+/* Application shell (docs/03 "Layout", Clear): a slim top bar, the monitor
+ * list column, the pane and, from 2200 px, the Live activity column. The
+ * column and the pane scroll on their own; on phones only one of them is
+ * shown, chosen by the pane's data-view. Token-driven; flat surfaces and
+ * hairline borders. */
 
 .skip-link {
   position: absolute;
   top: var(--space-2);
   left: var(--space-2);
-  z-index: 10;
+  z-index: 60;
   padding: var(--space-2) var(--space-3);
   background: var(--accent);
   color: var(--accent-contrast);
@@ -19,89 +22,278 @@
 
 .shell {
   display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr);
-  min-height: 100vh;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+}
+.live {
+  display: contents;
 }
 
-.sidebar {
+/* ---- Top bar ---- */
+
+.topbar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-3);
+  min-height: 3.25rem;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
   background: var(--surface-1);
-  border-right: 1px solid var(--border);
 }
-
 .brand-link {
-  display: inline-block;
-  padding: var(--space-1) var(--space-2);
-  color: var(--text);
-  border-radius: var(--radius-sm);
-}
-
-.nav ul {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  color: var(--text);
+}
+.brand-link .logo-wordmark {
+  height: 1.5rem;
+}
+.topbar-menu-button,
+.nav-phone {
+  display: none;
+}
+.topnav ul {
+  display: flex;
   gap: var(--space-1);
   margin: 0;
   padding: 0;
+  list-style: none;
 }
-
 .nav-link {
-  position: relative;
-  display: block;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: var(--text-sm);
+  font-weight: 500;
   text-decoration: none;
+  white-space: nowrap;
 }
 .nav-link:hover {
   background: var(--surface-2);
   color: var(--text);
 }
-/* The current page is marked by weight and a bar, not by colour alone. */
 .nav-link[aria-current="page"] {
-  background: var(--surface-2);
   color: var(--text);
-  font-weight: 600;
-}
-.nav-link[aria-current="page"]::before {
-  content: "";
-  position: absolute;
-  inset: var(--space-1) auto var(--space-1) 0;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
-/* Minimal until the account menu lands (M1-18/M8). */
-.signout {
-  margin-top: auto;
+.account-menu {
+  position: relative;
+  margin-left: auto;
+}
+.account-button {
+  display: flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  list-style: none;
+}
+.account-button::-webkit-details-marker {
+  display: none;
+}
+.account-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-1));
+  z-index: 40;
+  display: grid;
+  gap: var(--space-2);
+  min-width: 12rem;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
 }
 .signout-button {
   width: 100%;
-  min-height: 2.75rem;
-  padding: var(--space-2) var(--space-3);
+  min-height: 2.25rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--text-sm);
-  text-align: left;
-  cursor: pointer;
-}
-.signout-button:hover {
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
 }
 
+/* ---- Columns ---- */
+
+.app {
+  display: grid;
+  grid-template-columns: 22.5rem minmax(0, 1fr);
+  min-height: 0;
+}
+.monitor-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface-1);
+}
 .content {
+  min-width: 0;
+  overflow-y: auto;
   padding: var(--space-5) var(--space-6);
 }
 .content:focus {
   outline: none; /* focus lands here only via the skip link */
+}
+.activity-column {
+  display: none;
+}
+@media (min-width: 2200px) {
+  .app {
+    grid-template-columns: 22.5rem minmax(0, 1fr) 22rem;
+  }
+  .activity-column {
+    display: block;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-4);
+    border-left: 1px solid var(--border);
+    background: var(--surface-1);
+  }
+}
+
+/* ---- Monitor list column ---- */
+
+.column-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.column-search {
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+}
+.column-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.chip {
+  min-height: 1.75rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.column-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.column-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+}
+.column-link:hover {
+  background: var(--surface-2);
+}
+.column-link[aria-current="page"] {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.column-link .beat-bar {
+  grid-column: 1 / -1;
+  height: 1rem;
+  padding: 2px 0;
+}
+.column-status {
+  display: flex;
+  color: var(--status-pending);
+}
+.column-status[data-state="up"] { color: var(--status-up); }
+.column-status[data-state="down"] { color: var(--status-down); }
+.column-status[data-state="paused"] { color: var(--status-paused); }
+.column-status[data-state="flapping"] { color: var(--status-flapping); }
+.column-name {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.column-uptime {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.column-empty,
+.column-note {
+  padding: var(--space-4) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ---- Live activity ---- */
+
+.activity-title {
+  margin: 0 0 var(--space-3);
+  font-size: 1rem;
+}
+.activity-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+}
+.activity-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--border);
+}
+.activity-list li[data-state="up"] { border-left-color: var(--beat-up); }
+.activity-list li[data-state="down"] { border-left-color: var(--beat-down); }
+.activity-list li[data-state="event"] { border-left-color: var(--accent); }
+.activity-list time,
+.activity-detail,
+.activity-empty {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.activity-list a {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .placeholder {
@@ -109,51 +301,63 @@
   color: var(--text-muted);
 }
 
-/* Narrow screens: the sidebar becomes a scrollable strip above the content.
- * A proper drawer arrives with the mobile pass. */
-@media (max-width: 47.9375rem) {
-  .shell {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-  }
-  .sidebar {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .nav {
-    overflow-x: auto;
-    min-width: 0;
-  }
-  .nav ul {
-    flex-direction: row;
-  }
-  .signout {
-    margin-top: 0;
-    margin-left: auto;
-  }
-  .signout-button {
-    white-space: nowrap;
-  }
-  .nav-link {
-    min-height: 2.75rem;
-    display: flex;
-    align-items: center;
-    white-space: nowrap;
-  }
-  .content {
-    padding: var(--space-4);
-  }
-}
-
 /* "Monitors" above a monitor page: the way back up. */
 .crumb {
   font-size: var(--text-sm);
 }
-
 .crumb a {
   color: var(--text-muted);
+}
+
+/* ---- Phones: one view at a time, the top bar as a menu ---- */
+@media (max-width: 47.9375rem) {
+  .shell {
+    display: block;
+    height: auto;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+  .topbar-menu {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .topbar-menu-button {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+    color: var(--text);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .topnav ul {
+    flex-direction: column;
+  }
+  .nav-phone {
+    display: block;
+  }
+  .nav-link,
+  .account-button,
+  .signout-button {
+    min-height: 2.75rem;
+  }
+  .app {
+    display: block;
+  }
+  .monitor-column {
+    border-right: 0;
+  }
+  .column-link {
+    min-height: 2.75rem;
+  }
+  .content {
+    padding: var(--space-4);
+  }
+  .app:has(#main[data-view="detail"]) .monitor-column,
+  .app:has(#main[data-view="list"]) #main {
+    display: none;
+  }
 }

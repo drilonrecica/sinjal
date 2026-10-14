@@ -33,9 +33,17 @@ type PublicPage struct {
 	Logo        string // URL of the logo, or ""
 	Overall     string // Overall…
 	OverallText string
-	Uptime      string // 90-day adjusted uptime of all services, "—" without data
-	Groups      []PublicGroup
-	Incidents   []PublicIncident
+	// Sentence is the hero (M8-17): OverallText as a sentence, naming the
+	// services that are down; HeroState (up, down, flapping) colours its
+	// Ambient light.
+	Sentence  string
+	HeroState string
+	// Note is the newest published note of an ongoing incident, shown
+	// under the sentence; nil without one.
+	Note      *PublicNote
+	Uptime    string // 90-day adjusted uptime of all services, "—" without data
+	Groups    []PublicGroup
+	Incidents []PublicIncident
 	// IncidentDays is how far back incidents are listed.
 	IncidentDays int
 	PoweredBy    bool
@@ -83,8 +91,10 @@ type PublicIncident struct {
 	EndedAt string // RFC 3339, "" while active
 }
 
-// PublicNote is a published manual note.
+// PublicNote is a published manual note. Service is set for the note
+// under the sentence, which stands apart from its incident.
 type PublicNote struct {
+	Service string
 	Message string
 	Time    string
 	At      string
@@ -127,11 +137,20 @@ func publicStateIcon(state string) string {
 
 // publicPage is the Page of a public status page: its own theme, never
 // the visitor's, and only the public stylesheet.
+// publicPage is the page a status page renders in: its own theme, or
+// Daylight, the status page default (docs/05), for an unknown one; never
+// the visitor's.
 func publicPage(title, theme string) Page {
+	if !themes[theme] {
+		theme = PublicDefaultTheme
+	}
 	p := NewPage(title, theme, DefaultDensity)
 	p.Styles = []string{"css/public.css"}
 	return p
 }
+
+// PublicDefaultTheme is a status page's theme when it has none it knows.
+const PublicDefaultTheme = "daylight"
 
 func groupLabel(g PublicGroup) string {
 	if g.Name == "" {

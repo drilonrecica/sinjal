@@ -65,6 +65,12 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			v.History, err = h.historyView(r, m, false)
 		}
+		if err == nil {
+			v.Incidents, err = incidentListView(ctx, q, h.loc, now, id, detailIncidents)
+		}
+		if err == nil {
+			v.Events, err = recentEventViews(ctx, q, id, detailEvents, now, h.loc)
+		}
 	case "history":
 		v.History, err = h.historyView(r, m, true)
 	case "incidents":

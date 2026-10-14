@@ -87,68 +87,15 @@ templ StatusBadge(state string) {
 	</span>
 }
 
-// Live wraps everything that refreshes from the event stream. It opens one
-// EventSource (htmx SSE extension) and re-dispatches the monitor events as
-// DOM events; live.js routes them to the elements marked data-live
-// (docs/32_SSE_EVENTS.md). The attributes are static: no payload is ever
-// rendered from an event.
+// Live is the app's one event stream, around the shell's columns. It opens
+// an EventSource (htmx SSE extension) and re-dispatches every event the
+// pages use as a DOM event; live.js routes them to the elements marked
+// data-live* (docs/32_SSE_EVENTS.md). The attributes are static: no
+// payload is ever rendered from an event.
 templ Live() {
-	<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted, sse:incident.opened, sse:incident.updated, sse:incident.closed">
+	<div class="live" hx-ext="sse" sse-connect="/events" hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted, sse:incident.opened, sse:incident.updated, sse:incident.closed, sse:maintenance.updated, sse:notification.channel_updated">
 		{ children... }
 	</div>
-}
-
-// MonitorRow is one row of the monitor list. It replaces itself from
-// /fragments/monitors/{id}/row whenever live.js sends it "refresh".
-templ MonitorRow(m MonitorView) {
-	<li
-		class="monitor-row"
-		id={ "monitor-" + m.ID }
-		data-live
-		data-monitor-id={ m.ID }
-		data-state={ m.State }
-		hx-get={ "/fragments/monitors/" + m.ID + "/row" }
-		hx-trigger="refresh"
-		hx-swap="outerHTML"
-	>
-		<div class="monitor-main">
-			@StatusBadge(m.State)
-			<a class="monitor-name" href={ templ.SafeURL("/monitors/" + m.ID) }>{ m.Name }</a>
-			<span class="monitor-type">{ m.Type }</span>
-			if m.Target != "" {
-				<span class="monitor-target">{ m.Target }</span>
-			}
-		</div>
-		@BeatBar(m.Beats)
-		<dl class="monitor-facts">
-			<div>
-				<dt>Latency</dt>
-				<dd>{ m.Latency }</dd>
-			</div>
-			<div>
-				<dt>Uptime</dt>
-				<dd>{ m.Uptime }</dd>
-			</div>
-			<div>
-				<dt>In state</dt>
-				<dd><time datetime={ m.SinceAt }>{ m.Since }</time></dd>
-			</div>
-		</dl>
-		if len(m.Tags) > 0 || m.Parent != "" {
-			<div class="monitor-meta">
-				if m.Parent != "" {
-					@dependency(m)
-				}
-				if len(m.Tags) > 0 {
-					<ul class="tag-list" role="list" aria-label="Tags">
-						for _, tag := range m.Tags {
-							<li class="tag">{ tag }</li>
-						}
-					</ul>
-				}
-			</div>
-		}
-	</li>
 }
 
 // dependency names the parent and says when it is down. The text carries

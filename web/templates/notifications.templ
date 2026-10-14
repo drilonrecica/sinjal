@@ -13,9 +13,7 @@ templ NotificationsPage(page Page, v ChannelListView) {
 				<a class="button button-primary" href="/notifications/channels/new">Add channel</a>
 			}
 		</div>
-		<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:notification.channel_updated">
-			@ChannelSection(v)
-		</div>
+		@ChannelSection(v)
 		<section aria-labelledby="profiles-title" class="profile-section">
 			<div class="section-head">
 				<h2 id="profiles-title">Profiles</h2>

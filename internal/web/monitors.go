@@ -13,6 +13,7 @@ import (
 
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/engine"
+	"github.com/drilonrecica/sinjal/internal/incident"
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/recent"
 	"github.com/drilonrecica/sinjal/internal/store"
@@ -49,10 +50,10 @@ func NewMonitors(d *db.DB, key *vault.Key, eng *engine.Engine, events *sse.Hub, 
 // too, minus the checked address and failure details.
 func RegisterMonitors(r chi.Router, h *Monitors) {
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
-		r.Method(method, "/monitors", http.HandlerFunc(h.list))
 		r.Method(method, "/monitors/{id}", http.HandlerFunc(h.detail))
-		r.Method(method, "/fragments/monitors", http.HandlerFunc(h.listFragment))
-		r.Method(method, "/fragments/monitors/{id}/row", h.fragment(rowBar, func(m templates.MonitorView) templ.Component { return templates.MonitorRow(m) }))
+		r.Method(method, "/fragments/monitors", http.HandlerFunc(h.column))
+		r.Method(method, "/fragments/activity", http.HandlerFunc(h.activity))
+		r.Method(method, "/fragments/monitors/{id}/row", h.fragment(rowBar, func(m templates.MonitorView) templ.Component { return templates.ColumnRow(m) }))
 		r.Method(method, "/fragments/monitors/{id}/beats", http.HandlerFunc(h.beatTips))
 		r.Method(method, "/fragments/monitors/{id}/header", h.fragment(heroBar, func(m templates.MonitorView) templ.Component { return templates.MonitorHeader(m) }))
 	}
@@ -176,66 +177,50 @@ func joinUnits(a int, au string, b int, bu string) string {
 	return fmt.Sprintf("%d%s %d%s", a, au, b, bu)
 }
 
-// list serves GET /monitors.
-func (h *Monitors) list(w http.ResponseWriter, r *http.Request) {
-	v := templates.MonitorListView{Admin: isAdmin(r)}
-	var err error
-	if v.Monitors, err = h.rows(r, v.Admin); err != nil {
-		h.log.Error("monitor list failed", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-	render(w, r, h.log, http.StatusOK, templates.MonitorList(pageFor(r, "Monitors — Sinjal"), v))
-}
-
-// listFragment serves GET /fragments/monitors: the rows alone, for the list
-// to replace itself when monitors are created or deleted.
-func (h *Monitors) listFragment(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.rows(r, isAdmin(r))
+// column serves GET /fragments/monitors: the shell's monitor list column,
+// loaded once per page load and again when a monitor is created or
+// deleted (docs/03 "Layout").
+func (h *Monitors) column(w http.ResponseWriter, r *http.Request) {
+	admin := isAdmin(r)
+	rows, err := h.rows(r, admin)
 	if err != nil {
-		h.log.Error("monitor list fragment failed", "error", err)
+		h.log.Error("monitor column failed", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	render(w, r, h.log, http.StatusOK, templates.MonitorRows(rows))
+	render(w, r, h.log, http.StatusOK, templates.ColumnList(rows, admin))
 }
 
-// rows builds every row of the list in four queries, however many
-// monitors there are. The beat bars come from the engine's memory.
+// rows builds every row of the column in a fixed number of queries,
+// however many monitors there are: the monitors, their tags, for admins
+// their targets (what the column's search matches), and the 24-hour raw
+// uptime of all of them at once. The beat bars come from the engine's
+// memory.
 func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, error) {
 	ctx, q := r.Context(), h.db.Reader
+	now := h.now()
 	monitors, err := store.ListMonitors(ctx, q)
 	var tags map[string][]string
-	var latencies map[string]time.Duration
 	var targets map[string]string
+	var uptimes map[string]incident.Ratio
 	if err == nil {
 		tags, err = store.TagsByMonitor(ctx, q)
-	}
-	if err == nil {
-		latencies, err = store.LastDurations(ctx, q)
 	}
 	if err == nil && admin {
 		targets, err = store.Targets(ctx, q)
 	}
+	if err == nil {
+		uptimes, err = store.UptimesRaw(ctx, q, now.Add(-24*time.Hour), now, now)
+	}
 	if err != nil {
 		return nil, err
 	}
-	names := make(map[string]string, len(monitors))
-	down := make(map[string]bool)
-	for _, m := range monitors {
-		names[m.ID] = m.Name
-		down[m.ID] = m.State == "down"
-	}
-	now := h.now()
-	var out []templates.MonitorView
+	out := make([]templates.MonitorView, 0, len(monitors))
 	buf := make([]recent.Check, 0, listBeats)
 	clock := newBeatClock(now, h.loc)
 	for _, m := range monitors {
-		d, ok := latencies[m.ID]
-		v := monitorView(m, viewInput{
-			Tags: tags[m.ID], Latency: d, HasLatency: ok, Target: targets[m.ID],
-			Parent: names[m.ParentMonitorID], ParentDown: down[m.ParentMonitorID], Admin: admin,
-		}, now)
+		u := uptimes[m.ID]
+		v := monitorView(m, viewInput{Tags: tags[m.ID], Target: targets[m.ID], Uptime: u.Percent(), Adjusted: u.Percent(), Admin: admin}, now)
 		buf = h.engine.Recent().Newest(m.ID, rowBar.n, buf[:0])
 		v.Beats = beatBar(m.ID, buf, rowBar, clock)
 		out = append(out, v)

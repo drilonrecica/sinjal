@@ -10,6 +10,16 @@ import "sync"
 // Cap is how many checks a monitor keeps: the widest beat bar.
 const Cap = 120
 
+// FeedCap is how many checks of all monitors the feed keeps: the Live
+// activity column (docs/03, from 2200 px).
+const FeedCap = 50
+
+// Entry is one check in the feed, with its monitor.
+type Entry struct {
+	MonitorID string
+	Check     Check
+}
+
 // Check is one check as a beat bar shows it.
 type Check struct {
 	At   int64  // when the check started, Unix seconds
@@ -36,6 +46,9 @@ func (r *ring) push(c Check) {
 type Store struct {
 	mu    sync.RWMutex
 	rings map[string]*ring
+	feed  [FeedCap]Entry // the newest checks of all monitors
+	next  int
+	n     int
 }
 
 // New returns an empty store.
@@ -53,6 +66,9 @@ func (s *Store) Push(id string, c Check) {
 		s.rings[id] = r
 	}
 	r.push(c)
+	s.feed[s.next] = Entry{MonitorID: id, Check: c}
+	s.next = (s.next + 1) % FeedCap
+	s.n = min(s.n+1, FeedCap)
 }
 
 // Seed records checks read from the database, oldest first, before any
@@ -87,11 +103,29 @@ func (s *Store) Seed(id string, cs []Check) {
 	}
 }
 
-// Drop forgets a monitor (it was deleted).
+// Drop forgets a monitor (it was deleted), in its ring and in the feed.
 func (s *Store) Drop(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.rings, id)
+	for i := range s.feed {
+		if s.feed[i].MonitorID == id {
+			s.feed[i] = Entry{}
+		}
+	}
+}
+
+// Feed appends the newest checks of all monitors to dst, newest first:
+// what was pushed (stored checks), not what was seeded at start.
+func (s *Store) Feed(dst []Entry) []Entry {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for i := range s.n {
+		if e := s.feed[(s.next-1-i+FeedCap)%FeedCap]; e.MonitorID != "" {
+			dst = append(dst, e)
+		}
+	}
+	return dst
 }
 
 // Newest appends up to n of a monitor's checks to dst, newest first, and

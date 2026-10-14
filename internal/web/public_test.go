@@ -94,10 +94,23 @@ func TestPublicPageRenders(t *testing.T) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	if i, j, k := strings.Index(body, "Public API"), strings.Index(body, "Website"), strings.Index(body, ">Database<"); i < 0 || j < i || k < j {
+	// The hero (M8-17): the sentence names the service that is down, with
+	// the Ambient light's state, and the ongoing incident's published note
+	// is read first.
+	for _, want := range []string{`<section class="public-hero public-overall-partial" data-state="down" aria-labelledby="overall">`,
+		"Partial outage: Database is down.", `<div class="public-hero-note">`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("hero lacks %q", want)
+		}
+	}
+	if hero := body[strings.Index(body, `class="public-hero `):strings.Index(body, `class="public-group"`)]; !strings.Contains(hero, "We are restoring the database.") || !strings.Contains(hero, "<span>Database</span>") {
+		t.Errorf("the note is not under the sentence:\n%s", hero)
+	}
+	name := func(s string) int { return strings.Index(body, `<span class="public-service-name">`+s+`</span>`) }
+	if i, j, k := name("Public API"), name("Website"), name("Database"); i < 0 || j < i || k < j {
 		t.Errorf("services out of order: API %d, Website %d, Database %d", i, j, k)
 	}
-	if n := strings.Count(body, `class="public-day `); n != 3*90 {
+	if n := strings.Count(body, `<li data-day=`); n != 3*90 {
 		t.Errorf("%d strip days, want 90 per service", n)
 	}
 	if strings.Count(body, " ms") != 1 {

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/web/templates"
 )
 
 const (
@@ -340,9 +341,9 @@ func TestMilestone0(t *testing.T) {
 			t.Fatalf("GET / = %d %q", resp.StatusCode, resp.Header.Get("Content-Type"))
 		}
 		for _, want := range []string{
-			"<title>Overview — Sinjal</title>", `<main id="main"`, `<nav class="nav" aria-label="Primary">`,
+			"<title>Overview — Sinjal</title>", `<main id="main"`, `<nav id="topnav" class="topnav" aria-label="Primary">`,
 			`<a class="skip-link" href="#main">`, `data-theme="stark"`, `data-density="comfortable"`,
-			`<h1>Overview</h1>`,
+			`<h1 class="visually-hidden">Overview</h1>`, `<aside class="monitor-column" aria-label="Monitors">`,
 		} {
 			if !strings.Contains(page, want) {
 				t.Errorf("page is missing %q", want)
@@ -350,13 +351,15 @@ func TestMilestone0(t *testing.T) {
 		}
 		links := regexp.MustCompile(`<a class="nav-link" href="([^"]+)"( aria-current="page")?>([^<]+)</a>`).FindAllStringSubmatch(page, -1)
 		var labels []string
+		// Home is the wordmark and the monitors are the column (docs/03
+		// "Layout"), so on Home no section is current.
 		for _, l := range links {
 			labels = append(labels, l[3])
-			if (l[3] == "Overview") != (l[2] != "") {
-				t.Errorf("aria-current on %q = %v", l[3], l[2] != "")
+			if l[2] != "" {
+				t.Errorf("aria-current on %q on Home", l[3])
 			}
 		}
-		want := "Overview,Monitors,Incidents,Status Pages,Notifications,Maintenance,Settings"
+		want := "Status Pages,Incidents,Notifications,Maintenance,Settings"
 		if strings.Join(labels, ",") != want {
 			t.Errorf("nav = %v, want %s", labels, want)
 		}
@@ -365,8 +368,9 @@ func TestMilestone0(t *testing.T) {
 	t.Run("assets are hashed, immutable and gzip", func(t *testing.T) {
 		_, b := body(t, http.DefaultClient, s.base+"/settings/general", signedIn)
 		urls := regexp.MustCompile(`(?:href|src)="(/static/[^"]+)"`).FindAllStringSubmatch(string(b), -1)
-		if len(urls) != 6 {
-			t.Fatalf("page links %d static assets, want 6 (tokens, base, components, shell css, htmx, the preloaded Inter)", len(urls))
+		// tokens, base, components, the shell's set, the preloaded Inter.
+		if want := 3 + len(templates.ShellStyles) + len(templates.ShellScripts) + 1; len(urls) != want {
+			t.Fatalf("page links %d static assets, want %d", len(urls), want)
 		}
 		raw := &http.Client{Transport: &http.Transport{DisableCompression: true}}
 		for _, m := range urls {

@@ -205,6 +205,7 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	}
 	v.Uptime = total.Percent()
 	v.Overall, v.OverallText = overall(states, len(p.Monitors))
+	v.Sentence, v.HeroState = publicSentence(v.Overall, v.OverallText, v.Groups), publicHeroState(v.Overall)
 
 	incidents, err := store.ListPageIncidents(ctx, h.db.Reader, p.ID, now.AddDate(0, 0, -p.IncidentDays), publicIncidentLimit)
 	if err != nil {
@@ -224,6 +225,9 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 			pi.Notes = append(pi.Notes, templates.PublicNote{Message: n.Message, Time: clockText(n.At, now, h.loc), At: rfc3339(n.At)})
 		}
 		v.Incidents = append(v.Incidents, pi)
+	}
+	if n, ok := latestPublicNote(incidents); ok {
+		v.Note = &templates.PublicNote{Service: n.Service, Message: n.Message, Time: clockText(n.At, now, h.loc), At: rfc3339(n.At)}
 	}
 	return v, nil
 }
@@ -345,4 +349,76 @@ func (c *pageCache) put(id string, updated time.Time, v templates.PublicPage, no
 		}
 	}
 	c.entries[id] = cachedPage{view: v, updated: updated, expires: now.Add(publicCacheTTL)}
+}
+
+// publicSentence is the page's status sentence (M8-17): the overall state
+// in words and, during an outage, the services that are down by their
+// public names, the first three and a count of the rest.
+func publicSentence(overall, text string, groups []templates.PublicGroup) string {
+	if overall != templates.OverallMajor && overall != templates.OverallPartial {
+		return text + "."
+	}
+	var down []string
+	for _, g := range groups {
+		for _, r := range g.Rows {
+			if r.State == templates.StateDown {
+				down = append(down, r.Name)
+			}
+		}
+	}
+	if len(down) == 0 {
+		return text + "."
+	}
+	verb := "are down."
+	if len(down) == 1 {
+		verb = "is down."
+	}
+	names := down
+	if len(down) > 3 {
+		names = append(down[:3:3], strconv.Itoa(len(down)-3)+" more")
+	}
+	list := names[0]
+	if len(names) > 1 {
+		list = strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+	}
+	return text + ": " + list + " " + verb
+}
+
+// publicHeroState colours the hero's Ambient light (components.css keys
+// it on the monitor states): an outage is down, degraded is flapping,
+// everything else the calm accent.
+func publicHeroState(overall string) string {
+	switch overall {
+	case templates.OverallMajor, templates.OverallPartial:
+		return templates.StateDown
+	case templates.OverallDegraded:
+		return templates.StateFlapping
+	}
+	return templates.StateUp
+}
+
+// publicNote is the note shown under the status sentence.
+type publicNote struct {
+	Service, Message string
+	At               time.Time
+}
+
+// latestPublicNote is the newest published note of an ongoing incident,
+// for the top of the page (M8-17, owner decision): what visitors read
+// first while something is wrong. Notes of ended incidents stay with
+// their incident.
+func latestPublicNote(incidents []store.PageIncident) (publicNote, bool) {
+	var best publicNote
+	found := false
+	for _, in := range incidents {
+		if in.EndedAt != nil {
+			continue
+		}
+		for _, n := range in.Notes {
+			if !found || n.At.After(best.At) {
+				best, found = publicNote{Service: in.DisplayName, Message: n.Message, At: n.At}, true
+			}
+		}
+	}
+	return best, found
 }

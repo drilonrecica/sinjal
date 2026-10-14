@@ -28,6 +28,7 @@ func NewRouter(logger *slog.Logger, trusted []netip.Prefix) *chi.Mux {
 		proxy.Middleware(proxy.New(trusted)),
 		middleware.AccessLog(log),
 		middleware.Recover(log),
+		boostToPane,
 	)
 	return r
 }

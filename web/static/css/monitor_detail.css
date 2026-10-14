@@ -152,3 +152,25 @@
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
+
+/* Overview tab: the charts, then facts, incidents and events; side by side
+ * from 1600 px (docs/03 "Layout"), as Home. */
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-6);
+}
+@media (min-width: 1600px) {
+  /* The width goes to the second column (docs/03: wide screens show more,
+   * not wider text). */
+  .monitor-detail {
+    max-width: none;
+  }
+  .detail-grid {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+.detail-side h3 {
+  font-size: 1rem;
+}

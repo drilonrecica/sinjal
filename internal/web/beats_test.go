@@ -80,7 +80,7 @@ func TestBeatBarsOnThePages(t *testing.T) {
 	tip := `data-tip="` + at.UTC().Format("15:04:05") + ` · 5.0 s · Down: Timeout"`
 	newest := strconv.FormatInt(at.Unix()+30, 10)
 
-	for _, path := range []string{"/monitors", "/fragments/monitors", "/fragments/monitors/" + id + "/row"} {
+	for _, path := range []string{"/fragments/monitors", "/fragments/monitors/" + id + "/row"} {
 		body := e.getAs(t, "v1", "GET", path).Body.String()
 		if !strings.Contains(body, `data-newest="`+newest+`" role="img" aria-label="Last 2 checks: 1 up, 1 down.`) ||
 			!strings.Contains(body, `data-tips="/fragments/monitors/`+id+`/beats?until=`+newest+`"><i data-b="up"></i><i data-b="down"></i><i></i>`) {

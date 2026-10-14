@@ -79,6 +79,8 @@ Implementation (M7-04): one read of a monitor's intervals covers the 90 local da
 - "Powered by sinjal" is a small low-contrast footer, removed with the page setting.
 - The figures are kept in memory for 10 s per page and shared by its visitors; saving the page (any admin change moves `updated_at`) makes the next visit read them again. Responses are `Cache-Control: no-store`.
 
+Built (M8-17, Clear): the overall status opens the page as one sentence, its hero: the overall state's words (the strings above, unchanged for `api.json` and the feed) and, during an outage, the public names of the services that are down ("Partial outage: Checkout is down."; three names, then "and n more"). The Ambient light of the app's heroes sits behind it (red for an outage, amber when degraded, the accent otherwise; a faint halo in Daylight, none in Terminal). The newest published note of an ongoing incident is shown right under the sentence (service, time, text), so visitors read the explanation first; every note also stays with its incident below. Services draw the shared 90-day bars (`DayBars`, as on a monitor's Overview). A page whose theme is unknown or empty renders in Daylight, the status page default (`templates.PublicDefaultTheme`), never Stark. Routes, access, redaction, the cache, `api.json` and the feed are unchanged.
+
 ## Groups
 
 Static ordered groups.

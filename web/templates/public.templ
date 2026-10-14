@@ -48,12 +48,21 @@ templ PublicStatusPage(v PublicPage, theme string) {
 		<div class="public-page">
 			@publicHeader(v)
 			<main>
-				<section class={ "public-overall", "public-overall-" + v.Overall } aria-labelledby="overall">
-					<h2 id="overall"><span class="public-glyph">@Icon(overallIcon(v.Overall))</span> { v.OverallText }</h2>
+				<section class={ "public-hero", "public-overall-" + v.Overall } data-state={ v.HeroState } aria-labelledby="overall">
+					<h2 id="overall"><span class="public-glyph">@Icon(overallIcon(v.Overall))</span> { v.Sentence }</h2>
 					<p class="public-overall-meta">
 						<span>{ v.Uptime } uptime over 90 days</span>
 						<span>Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time></span>
 					</p>
+					if v.Note != nil {
+						<div class="public-hero-note">
+							<p class="public-hero-note-head">
+								<span>{ v.Note.Service }</span>
+								<time datetime={ v.Note.At }>{ v.Note.Time }</time>
+							</p>
+							<p>{ v.Note.Message }</p>
+						</div>
+					}
 				</section>
 				for _, g := range v.Groups {
 					@publicGroup(g)
@@ -103,13 +112,10 @@ templ publicRow(row PublicRow) {
 				{ publicStateLabel(row.State) }
 			</span>
 		</div>
-		// role="img": assistive technology reads the strip's summary, not 90
-		// bars; each bar's own words are its tooltip.
-		<ol class="public-strip" role="img" aria-label={ row.StripText }>
-			for _, d := range row.Days {
-				<li class={ "public-day", "public-day-" + d.Class } title={ d.Label }></li>
-			}
-		</ol>
+		// The shared 90-day bars (also on a monitor's Overview): one
+		// role="img" with the strip's summary; each bar's words are its
+		// tooltip.
+		@DayBars(row.Days, row.StripText)
 		<p class="public-service-meta">
 			<span>90 days ago</span>
 			<span>

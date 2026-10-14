@@ -14,8 +14,11 @@ type MonitorDetailView struct {
 	Config   []ConfigGroup
 	Failures []FailureView
 	History  HistoryView
-	// Incidents is the Incidents tab: this monitor's incidents.
+	// Incidents is the Incidents tab: this monitor's incidents; on the
+	// Overview tab the latest few, beside the charts.
 	Incidents IncidentListView
+	// Events is the Overview tab's recent incident events of the monitor.
+	Events []RecentEvent
 }
 
 // StripView is a 90-day strip with its adjusted uptime.

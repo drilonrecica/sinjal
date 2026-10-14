@@ -115,17 +115,43 @@
     return new uPlot(opts, [series.t, series.avg, series.max, series.fail], el);
   }
 
-  document.querySelectorAll("[data-chart]").forEach(function (el) {
-    var plot = build(el);
-    if (window.ResizeObserver) {
-      new ResizeObserver(function () {
-        plot.setSize({ width: el.clientWidth, height: el.clientWidth < 480 ? 200 : 240 });
-      }).observe(el);
-    }
-    // A theme change swaps the tokens: draw again in the new colours.
-    new MutationObserver(function () {
-      plot.destroy();
-      plot = build(el);
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-  });
+  // The charts on the page. The app shell swaps pages in without a reload
+  // (htmx), so charts arrive with new content and leave with old content.
+  var plots = [];
+
+  function scan(root) {
+    Array.prototype.forEach.call(root.querySelectorAll("[data-chart]"), function (el) {
+      if (el.sinjalChart) {
+        return;
+      }
+      var entry = { el: el, plot: build(el) };
+      el.sinjalChart = entry;
+      plots.push(entry);
+      if (window.ResizeObserver) {
+        var ro = new ResizeObserver(function () {
+          if (!el.isConnected) {
+            ro.disconnect();
+            return;
+          }
+          entry.plot.setSize({ width: el.clientWidth, height: el.clientWidth < 480 ? 200 : 240 });
+        });
+        ro.observe(el);
+      }
+    });
+  }
+
+  // A theme change swaps the tokens: draw again in the new colours. One
+  // observer for all charts; charts no longer on the page are dropped.
+  new MutationObserver(function () {
+    plots = plots.filter(function (p) { return p.el.isConnected; });
+    plots.forEach(function (p) {
+      p.plot.destroy();
+      p.plot = build(p.el);
+    });
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  scan(document);
+  if (window.htmx) {
+    htmx.onLoad(scan);
+  }
 })();

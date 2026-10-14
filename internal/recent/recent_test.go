@@ -156,3 +156,31 @@ func TestSeedAfterAFullRingChangesNothing(t *testing.T) {
 		t.Fatalf("oldest = %d, want 100", got[Cap-1].At)
 	}
 }
+
+// The Live activity column reads the newest checks of all monitors.
+func TestFeed(t *testing.T) {
+	s := New()
+	for i := 1; i <= FeedCap+5; i++ {
+		s.Push("m"+strconv.Itoa(i%3), at(i))
+	}
+	got := s.Feed(nil)
+	if len(got) != FeedCap || got[0].Check.At != FeedCap+5 || got[FeedCap-1].Check.At != 6 {
+		t.Fatalf("%d entries, %d..%d", len(got), got[0].Check.At, got[len(got)-1].Check.At)
+	}
+	if got[0].MonitorID != "m"+strconv.Itoa((FeedCap+5)%3) {
+		t.Fatalf("monitor %q", got[0].MonitorID)
+	}
+	// Seeding fills the rings, not the feed: it is history, not activity.
+	s2 := New()
+	s2.Seed("m", []Check{at(1), at(2)})
+	if len(s2.Feed(nil)) != 0 {
+		t.Fatal("seeded checks are in the feed")
+	}
+	// A deleted monitor leaves the feed.
+	s.Drop("m1")
+	for _, e := range s.Feed(nil) {
+		if e.MonitorID == "m1" {
+			t.Fatal("a dropped monitor is still in the feed")
+		}
+	}
+}

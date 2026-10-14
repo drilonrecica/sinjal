@@ -15,15 +15,13 @@ Wide screens use the width with more of the same content, never widgets:
 
 Phones: the list and the detail are separate views; the top bar becomes a menu.
 
-Built so far: a left sidebar with the sections below; the top bar, the list column and the wide breakpoints arrive with the app shell (M8-05). The sections and routes stay as they are:
-
-1. Overview (Home)
-2. Monitors
-3. Incidents
-4. Status Pages
-5. Notifications
-6. Maintenance
-7. Settings
+Built (M8-05, `web/templates/shell.templ`, `css/shell.css`, `js/shell.js`):
+- **Top bar:** the wordmark (Home, `/`), then Status Pages (admins only: its pages are admin-only), Incidents, Notifications, Maintenance, Settings, and an account menu (a `<details>` with the login, Account and Sign out). Routes are unchanged.
+- **Monitor column:** loaded once per page load from `/fragments/monitors`. "Add monitor" (admins), a search box (name, type, tags, and for admins the target) and chips (All, Down, Up, Paused) hide rows without a round trip. Each row is one link: state glyph (the word for assistive technology), name, raw 24-hour uptime (the detail header's raw figure, all monitors read at once by `store.UptimesRaw`), and a 36-beat bar. ↑/↓/Home/End move between rows; the row of the monitor in the pane is `aria-current` with an accent edge. Server-side search, type and tag filters and saved views are M8-08.
+- **Pane navigation:** links and forms are boosted (htmx). The server aims a boosted answer at `#main` (`HX-Retarget`/`HX-Reselect`, `internal/web/boost.go`), so only the pane changes and the column keeps its rows, scroll and live updates; an answer without a pane (sign-in, re-authentication, a public status page) loads as a page. Every shell page links the same CSS and JS, so no page needs assets of its own; back and forward fetch the page again (no htmx history cache: a cached page would carry runtime inline styles the CSP blocks).
+- **One event stream:** the shell opens the only `/events` stream.
+- **Wide screens:** from 1600 px Home and a monitor's Overview tab are two columns (charts on the left; facts, latest incidents and recent events on the right). From 2200 px the Live activity column shows the newest stored checks of all monitors (the engine's in-memory feed) merged with incident events, newest first, refreshed on events at most every 3 s and loaded only while it is shown.
+- **Phones (< 48 rem):** the column and the pane are separate views. `/monitors` is the list view (the column; Home in the pane on larger screens), every other page shows the pane; the top bar's sections are a "Menu" disclosure that starts with Monitors.
 
 ## Overview (Home)
 

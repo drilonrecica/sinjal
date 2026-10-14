@@ -182,7 +182,7 @@ func TestRecentIncidentEvents(t *testing.T) {
 	ia := seedIncident(t, d.Writer, a, now, now.Add(time.Hour), false) // detected, declared down, recovered
 	ib := seedIncident(t, d.Writer, b, now.Add(2*time.Hour), time.Time{}, false)
 
-	got, err := RecentIncidentEvents(ctx, d.Reader, 4)
+	got, err := RecentIncidentEvents(ctx, d.Reader, "", 4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,8 +199,19 @@ func TestRecentIncidentEvents(t *testing.T) {
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("got\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
 	}
-	plan := queryPlan(t, d.Reader, recentEventsSQL, 10)
+	plan := queryPlan(t, d.Reader, recentEventsSQL, "", "", 10)
 	if strings.Contains(plan, "TEMP B-TREE") {
 		t.Errorf("recent events sort: %s", plan)
+	}
+
+	// One monitor's: the detail page's side column.
+	onlyA, err := RecentIncidentEvents(ctx, d.Reader, a, 10)
+	if err != nil || len(onlyA) != 3 {
+		t.Fatalf("monitor a: %d events, %v", len(onlyA), err)
+	}
+	for _, e := range onlyA {
+		if e.MonitorID != a {
+			t.Fatalf("event of %s in a's list", e.MonitorID)
+		}
 	}
 }

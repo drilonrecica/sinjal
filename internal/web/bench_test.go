@@ -14,8 +14,10 @@ import (
 )
 
 // BenchmarkMonitorListPage is docs/18 scenario 6 through the whole handler:
-// GET /monitors for an admin with 1,000 monitors (two tags each, 100 raw
-// results each, one in ten down, full beat bars in the engine's memory),
+// the shell's monitor column (GET /fragments/monitors, M8-05) for an admin
+// with 1,000 monitors (two tags each, 100 raw results each, one in ten
+// down with an active incident, every one with an incident earlier in the
+// day for its 24-hour uptime, full beat bars in the engine's memory),
 // measured from the request to the written HTML, session check included.
 // The budget is 50 ms for a localhost page.
 func BenchmarkMonitorListPage(b *testing.B) {
@@ -43,6 +45,14 @@ func BenchmarkMonitorListPage(b *testing.B) {
 			if _, err := tx.Exec(`UPDATE monitors SET current_state = 'down' WHERE id = ?`, id); err != nil {
 				b.Fatal(err)
 			}
+			if _, err := tx.Exec(`INSERT INTO incidents (id, monitor_id, started_at, created_at) VALUES (?, ?, ?, ?)`,
+				id+"-now", id, store.FormatTime(monitorsNow.Add(-time.Hour)), store.FormatTime(monitorsNow.Add(-time.Hour))); err != nil {
+				b.Fatal(err)
+			}
+		}
+		if _, err := tx.Exec(`INSERT INTO incidents (id, monitor_id, started_at, ended_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+			id+"-day", id, store.FormatTime(monitorsNow.Add(-10*time.Hour)), store.FormatTime(monitorsNow.Add(-9*time.Hour)), store.FormatTime(monitorsNow.Add(-10*time.Hour))); err != nil {
+			b.Fatal(err)
 		}
 		for r := 0; r < 100; r++ {
 			if _, err := tx.Exec(`INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, ?, 1)`,
@@ -67,7 +77,7 @@ func BenchmarkMonitorListPage(b *testing.B) {
 	b.ReportAllocs()
 	var body []byte
 	for b.Loop() {
-		rec := e.serve(withCookie(req("GET", "/monitors", nil), cookie))
+		rec := e.serve(withCookie(req("GET", "/fragments/monitors", nil), cookie))
 		if rec.Code != 200 {
 			b.Fatalf("status %d", rec.Code)
 		}

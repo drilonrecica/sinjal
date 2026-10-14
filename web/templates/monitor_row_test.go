@@ -24,29 +24,35 @@ func renderToString(t *testing.T, c templ.Component) string {
 	return buf.String()
 }
 
-func TestMonitorRowShowsEveryField(t *testing.T) {
-	html := renderToString(t, MonitorRow(testMonitor))
+// A column row: one link with the state (the word for assistive
+// technology), name, uptime and beat bar; it refreshes itself.
+func TestColumnRow(t *testing.T) {
+	m := testMonitor
+	m.Uptime = "99.50%"
+	html := renderToString(t, ColumnRow(m))
 	for _, want := range []string{
-		`id="monitor-m1"`, `data-live`, `data-monitor-id="m1"`,
+		`id="col-m1"`, `data-live`, `data-monitor-id="m1"`, `data-state="up"`,
+		`data-search="api http https://api.example.com prod eu"`,
 		`hx-get="/fragments/monitors/m1/row"`, `hx-trigger="refresh"`, `hx-swap="outerHTML"`,
-		`href="/monitors/m1"`, `>API</a>`, `>http</span>`, `https://api.example.com`,
-		`128 ms`, `datetime="2026-10-06T12:00:00Z"`, `>3m</time>`,
-		`Depends on Gateway`, `>prod</li>`, `>eu</li>`, `>Up</span>`,
+		`<a class="column-link" href="/monitors/m1">`, `<span class="visually-hidden">Up:</span>`,
+		`<span class="column-name">API</span>`, `>99.50%</span>`, `class="beat-bar"`,
 	} {
 		if !strings.Contains(html, want) {
-			t.Errorf("row lacks %q:\n%s", want, html)
+			t.Errorf("column row lacks %q:\n%s", want, html)
 		}
 	}
 }
 
-func TestMonitorRowOmitsWhatIsNotThere(t *testing.T) {
-	m := testMonitor
-	m.Target, m.Parent, m.Tags = "", "", nil
-	html := renderToString(t, MonitorRow(m))
-	for _, bad := range []string{"monitor-target", "monitor-dependency", "tag-list"} {
-		if strings.Contains(html, bad) {
-			t.Errorf("row has %q without data", bad)
-		}
+func TestColumnList(t *testing.T) {
+	html := renderToString(t, ColumnList([]MonitorView{testMonitor}, false))
+	if !strings.Contains(html, `data-live-list hx-get="/fragments/monitors"`) || !strings.Contains(html, `id="col-m1"`) || strings.Contains(html, "No monitors yet") {
+		t.Fatalf("column list:\n%s", html)
+	}
+	if html := renderToString(t, ColumnList(nil, true)); !strings.Contains(html, "No monitors yet.") || !strings.Contains(html, `href="/monitors/new"`) {
+		t.Fatalf("empty column for an admin:\n%s", html)
+	}
+	if html := renderToString(t, ColumnList(nil, false)); strings.Contains(html, `/monitors/new`) {
+		t.Fatalf("empty column offers a viewer to create:\n%s", html)
 	}
 }
 
@@ -73,7 +79,7 @@ func TestMonitorNameIsEscaped(t *testing.T) {
 	m := testMonitor
 	m.Name = `<img src=x onerror=alert(1)>`
 	m.Tags = []string{`"><script>`}
-	for name, c := range map[string]templ.Component{"row": MonitorRow(m), "header": MonitorHeader(m)} {
+	for name, c := range map[string]templ.Component{"row": ColumnRow(m), "header": MonitorHeader(m)} {
 		html := renderToString(t, c)
 		if strings.Contains(html, "<img") || strings.Contains(html, "<script") {
 			t.Errorf("%s does not escape names and tags:\n%s", name, html)
@@ -99,7 +105,8 @@ func TestLiveWrapsChildrenInOneEventSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := buf.String()
-	for _, want := range []string{`hx-ext="sse"`, `sse-connect="/events"`, `hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted, sse:incident.opened, sse:incident.updated, sse:incident.closed"`, "<p>x</p>"} {
+	for _, want := range []string{`hx-ext="sse"`, `sse-connect="/events"`,
+		`hx-trigger="sse:monitor.updated, sse:monitor.created, sse:monitor.deleted, sse:incident.opened, sse:incident.updated, sse:incident.closed, sse:maintenance.updated, sse:notification.channel_updated"`, "<p>x</p>"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("live region lacks %q: %s", want, html)
 		}
@@ -109,11 +116,10 @@ func TestLiveWrapsChildrenInOneEventSource(t *testing.T) {
 	}
 }
 
-// A down parent is said in words on the row and on the detail header.
+// A down parent is said in words on the detail header.
 func TestParentDownIsShown(t *testing.T) {
 	m := testMonitor
 	for name, c := range map[string]func(MonitorView) templ.Component{
-		"row":    func(v MonitorView) templ.Component { return MonitorRow(v) },
 		"header": func(v MonitorView) templ.Component { return MonitorHeader(v) },
 	} {
 		if html := renderToString(t, c(m)); strings.Contains(html, "Parent down") {

@@ -124,7 +124,9 @@ func TestHistoryTab(t *testing.T) {
 	e.addUser(t, "v1", "viewer", "viewer", "")
 	id := e.addMonitor(t, "API", "https://api.example.com")
 	empty := e.getAs(t, "v1", "GET", "/monitors/"+id+"?tab=history").Body.String()
-	if !strings.Contains(empty, "No checks were stored in this range") || strings.Contains(empty, "uplot") {
+	// No chart without data (uPlot itself is part of the shell's one set of
+	// scripts, on every page).
+	if !strings.Contains(empty, "No checks were stored in this range") || strings.Contains(empty, "data-chart") {
 		t.Fatal("empty history: wrong page")
 	}
 
@@ -255,8 +257,10 @@ func TestHeaderUptime(t *testing.T) {
 	if !regexp.MustCompile(`95\.8\d%`).MatchString(header) || !strings.Contains(header, "(100.00% adjusted)") {
 		t.Errorf("raw and adjusted uptime missing:\n%s", header)
 	}
-	if list := e.getAs(t, "v1", "GET", "/fragments/monitors").Body.String(); strings.Contains(list, "adjusted") || !strings.Contains(list, "<dt>Uptime</dt>") {
-		t.Errorf("the list shows uptime:\n%s", list)
+	// The column shows the raw figure only.
+	if list := e.getAs(t, "v1", "GET", "/fragments/monitors").Body.String(); strings.Contains(list, "adjusted") ||
+		!regexp.MustCompile(`title="Uptime, last 24 hours">95\.8\d%`).MatchString(list) {
+		t.Errorf("the column's uptime:\n%s", list)
 	}
 }
 

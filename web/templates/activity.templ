@@ -1,0 +1,34 @@
+package templates
+
+// ActivityLine is one line of Live activity: a check or an incident event.
+type ActivityLine struct {
+	State   string // BeatUp, BeatDown, or "event" for an incident event
+	Monitor string
+	Href    string // the monitor for a check, the incident for an event
+	What    string // "Up", "Down: Timeout", "Declared down", …
+	Detail  string // a check's duration; "" for an event
+	Time    string
+	At      string // RFC 3339
+}
+
+// ActivityList fills the shell's Live activity column (docs/03, from
+// 2200 px); shell.js asks for it when the column is shown and on events.
+templ ActivityList(lines []ActivityLine) {
+	<h2 class="activity-title">Live activity</h2>
+	if len(lines) == 0 {
+		<p class="activity-empty">Checks appear here as they complete.</p>
+	} else {
+		<ol class="activity-list" role="list">
+			for _, l := range lines {
+				<li data-state={ l.State }>
+					<time datetime={ l.At }>{ l.Time }</time>
+					<a href={ templ.SafeURL(l.Href) }>{ l.Monitor }</a>
+					<span class="activity-what">{ l.What }</span>
+					if l.Detail != "" {
+						<span class="activity-detail">{ l.Detail }</span>
+					}
+				</li>
+			}
+		</ol>
+	}
+}

@@ -47,7 +47,7 @@ func TestBeatBarFocus(t *testing.T) {
 func TestRowAndHeaderShowTheBeatBar(t *testing.T) {
 	m := testMonitor
 	m.Beats = testBeats
-	for name, c := range map[string]templ.Component{"row": MonitorRow(m), "header": MonitorHeader(m)} {
+	for name, c := range map[string]templ.Component{"row": ColumnRow(m), "header": MonitorHeader(m)} {
 		if html := renderToString(t, c); !strings.Contains(html, `data-tip="12:00:30 · 128 ms · Up"`) {
 			t.Errorf("%s has no beat bar:\n%s", name, html)
 		}
@@ -61,5 +61,15 @@ func TestDayBars(t *testing.T) {
 		`<li data-day="none" title="Tue 13 Oct 2026: no data"></li></ol>`
 	if html != want {
 		t.Fatalf("got\n%s\nwant\n%s", html, want)
+	}
+}
+
+// A status page renders in its own theme, or in Daylight, the status page
+// default (docs/05), when it has none the app knows; never in Stark.
+func TestPublicPageThemeFallback(t *testing.T) {
+	for theme, want := range map[string]string{"terminal": "terminal", "stark": "stark", "": "daylight", "carbon": "daylight"} {
+		if html := renderToString(t, PublicStatusPage(PublicPage{Title: "P", Overall: OverallNone, Uptime: "—", IncidentDays: 1}, theme)); !strings.Contains(html, `data-theme="`+want+`"`) {
+			t.Errorf("theme %q: not %s", theme, want)
+		}
 	}
 }

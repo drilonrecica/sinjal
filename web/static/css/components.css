@@ -252,16 +252,20 @@
  * (a monitor's header, Home's sentence), coloured by state, off with
  * data-ambient="off". It stays inside the content's padding, so it never
  * widens the page. */
+.public-hero,
 .home-hero,
 .monitor-header {
   --ambient: var(--ambient-up);
   position: relative;
   isolation: isolate;
 }
+.public-hero[data-state="down"],
 .home-hero[data-state="down"],
 .monitor-header[data-state="down"] { --ambient: var(--ambient-down); }
+.public-hero[data-state="flapping"],
 .home-hero[data-state="flapping"],
 .monitor-header[data-state="flapping"] { --ambient: var(--ambient-flapping); }
+[data-ambient="on"] .public-hero::before,
 [data-ambient="on"] .home-hero::before,
 [data-ambient="on"] .monitor-header::before {
   content: "";
@@ -273,6 +277,7 @@
   background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 26%, transparent), transparent);
   pointer-events: none;
 }
+[data-theme="daylight"][data-ambient="on"] .public-hero::before,
 [data-theme="daylight"][data-ambient="on"] .home-hero::before,
 [data-theme="daylight"][data-ambient="on"] .monitor-header::before {
   background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 12%, transparent), transparent);
@@ -401,6 +406,7 @@
 [data-theme="terminal"] .status[data-state="flapping"] .icon {
   color: inherit;
 }
+[data-theme="terminal"] .public-hero::before,
 [data-theme="terminal"] .home-hero::before,
 [data-theme="terminal"] .monitor-header::before {
   display: none;
@@ -414,6 +420,9 @@
 [data-theme="terminal"] .chan-list,
 [data-theme="terminal"] .sp-monitor,
 [data-theme="terminal"] .problem-strip,
+[data-theme="terminal"] .public-services,
+[data-theme="terminal"] .public-incident,
+[data-theme="terminal"] .public-hero-note,
 [data-theme="terminal"] .auth-panel,
 [data-theme="terminal"] .form-section {
   border-style: double;

@@ -102,6 +102,8 @@ M4-05: a heartbeat beat (`Engine.Beat`: token hash, one indexed `UPDATE … RETU
 
 M7-04: `web.BenchmarkStatusPage` (a public page of 25 services, each with an incident every three days over 90 days): building the page cold (25 monitor reads, 25 interval reads over 90 days, 2,250 strip days, the incident list) 19.5 ms, 4.6 MB, 24,000 allocations; a visit within the 10 s cache, through the whole handler, 2.2–2.9 ms. The page is 245 KB of HTML uncompressed (about 100 bytes per strip day, very repetitive); one label per bar, no duplicate hidden text. Inside the 50 ms page budget cold and cached.
 
+M8-17: the redesigned page measured against the code before it, back to back on the same loaded machine (load average 12, so the absolute times are not comparable with M7-04's): cold build 37–51 ms against 44–52 ms, a cached visit 2.8–3.8 ms against 5.5–7.1 ms, and 212 KB of HTML against 255 KB: the shared day bars carry `data-day` instead of two classes per bar. The hero sentence and the note use what the build already reads.
+
 M7-10: `api.json` (25 services, 10 KB) 0.26 ms and `feed.xml` (14 KB) 0.39 ms per request through the whole handler from the cached view, `BenchmarkStatusPage/api.json|feed.xml`; a cold build is the 19 ms above.
 
 M7-06: `web.BenchmarkHostRouter` (what every request pays for custom hostnames: one primary-key read of the request's host): 14 µs, 20 allocations. No cache: mappings change in the admin and must apply at once.
@@ -118,6 +120,9 @@ M7-06: `web.BenchmarkHostRouter` (what every request pays for custom hostnames: 
 | 6 monitor list page | `web.BenchmarkMonitorListPage` with full beat bars | 28–30 ms (26–30 ms before), 2.2 MB of HTML, 63 KB gzip. With a tooltip on every beat it was 45 ms and 3.8 MB (84 KB gzip), 90 % of the budget, after building tips with one buffer per request (48 ms before that): list tips are fetched on the first hover instead (owner decision, M8-16) |
 | row tips on hover | `web.BenchmarkMonitorDetail/tips` | 0.11 ms, from memory |
 | page weight | `js/beats.js`, gzip -9 | 2.0 KB, on every live page (`LiveScripts`): 49.0 KB of the 100 KB JS budget in total |
+| column uptime (M8-05) | `store.BenchmarkUptimesRaw` (24 h of 1,000 monitors over a year of history: 20 incidents each, one in ten active, 50 pauses; the incident read scans the table) | 11–18 ms (noisy machine), 9,400 allocations: one read transaction for all monitors instead of the 140 µs per monitor of `store.Uptime` (M3-12) |
+| 6 monitor column (M8-05) | `web.BenchmarkMonitorListPage`, now `GET /fragments/monitors` (the shell's column) with uptime for every row: one incident per monitor today, one in ten active | 21–33 ms over six samples on a machine at load 8 (two unrelated JVMs), 2.0 MB of HTML, 63 KB gzip: inside the 50 ms budget, with uptime the old list could not afford. The column is fetched once per page load; moving between pages swaps only the pane |
+| shell assets (M8-05) | every shell page links one fixed set (`ShellStyles`, `ShellScripts`), gzip -9 | 20.0 KB CSS, 52.5 KB JS (htmx 17.1, uPlot 22.3, SSE 2.8, shell.js 2.3, chart.js 2.3, beats.js 2.0, passkey.js 1.9, live.js 1.2, copy.js 0.6): within the 100 KB JS budget; cached immutably, so only the first page pays it. uPlot no longer waits for a History tab: a page swapped into the pane cannot bring scripts of its own |
 | detail Overview | `web.BenchmarkMonitorDetail/overview` (120-beat header, 90-day strip with an incident every three days, 24-hour graph) | 1.5–1.7 ms |
 
 ### M6 (M6-08)

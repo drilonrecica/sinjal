@@ -9,9 +9,7 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 	@Shell(page.withAssets(detailAssets(v)), "monitors") {
 		<div class="monitor-detail">
 			<p class="crumb"><a href="/monitors">Monitors</a></p>
-			@Live() {
-				@MonitorHeader(v.Monitor)
-			}
+			@MonitorHeader(v.Monitor)
 			if v.Admin {
 				<div class="detail-actions">
 					<a class="button" href={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/edit") }>Edit</a>
@@ -105,17 +103,28 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 						}
 					default:
 						<h2 id="tab-title">Overview</h2>
-						@facts(v.Overview)
-						<h3>Last 90 days</h3>
-						if v.Strip.Uptime == "—" {
-							<p class="strip-uptime">No data yet</p>
-						} else {
-							<p class="strip-uptime">{ v.Strip.Uptime } uptime, maintenance excluded</p>
-						}
-						@DayBars(v.Strip.Days, v.Strip.Label)
-						<h3>Last 24 hours</h3>
-						@HistoryPanel(v.History)
-						<p class="tab-note"><a href={ templ.SafeURL(tabURL(v.Monitor.ID, "history")) }>Other ranges</a></p>
+						<div class="detail-grid">
+							<div class="detail-main">
+								<h3>Last 90 days</h3>
+								if v.Strip.Uptime == "—" {
+									<p class="strip-uptime">No data yet</p>
+								} else {
+									<p class="strip-uptime">{ v.Strip.Uptime } uptime, maintenance excluded</p>
+								}
+								@DayBars(v.Strip.Days, v.Strip.Label)
+								<h3>Last 24 hours</h3>
+								@HistoryPanel(v.History)
+								<p class="tab-note"><a href={ templ.SafeURL(tabURL(v.Monitor.ID, "history")) }>Other ranges</a></p>
+							</div>
+							<div class="detail-side">
+								<h3 class="visually-hidden">Facts</h3>
+								@facts(v.Overview)
+								<h3>Recent incidents</h3>
+								@IncidentRows(v.Incidents)
+								<h3>Recent events</h3>
+								@eventList(v.Events)
+							</div>
+						</div>
 				}
 			</section>
 		</div>

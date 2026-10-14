@@ -29,8 +29,8 @@ var navLinkRe = regexp.MustCompile(`<a class="nav-link" href="([^"]+)"( aria-cur
 func TestEverySectionRendersTheShell(t *testing.T) {
 	r, _ := pagesRouter()
 	for _, s := range templates.Sections {
-		if s.Key == "monitors" || s.Key == "maintenance" || s.Key == "incidents" || s.Key == "overview" || s.Key == "notifications" || s.Key == "status-pages" {
-			continue // real pages needing the database: see monitors_test.go, maintenance_test.go, incidents_test.go, overview_test.go, notifications_test.go, statuspages_test.go
+		if s.Key == "maintenance" || s.Key == "incidents" || s.Key == "notifications" || s.Key == "status-pages" {
+			continue // real pages needing the database: see maintenance_test.go, incidents_test.go, notifications_test.go, statuspages_test.go
 		}
 		t.Run(s.Key, func(t *testing.T) {
 			rec := get(r, "GET", s.Path)
@@ -47,9 +47,11 @@ func TestEverySectionRendersTheShell(t *testing.T) {
 
 			// Landmarks and heading.
 			for _, want := range []string{
-				`<main id="main" class="content" tabindex="-1">`,
-				`<nav class="nav" aria-label="Primary">`,
-				`<header class="brand">`,
+				`<main id="main" class="content" tabindex="-1" data-view="detail" hx-history-elt>`,
+				`<nav id="topnav" class="topnav" aria-label="Primary">`,
+				`<header class="topbar">`,
+				`<aside class="monitor-column" aria-label="Monitors">`,
+				`hx-get="/fragments/monitors" hx-trigger="load"`,
 				"<h1>" + s.Label + "</h1>",
 				"<title>" + s.Label + " — Sinjal</title>",
 			} {
@@ -58,14 +60,21 @@ func TestEverySectionRendersTheShell(t *testing.T) {
 				}
 			}
 
-			// Navigation: seven links in IA order, exactly one current.
+			// Navigation: the sections a non-admin may open, in IA order,
+			// exactly one current. (No session here: not an admin.)
+			var visible []templates.Section
+			for _, s := range templates.Sections {
+				if !s.Admin {
+					visible = append(visible, s)
+				}
+			}
 			links := navLinkRe.FindAllStringSubmatch(body, -1)
-			if len(links) != len(templates.Sections) {
-				t.Fatalf("found %d nav links, want %d", len(links), len(templates.Sections))
+			if len(links) != len(visible) {
+				t.Fatalf("found %d nav links, want %d", len(links), len(visible))
 			}
 			current := 0
 			for i, l := range links {
-				want := templates.Sections[i]
+				want := visible[i]
 				if l[1] != want.Path || l[3] != want.Label {
 					t.Errorf("nav link %d = %s %q, want %s %q", i, l[1], l[3], want.Path, want.Label)
 				}
@@ -119,8 +128,10 @@ func TestShellLoadsHashedAssets(t *testing.T) {
 			js++
 		}
 	}
-	if css != 4 || js != 1 {
-		t.Errorf("assets linked: %d css, %d js; want 4 (tokens, base, components, shell) and 1 (htmx)", css, js)
+	// The shell links the same assets on every page (it swaps only its
+	// pane): the three base stylesheets and the shell's own set.
+	if css != 3+len(templates.ShellStyles) || js != len(templates.ShellScripts) {
+		t.Errorf("assets linked: %d css, %d js; want %d and %d", css, js, 3+len(templates.ShellStyles), len(templates.ShellScripts))
 	}
 	if !regexp.MustCompile(`<script src="/static/js/htmx\.min\.[0-9a-f]{16}\.js" defer>`).MatchString(body) {
 		t.Error("htmx must load with defer from its hashed URL")
@@ -166,5 +177,25 @@ func TestRenderFailureIsACleanInternalError(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), "render failed") || !strings.Contains(logs.String(), "secret detail") {
 		t.Errorf("failure was not logged with detail: %s", logs.String())
+	}
+}
+
+// Status Pages are admin-only, so only admins see the link to them; both
+// roles get the rest of the top bar and the account menu with their name.
+func TestTopBarByRole(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "a1", "admin", "admin", "")
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	admin := e.getAs(t, "a1", "GET", "/incidents").Body.String()
+	viewer := e.getAs(t, "v1", "GET", "/incidents").Body.String()
+	link := `<a class="nav-link" href="/status-pages">Status Pages</a>`
+	if !strings.Contains(admin, link) || strings.Contains(viewer, link) {
+		t.Errorf("Status Pages link: admin %v, viewer %v", strings.Contains(admin, link), strings.Contains(viewer, link))
+	}
+	for who, body := range map[string]string{"admin": admin, "viewer": viewer} {
+		if !strings.Contains(body, `<a class="nav-link" href="/incidents" aria-current="page">Incidents</a>`) ||
+			!strings.Contains(body, `<summary class="account-button">`+who+`</summary>`) {
+			t.Errorf("%s: top bar lacks the current section or the account menu", who)
+		}
 	}
 }

@@ -1,43 +1,114 @@
 package templates
 
-// Shell is the application frame: skip link, sidebar navigation and the main
-// region. active is the Key of the current Section ("" for none).
+// Shell is the application frame (docs/03 "Layout"): skip link, the slim
+// top bar, then the monitor list column, the pane and, from 2200 px, the
+// Live activity column. active is the Key of the current Section ("" for
+// none).
+//
+// Moving between pages swaps the pane only: links and forms are boosted
+// (htmx) and the server aims the answer at #main (boostToPane,
+// internal/web/boost.go), so the column keeps its rows, scroll and live
+// updates; shell.js marks the current section and row. Without JavaScript
+// every link is an ordinary page load. One event stream (Live) serves the
+// whole app.
 templ Shell(page Page, active string) {
 	@Layout(page.withShellAssets()) {
 		<a class="skip-link" href="#main">Skip to main content</a>
-		<div class="shell">
-			<div class="sidebar">
-				<header class="brand">
-					<a class="brand-link" href="/">
-						@Wordmark()
-						<span class="visually-hidden">Sinjal</span>
-					</a>
-				</header>
-				<nav class="nav" aria-label="Primary">
-					<ul role="list">
-						for _, s := range Sections {
-							<li>
-								<a
-									class="nav-link"
-									href={ templ.SafeURL(s.Path) }
-									if s.Key == active {
-										aria-current="page"
-									}
-								>{ s.Label }</a>
-							</li>
-						}
-					</ul>
-				</nav>
-				<form class="signout" method="post" action="/logout">
-					@CSRFField(page)
-					<button class="signout-button" type="submit">Sign out</button>
-				</form>
-			</div>
-			<main id="main" class="content" tabindex="-1">
-				{ children... }
-			</main>
+		<div class="shell" hx-boost="true">
+			<header class="topbar">
+				<a class="brand-link" href="/">
+					@Wordmark()
+					<span class="visually-hidden">Sinjal, home</span>
+				</a>
+				<details class="topbar-menu" open data-topbar-menu>
+					<summary class="topbar-menu-button">Menu</summary>
+					@topnav(page, active)
+				</details>
+				<details class="account-menu">
+					<summary class="account-button">{ accountLabel(page) }</summary>
+					<div class="account-panel">
+						<a href="/account/password">Account</a>
+						<form class="signout" method="post" action="/logout" hx-boost="false">
+							@CSRFField(page)
+							<button class="signout-button" type="submit">Sign out</button>
+						</form>
+					</div>
+				</details>
+			</header>
+			@Live() {
+				<div class="app">
+					<aside class="monitor-column" aria-label="Monitors">
+						<div class="column-head">
+							if page.Admin {
+								<a class="button button-primary column-add" href="/monitors/new">Add monitor</a>
+							}
+							<label for="column-search" class="visually-hidden">Search monitors</label>
+							<input class="column-search" id="column-search" type="search" placeholder="Search monitors" autocomplete="off" data-column-search/>
+							<div class="column-filters" role="group" aria-label="Show">
+								for _, f := range columnFilters {
+									<button
+										type="button"
+										class="chip"
+										data-column-filter={ f.State }
+										if f.State == "" {
+											aria-pressed="true"
+										} else {
+											aria-pressed="false"
+										}
+									>{ f.Label }</button>
+								}
+							</div>
+						</div>
+						<div class="column-body" hx-get="/fragments/monitors" hx-trigger="load" hx-swap="innerHTML">
+							<noscript><p class="column-note"><a href="/monitors">All monitors</a></p></noscript>
+						</div>
+					</aside>
+					<main id="main" class="content" tabindex="-1" data-view={ page.shellView() } hx-history-elt>
+						{ children... }
+					</main>
+					<aside class="activity-column" aria-label="Live activity" data-activity hx-get="/fragments/activity" hx-trigger="activity" hx-swap="innerHTML"></aside>
+				</div>
+			}
 		</div>
 	}
+}
+
+// topnav is the top bar's sections. After a boosted swap shell.js moves
+// aria-current to the section of the new page. On phones the monitor list
+// is a view of its own (docs/03 "Phones"), so the menu leads to it first;
+// elsewhere the column is always there and the entry is hidden.
+templ topnav(page Page, active string) {
+	<nav id="topnav" class="topnav" aria-label="Primary">
+		<ul role="list">
+			<li class="nav-phone"><a class="nav-link nav-monitors" href="/monitors">Monitors</a></li>
+			for _, s := range Sections {
+				if !s.Admin || page.Admin {
+					<li>
+						<a
+							class="nav-link"
+							href={ templ.SafeURL(s.Path) }
+							if s.Key == active {
+								aria-current="page"
+							}
+						>{ s.Label }</a>
+					</li>
+				}
+			}
+		</ul>
+	</nav>
+}
+
+// columnFilters are the list column's chips (docs/03); search, type and
+// tag filters and saved views arrive with M8-08.
+var columnFilters = []struct{ State, Label string }{
+	{"", "All"}, {StateDown, "Down"}, {StateUp, "Up"}, {StatePaused, "Paused"},
+}
+
+func accountLabel(p Page) string {
+	if p.Login != "" {
+		return p.Login
+	}
+	return "Account"
 }
 
 // Placeholder is the body of a section that has not been built yet.

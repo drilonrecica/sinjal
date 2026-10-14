@@ -8,9 +8,7 @@ import "strconv"
 templ OverviewPage(page Page, v OverviewView) {
 	@Shell(page.withAssets([]string{"css/monitors.css", "css/incidents.css", "css/overview.css"}, LiveScripts), "overview") {
 		<h1 class="visually-hidden">Overview</h1>
-		@Live() {
-			@OverviewBody(v)
-		}
+		@OverviewBody(v)
 	}
 }
 
@@ -76,24 +74,31 @@ templ OverviewBody(v OverviewView) {
 					</section>
 					<section class="overview-events" aria-labelledby="events-title">
 						<h2 id="events-title">Recent events</h2>
-						if len(v.Events) == 0 {
-							<p class="events-empty">Nothing has happened yet.</p>
-						} else {
-							<ol class="event-list" role="list">
-								for _, e := range v.Events {
-									<li>
-										<a class="event-monitor" href={ templ.SafeURL(e.MonitorHref) }>{ e.Monitor }</a>
-										<a class="event-label" href={ templ.SafeURL(e.IncidentHref) }>{ e.Label }</a>
-										<time datetime={ e.At }>{ e.Time }</time>
-									</li>
-								}
-							</ol>
-						}
+						@eventList(v.Events)
 					</section>
 				</div>
 			</div>
 		}
 	</div>
+}
+
+// eventList is Recent events: incident timeline entries, newest first,
+// each linking to its monitor and its incident. Home and a monitor's
+// Overview tab show it.
+templ eventList(events []RecentEvent) {
+	if len(events) == 0 {
+		<p class="events-empty">Nothing has happened yet.</p>
+	} else {
+		<ol class="event-list" role="list">
+			for _, e := range events {
+				<li>
+					<a class="event-monitor" href={ templ.SafeURL(e.MonitorHref) }>{ e.Monitor }</a>
+					<a class="event-label" href={ templ.SafeURL(e.IncidentHref) }>{ e.Label }</a>
+					<time datetime={ e.At }>{ e.Time }</time>
+				</li>
+			}
+		</ol>
+	}
 }
 
 // stripSeverity is the strip's colour: down when a monitor is down or

@@ -14,9 +14,7 @@ templ MaintenanceList(page Page, v MaintenanceListView) {
 			}
 		</div>
 		<p class="maint-zone">Times are in { v.Zone }.</p>
-		<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:maintenance.updated">
-			@MaintenanceSections(v)
-		</div>
+		@MaintenanceSections(v)
 	}
 }
 

@@ -103,22 +103,34 @@
       });
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll("[data-passkey]"), function (block) {
-    var button = block.querySelector("[data-passkey-start]");
-    var error = block.querySelector("[data-passkey-error]");
-    button.addEventListener("click", function () {
-      error.hidden = true;
-      if (!window.PublicKeyCredential) {
-        error.textContent = "This browser does not support passkeys.";
-        error.hidden = false;
+  function scan(root) {
+    Array.prototype.forEach.call(root.querySelectorAll("[data-passkey]"), function (block) {
+      if (block.sinjalPasskey) {
         return;
       }
-      button.disabled = true;
-      start(block).catch(function (err) {
-        error.textContent = explain(err);
-        error.hidden = false;
-        button.disabled = false;
+      block.sinjalPasskey = true;
+      var button = block.querySelector("[data-passkey-start]");
+      var error = block.querySelector("[data-passkey-error]");
+      button.addEventListener("click", function () {
+        error.hidden = true;
+        if (!window.PublicKeyCredential) {
+          error.textContent = "This browser does not support passkeys.";
+          error.hidden = false;
+          return;
+        }
+        button.disabled = true;
+        start(block).catch(function (err) {
+          error.textContent = explain(err);
+          error.hidden = false;
+          button.disabled = false;
+        });
       });
     });
-  });
+  }
+
+  // Content swapped in by the app shell (htmx) gets its buttons too.
+  scan(document);
+  if (window.htmx) {
+    htmx.onLoad(scan);
+  }
 })();

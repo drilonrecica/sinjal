@@ -52,18 +52,23 @@ func TestMonitorFragments(t *testing.T) {
 				t.Fatalf("admin = %d %v", admin.Code, admin.Header())
 			}
 			body := admin.Body.String()
-			for _, want := range []string{"API", "128 ms", "https://api.example.com:8443", `data-monitor-id="` + id + `"`} {
+			for _, want := range []string{"API", "https://api.example.com:8443", `data-monitor-id="` + id + `"`} {
 				if !strings.Contains(body, want) {
 					t.Errorf("admin fragment lacks %q:\n%s", want, body)
 				}
+			}
+			// The column row is compact: no latency; the header has it.
+			if frag == "header" && !strings.Contains(body, "128 ms") {
+				t.Errorf("header lacks its latency:\n%s", body)
 			}
 			for _, secret := range []string{"secret", "token=abc"} {
 				if strings.Contains(body, secret) {
 					t.Errorf("fragment leaks %q:\n%s", secret, body)
 				}
 			}
-			if frag == "row" && !strings.Contains(body, ">prod<") {
-				t.Errorf("row lacks its tag:\n%s", body)
+			// A row's tags are what the column's search matches.
+			if frag == "row" && !strings.Contains(body, `data-search="api http https://api.example.com:8443 prod"`) {
+				t.Errorf("row lacks its search text:\n%s", body)
 			}
 			if strings.Contains(body, "<html") {
 				t.Error("a fragment must not carry the page layout")
@@ -100,10 +105,18 @@ func TestMonitorFragmentShowsStateAndParent(t *testing.T) {
 	if _, err := e.db.Writer.Exec(`UPDATE monitors SET parent_monitor_id = ?, current_state = 'down' WHERE id = ?`, parent, child); err != nil {
 		t.Fatal(err)
 	}
-	body := e.getAs(t, "v1", "GET", "/fragments/monitors/"+child+"/row").Body.String()
+	// The column row says the state (in words for assistive technology);
+	// the header says it and the dependency.
+	row := e.getAs(t, "v1", "GET", "/fragments/monitors/"+child+"/row").Body.String()
+	for _, want := range []string{`data-state="down"`, `<span class="visually-hidden">Down:</span>`} {
+		if !strings.Contains(row, want) {
+			t.Errorf("row lacks %q:\n%s", want, row)
+		}
+	}
+	header := e.getAs(t, "v1", "GET", "/fragments/monitors/"+child+"/header").Body.String()
 	for _, want := range []string{"Depends on Gateway", `data-state="down"`, ">Down<"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("row lacks %q:\n%s", want, body)
+		if !strings.Contains(header, want) {
+			t.Errorf("header lacks %q:\n%s", want, header)
 		}
 	}
 }
@@ -189,80 +202,105 @@ func TestMonitorViewDefaults(t *testing.T) {
 	}
 }
 
-func TestMonitorListPage(t *testing.T) {
+// The shell's monitor column (docs/03 "Layout"): compact rows in name
+// order, each a link with its state, name, 24-hour uptime and beat bar;
+// targets only in an admin's search text, never a path or query.
+func TestMonitorColumn(t *testing.T) {
 	e := newAppEnv(t)
 	e.addUser(t, "a1", "admin", "admin", "")
 	e.addUser(t, "v1", "viewer", "viewer", "")
 	a := e.addMonitor(t, "Beta", "https://beta.example.com/health?key=s3cret", "prod", "eu")
 	e.addMonitor(t, "alpha", "https://alpha.example.com")
-	if _, err := e.db.Writer.Exec(`UPDATE monitors SET parent_monitor_id = (SELECT id FROM monitors WHERE name = 'alpha'),
-		current_state = 'down' WHERE id = ?`, a); err != nil {
+	if _, err := e.db.Writer.Exec(`UPDATE monitors SET current_state = 'down' WHERE id = ?`, a); err != nil {
 		t.Fatal(err)
 	}
 
-	admin := e.getAs(t, "a1", "GET", "/monitors")
+	admin := e.getAs(t, "a1", "GET", "/fragments/monitors")
 	body := admin.Body.String()
-	if admin.Code != 200 || admin.Header().Get("Cache-Control") != "no-store" {
+	if admin.Code != 200 || admin.Header().Get("Cache-Control") != "no-store" || strings.Contains(body, "<html") {
 		t.Fatalf("admin = %d", admin.Code)
 	}
 	for _, want := range []string{
-		"<h1>Monitors</h1>", `aria-current="page"`, `href="/monitors/new"`,
-		`hx-ext="sse"`, `sse-connect="/events"`,
-		"https://beta.example.com", "https://alpha.example.com", ">prod</li>", ">eu</li>",
-		"Depends on alpha", ">Down<", `>Pending<`, "—",
+		`data-live-list hx-get="/fragments/monitors"`, `data-search="beta http https://beta.example.com eu prod"`,
+		`data-search="alpha http https://alpha.example.com"`, `<span class="visually-hidden">Down:</span>`,
+		`<span class="visually-hidden">Pending:</span>`, `<span class="column-name">Beta</span>`,
+		`title="Uptime, last 24 hours">`,
 	} {
 		if !strings.Contains(body, want) {
-			t.Errorf("admin page lacks %q", want)
+			t.Errorf("admin column lacks %q", want)
 		}
 	}
 	if strings.Contains(body, "s3cret") || strings.Contains(body, "/health") {
-		t.Error("the page leaks the path or query of a checked address")
+		t.Error("the column leaks the path or query of a checked address")
 	}
-	if strings.Index(body, ">alpha</a>") > strings.Index(body, ">Beta</a>") {
+	if strings.Index(body, ">alpha</span>") > strings.Index(body, ">Beta</span>") {
 		t.Error("monitors are not ordered by name, case-insensitively")
 	}
-	if n := strings.Count(body, `class="monitor-row"`); n != 2 {
+	if n := strings.Count(body, `class="column-row"`); n != 2 {
 		t.Errorf("%d rows, want 2", n)
 	}
-	for _, js := range []string{`/static/js/htmx-ext-sse.`, `/static/js/live.`, `/static/css/monitors.`} {
-		if !strings.Contains(body, js) {
-			t.Errorf("page does not load %s", js)
-		}
-	}
-	if strings.Index(body, "/static/js/htmx.min.") > strings.Index(body, "/static/js/htmx-ext-sse.") {
-		t.Error("the SSE extension loads before htmx, which it needs")
-	}
 
-	viewer := e.getAs(t, "v1", "GET", "/monitors").Body.String()
-	if !strings.Contains(viewer, ">Beta</a>") || strings.Contains(viewer, "example.com") {
+	viewer := e.getAs(t, "v1", "GET", "/fragments/monitors").Body.String()
+	if !strings.Contains(viewer, ">Beta</span>") || strings.Contains(viewer, "example.com") {
 		t.Error("a viewer must see the monitors but not their addresses")
 	}
-	if strings.Contains(viewer, "/monitors/new") {
-		t.Error("a viewer is offered the create action")
+	if rec := e.getAs(t, "v1", "HEAD", "/fragments/monitors"); rec.Code != 200 || rec.Body.Len() != 0 {
+		t.Errorf("HEAD = %d with %d body bytes", rec.Code, rec.Body.Len())
+	}
+}
+
+// The column's rows show the 24-hour raw uptime, the detail header's raw
+// figure, read for all monitors at once.
+func TestMonitorColumnUptime(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	id := e.addMonitor(t, "API", "https://api.example.com")
+	now := time.Now().Truncate(time.Second)
+	if _, err := e.db.Writer.Exec(`UPDATE monitors SET created_at = ? WHERE id = ?`, store.FormatTime(now.Add(-48*time.Hour)), id); err != nil {
+		t.Fatal(err)
+	}
+	e.addIncident(t, "i1", id, now.Add(-6*time.Hour), ptrTime(now.Add(-3*time.Hour)), false)
+	header := e.getAs(t, "v1", "GET", "/fragments/monitors/"+id+"/header").Body.String()
+	column := e.getAs(t, "v1", "GET", "/fragments/monitors").Body.String()
+	row := e.getAs(t, "v1", "GET", "/fragments/monitors/"+id+"/row").Body.String()
+	for name, body := range map[string]string{"header": header, "column": column, "row": row} {
+		if !strings.Contains(body, "87.50%") {
+			t.Errorf("%s does not show 87.50%% (3 h down of 24 h):\n%s", name, body)
+		}
+	}
+}
+
+// /monitors is the list view: Home in the pane, marked so a phone shows
+// the monitor column instead (docs/03 "Phones").
+func TestMonitorListView(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	e.addMonitor(t, "API", "https://api.example.com")
+	body := e.getAs(t, "v1", "GET", "/monitors").Body.String()
+	for _, want := range []string{`<main id="main" class="content" tabindex="-1" data-view="list" hx-history-elt>`, `class="home-hero"`, "<title>Monitors — Sinjal</title>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("list view lacks %q", want)
+		}
+	}
+	if home := e.getAs(t, "v1", "GET", "/").Body.String(); !strings.Contains(home, `data-view="detail"`) {
+		t.Error("Home is not the detail view")
 	}
 	if rec := e.getAs(t, "v1", "HEAD", "/monitors"); rec.Code != 200 || rec.Body.Len() != 0 {
 		t.Errorf("HEAD = %d with %d body bytes", rec.Code, rec.Body.Len())
 	}
 }
 
-func TestMonitorListEmptyState(t *testing.T) {
+func TestMonitorColumnEmpty(t *testing.T) {
 	e := newAppEnv(t)
 	e.addUser(t, "a1", "admin", "admin", "")
 	e.addUser(t, "v1", "viewer", "viewer", "")
-
-	admin := e.getAs(t, "a1", "GET", "/monitors").Body.String()
-	for _, want := range []string{"No monitors yet", `<a class="button button-primary" href="/monitors/new">Create monitor</a>`} {
-		if !strings.Contains(admin, want) {
-			t.Errorf("admin empty state lacks %q", want)
-		}
+	admin := e.getAs(t, "a1", "GET", "/fragments/monitors").Body.String()
+	if !strings.Contains(admin, "No monitors yet.") || !strings.Contains(admin, `href="/monitors/new"`) {
+		t.Errorf("admin empty column:\n%s", admin)
 	}
-	if strings.Count(admin, "Create monitor") != 1 || strings.Contains(admin, "monitor-list") || strings.Contains(admin, "sse-connect") {
-		t.Error("the empty state must offer one create action and open no event stream")
-	}
-
-	viewer := e.getAs(t, "v1", "GET", "/monitors").Body.String()
-	if !strings.Contains(viewer, "No monitors yet") || strings.Contains(viewer, "Create monitor") {
-		t.Error("a viewer's empty state must explain without offering to create")
+	viewer := e.getAs(t, "v1", "GET", "/fragments/monitors").Body.String()
+	if !strings.Contains(viewer, "No monitors yet.") || strings.Contains(viewer, "/monitors/new") {
+		t.Errorf("viewer empty column:\n%s", viewer)
 	}
 }
 
@@ -273,7 +311,8 @@ func TestMonitorListRequiresSignIn(t *testing.T) {
 	}
 }
 
-// A monitor whose parent is down says so on the list and on its page.
+// A monitor whose parent is down says so on its page (the column row is
+// compact: state, name, uptime, beats).
 func TestParentDownLabel(t *testing.T) {
 	e := newAppEnv(t)
 	e.addUser(t, "v1", "viewer", "viewer", "")
@@ -283,15 +322,17 @@ func TestParentDownLabel(t *testing.T) {
 		t.Fatal(err)
 	}
 	const label = "Parent down: notifications held"
-	if body := e.getAs(t, "v1", "GET", "/monitors").Body.String(); strings.Contains(body, label) {
+	if body := e.getAs(t, "v1", "GET", "/monitors/"+c).Body.String(); strings.Contains(body, label) {
 		t.Fatal("the label is shown while the parent is pending")
 	}
 	if _, err := e.db.Writer.Exec(`UPDATE monitors SET current_state = 'down' WHERE id = ?`, p); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/monitors", "/monitors/" + c, "/fragments/monitors/" + c + "/row"} {
+	for _, path := range []string{"/monitors/" + c, "/fragments/monitors/" + c + "/header"} {
 		if body := e.getAs(t, "v1", "GET", path).Body.String(); strings.Count(body, label) != 1 {
 			t.Errorf("%s: the label is shown %d times, want once", path, strings.Count(body, label))
 		}
 	}
 }
+
+func ptrTime(t time.Time) *time.Time { return &t }

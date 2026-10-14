@@ -52,9 +52,9 @@ func TestCreateEachTypeThroughForm(t *testing.T) {
 		t.Errorf("dns config = %+v, %v", d, err)
 	}
 
-	// The list shows each target to admins only.
-	list := e.getAs(t, "a1", "GET", "/monitors").Body.String()
-	for _, want := range []string{"127.0.0.1:1", "example.com MX"} {
+	// The column's search covers each target, for admins only.
+	list := e.getAs(t, "a1", "GET", "/fragments/monitors").Body.String()
+	for _, want := range []string{"127.0.0.1:1", "example.com mx"} {
 		if !strings.Contains(list, want) {
 			t.Errorf("list misses target %q", want)
 		}
@@ -169,7 +169,7 @@ func TestHeartbeatCreateRevealsTokenOnce(t *testing.T) {
 			t.Errorf("overview misses %q", want)
 		}
 	}
-	if list := e.getAs(t, "a1", "GET", "/monitors").Body.String(); !strings.Contains(list, "db-1 backup") {
+	if list := e.getAs(t, "a1", "GET", "/fragments/monitors").Body.String(); !strings.Contains(list, "db-1 backup") {
 		t.Error("list misses the source label")
 	}
 

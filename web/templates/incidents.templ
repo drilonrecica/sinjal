@@ -10,9 +10,7 @@ templ IncidentsPage(page Page, v IncidentListView) {
 		<div class="page-head">
 			<h1>Incidents</h1>
 		</div>
-		@Live() {
-			@IncidentList(v)
-		}
+		@IncidentList(v)
 	}
 }
 
@@ -105,9 +103,7 @@ templ IncidentDetail(page Page, v IncidentDetailView) {
 	@Shell(page.withAssets([]string{"css/auth.css", "css/monitors.css", "css/monitor_detail.css", "css/incidents.css"}, LiveScripts), "incidents") {
 		<div class="incident-detail">
 			<p class="crumb"><a href="/incidents">Incidents</a></p>
-			@Live() {
-				@IncidentTimeline(v)
-			}
+			@IncidentTimeline(v)
 			if v.Admin {
 				<form class="incident-note" method="post" action={ templ.SafeURL("/incidents/" + v.Incident.ID + "/note") }>
 					@CSRFField(page)

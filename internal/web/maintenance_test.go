@@ -67,7 +67,7 @@ func TestMaintenanceCreateEditDelete(t *testing.T) {
 	for _, who := range []string{"a1", "v1"} {
 		body := e.getAs(t, who, "GET", "/maintenance").Body.String()
 		for _, want := range []string{"Patch night", "Mon, Wed at", "for 2 h 30 min", "API, tag prod", "Notifications held",
-			"Excluded from adjusted uptime", "Upcoming", "Times are in UTC.", `sse-connect="/events"`, `hx-trigger="sse:maintenance.updated"`} {
+			"Excluded from adjusted uptime", "Upcoming", "Times are in UTC.", `sse-connect="/events"`, `sse:maintenance.updated`} {
 			if !strings.Contains(body, want) {
 				t.Errorf("%s: list lacks %q", who, want)
 			}
@@ -122,9 +122,11 @@ func TestMaintenanceCreateEditDelete(t *testing.T) {
 			t.Errorf("%d %s audit events", n, typ)
 		}
 	}
-	if n := strings.Count(events(), "event: maintenance.updated"); n != 3 {
-		t.Errorf("%d maintenance.updated events, want 3", n)
-	}
+	// Create, edit, delete: three events. The last is delivered after the
+	// delete's response, so wait for it rather than count at once.
+	waitUntil(t, "three maintenance.updated events", func() bool {
+		return strings.Count(events(), "event: maintenance.updated") == 3
+	})
 }
 
 // Every problem is shown at once, keyed to its field, and nothing is

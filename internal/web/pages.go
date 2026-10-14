@@ -13,12 +13,13 @@ import (
 // pageFor builds the Page for a request: the signed-in user's theme,
 // density and Ambient light, and the CSRF token for forms.
 func pageFor(r *http.Request, title string) templates.Page {
-	var theme, density string
+	var theme, density, login string
 	ambient := true
 	if cs, ok := SessionFromContext(r.Context()); ok {
-		theme, density, ambient = cs.User.Theme, cs.User.Density, cs.User.AmbientLight
+		theme, density, ambient, login = cs.User.Theme, cs.User.Density, cs.User.AmbientLight, cs.User.Login
 	}
 	page := templates.NewPage(title, theme, density)
+	page.Login = login
 	page.AmbientOff = !ambient
 	page.Admin = isAdmin(r)
 	page.CSRFToken = CSRFToken(r)
@@ -27,11 +28,12 @@ func pageFor(r *http.Request, title string) templates.Page {
 
 // RegisterPages mounts one placeholder page per primary navigation section
 // that has no page of its own yet. Real section pages replace these in their
-// own milestones: Overview, Monitors, Maintenance, Incidents, Notifications and Status Pages have their own handlers.
+// own milestones: Maintenance, Incidents, Notifications and Status Pages
+// have their own handlers; Home and the monitors are not sections.
 func RegisterPages(r chi.Router, logger *slog.Logger) {
 	log := logging.Sub(logger, "http")
 	for _, s := range templates.Sections {
-		if s.Key == "overview" || s.Key == "monitors" || s.Key == "maintenance" || s.Key == "incidents" || s.Key == "notifications" || s.Key == "status-pages" {
+		if s.Key == "maintenance" || s.Key == "incidents" || s.Key == "notifications" || s.Key == "status-pages" {
 			continue
 		}
 		h := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

@@ -4,9 +4,10 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 
 ## Shared layout
 
-- app shell
-- sidebar
-- mobile nav/drawer
+- app shell (`Shell`, `web/templates/shell.templ`): top bar with `topnav` and the account menu, the monitor column, the pane `#main` (`data-view` list or detail for phones), the Live activity column; `ShellStyles` / `ShellScripts` are every shell page's assets
+- monitor column: `ColumnList` / `ColumnRow` (`web/templates/monitors.templ`), search and chips run by `js/shell.js`
+- Live activity: `ActivityList` (`web/templates/activity.templ`), filled by `/fragments/activity`
+- phone menu: the top bar's sections in a `<details>`, closed by `js/shell.js` on phones
 - top context bar
 - problem strip
 - toast region
@@ -114,11 +115,11 @@ Use for:
 
 ### Monitor list
 
-`MonitorList` (`web/templates/monitors.templ`, styles in `css/monitors.css`) renders `MonitorRow`s inside `Live()`. The empty state opens no event stream.
+Since M8-05 there is no full-width list page: the monitors are the shell's column (`ColumnList`, loaded from `/fragments/monitors`, a `data-live-list` that refetches itself when a monitor is created or deleted) and `/monitors` is the phones' list view (Home in the pane).
 
 ### Live fragments
 
-`MonitorRow` and `MonitorHeader` (fed by `MonitorView`, built in `internal/web/monitors.go`) are layout-free fragments served at `/fragments/monitors/{id}/row|header`. Mark an element `data-live` with `data-monitor-id` and an `hx-get` of its fragment, put it inside `Live()`, and it refreshes when the monitor's `monitor.updated` event arrives (see `32_SSE_EVENTS.md`, browser side). A page using `Live` adds `templates.LiveScripts` to its assets. `StatusBadge` is the one status icon plus text; its glyph is `aria-hidden` and differs in shape per state.
+`ColumnRow` and `MonitorHeader` (fed by `MonitorView`, built in `internal/web/monitors.go`) are layout-free fragments served at `/fragments/monitors/{id}/row|header`. Mark an element `data-live` with `data-monitor-id` and an `hx-get` of its fragment and it refreshes when the monitor's `monitor.updated` event arrives from the shell's stream (see `32_SSE_EVENTS.md`, browser side). Live elements set no `hx-target`: the shell's boosted navigation is aimed at the pane by the server (`internal/web/boost.go`), not by inherited attributes. `StatusBadge` is the one status icon plus text; its glyph is `aria-hidden` and differs in shape per state.
 
 ### Beat bar and day bars
 

@@ -1,6 +1,8 @@
 package web
 
 import (
+	"context"
+	"database/sql"
 	"log/slog"
 	"math"
 	"net/http"
@@ -22,6 +24,10 @@ const (
 	overviewIncidents = 5
 	// overviewEvents is how many timeline entries Recent events lists.
 	overviewEvents = 10
+	// detailIncidents and detailEvents are what a monitor's Overview tab
+	// lists beside its charts.
+	detailIncidents = 5
+	detailEvents    = 8
 	// maxProblems is how many problems the strip lists; the rest is a count.
 	maxProblems = 8
 	// tlsWarnDays is how soon a certificate must expire to be a problem
@@ -58,6 +64,7 @@ func NewOverview(d *db.DB, loc *time.Location, warning func() string, logger *sl
 func RegisterOverview(r chi.Router, h *Overview) {
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
 		r.Method(method, "/", http.HandlerFunc(h.page))
+		r.Method(method, "/monitors", http.HandlerFunc(h.listView))
 		r.Method(method, "/fragments/overview", http.HandlerFunc(h.fragment))
 	}
 }
@@ -74,6 +81,19 @@ func (h *Overview) page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, h.log, http.StatusOK, templates.OverviewPage(pageFor(r, "Overview — Sinjal"), v))
+}
+
+// listView serves GET /monitors: Home in the pane, marked as the list view,
+// so a phone shows the monitor list column there instead (docs/03 "Phones").
+func (h *Overview) listView(w http.ResponseWriter, r *http.Request) {
+	v, err := h.view(r)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	page := pageFor(r, "Monitors — Sinjal")
+	page.View = templates.ViewList
+	render(w, r, h.log, http.StatusOK, templates.OverviewPage(page, v))
 }
 
 func (h *Overview) fragment(w http.ResponseWriter, r *http.Request) {
@@ -102,17 +122,7 @@ func (h *Overview) view(r *http.Request) (templates.OverviewView, error) {
 	if v.Incidents, err = incidentListView(ctx, h.db.Reader, h.loc, now, "", overviewIncidents); err != nil {
 		return v, err
 	}
-	events, err := store.RecentIncidentEvents(ctx, h.db.Reader, overviewEvents)
-	for _, e := range events {
-		label, ok := eventLabels[e.Type]
-		if !ok {
-			label = e.Type
-		}
-		v.Events = append(v.Events, templates.RecentEvent{
-			Label: label, Monitor: e.MonitorName, MonitorHref: "/monitors/" + e.MonitorID,
-			IncidentHref: "/incidents/" + e.IncidentID, Time: clockText(e.At, now, h.loc), At: rfc3339(e.At),
-		})
-	}
+	v.Events, err = recentEventViews(ctx, h.db.Reader, "", overviewEvents, now, h.loc)
 	return v, err
 }
 
@@ -175,6 +185,24 @@ func summarize(monitors []store.Monitor, channels []store.Channel, warning strin
 		counts = append(counts, templates.Count{Label: s.label, Value: n[s.state], State: s.state})
 	}
 	return all, more, counts
+}
+
+// recentEventViews are the newest incident timeline entries of one
+// monitor, or of all with monitorID "", as Recent events lists them.
+func recentEventViews(ctx context.Context, q *sql.DB, monitorID string, limit int, now time.Time, loc *time.Location) ([]templates.RecentEvent, error) {
+	events, err := store.RecentIncidentEvents(ctx, q, monitorID, limit)
+	var out []templates.RecentEvent
+	for _, e := range events {
+		label, ok := eventLabels[e.Type]
+		if !ok {
+			label = e.Type
+		}
+		out = append(out, templates.RecentEvent{
+			Label: label, Monitor: e.MonitorName, MonitorHref: "/monitors/" + e.MonitorID,
+			IncidentHref: "/incidents/" + e.IncidentID, Time: clockText(e.At, now, loc), At: rfc3339(e.At),
+		})
+	}
+	return out, err
 }
 
 // statusSentence is the first thing Home says (docs/03): the root cause of

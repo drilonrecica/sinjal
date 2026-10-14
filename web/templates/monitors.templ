@@ -1,58 +1,66 @@
 package templates
 
-// MonitorListView is the Monitors page. Admin shows the create action and
-// is the only role whose rows carry a Target.
-type MonitorListView struct {
-	Admin    bool
-	Monitors []MonitorView
-}
+import "strings"
 
-// MonitorList is the Monitors page: compact rows that refresh in place as
-// checks complete (docs/03_INFORMATION_ARCHITECTURE.md).
-templ MonitorList(page Page, v MonitorListView) {
-	@Shell(page.withAssets([]string{"css/monitors.css"}, LiveScripts), "monitors") {
-		<div class="page-head">
-			<h1>Monitors</h1>
-			if v.Admin && len(v.Monitors) > 0 {
-				<a class="button button-primary" href="/monitors/new">Create monitor</a>
-			}
-		</div>
-		if len(v.Monitors) == 0 {
-			<section class="empty-state" aria-labelledby="empty-title">
-				<h2 id="empty-title">No monitors yet</h2>
-				if v.Admin {
-					<p>Add a website or service to start watching it.</p>
-					<a class="button button-primary" href="/monitors/new">Create monitor</a>
-				} else {
-					<p>An admin has not added any monitors yet.</p>
-				}
-			</section>
-		} else {
-			@Live() {
-				@MonitorRows(v.Monitors)
-			}
-		}
-	}
-}
-
-// MonitorRows is the list itself. It replaces itself from
-// /fragments/monitors when live.js sends it "refresh", which it does when a
-// monitor is created or deleted.
-templ MonitorRows(ms []MonitorView) {
+// ColumnList is the shell's monitor list column (docs/03 "Layout"): one
+// compact row per monitor. The shell loads it once from /fragments/monitors
+// and it replaces itself from there when live.js sends it "refresh", which
+// it does when a monitor is created or deleted.
+templ ColumnList(ms []MonitorView, admin bool) {
 	<ul
-		class="monitor-list"
+		class="column-list"
 		role="list"
-		aria-label="Monitors"
 		data-live-list
 		hx-get="/fragments/monitors"
 		hx-trigger="refresh"
 		hx-swap="outerHTML"
 	>
 		for _, m := range ms {
-			@MonitorRow(m)
-		}
-		if len(ms) == 0 {
-			<li class="monitor-row monitor-row-empty">No monitors left.</li>
+			@ColumnRow(m)
 		}
 	</ul>
+	if len(ms) == 0 {
+		<div class="column-empty">
+			<p>No monitors yet.</p>
+			if admin {
+				<p><a href="/monitors/new">Create the first one</a></p>
+			}
+		</div>
+	}
+}
+
+// ColumnRow is one monitor in the column: its state (glyph, with the word
+// for assistive technology), name, 24-hour uptime and beat bar, all one
+// link into the pane. It replaces itself from /fragments/monitors/{id}/row
+// on every update of its monitor. data-search is what the column's search
+// matches; shell.js marks the row of the monitor in the pane.
+templ ColumnRow(m MonitorView) {
+	<li
+		class="column-row"
+		id={ "col-" + m.ID }
+		data-live
+		data-monitor-id={ m.ID }
+		data-state={ m.State }
+		data-search={ columnSearch(m) }
+		hx-get={ "/fragments/monitors/" + m.ID + "/row" }
+		hx-trigger="refresh"
+		hx-swap="outerHTML"
+	>
+		<a class="column-link" href={ templ.SafeURL("/monitors/" + m.ID) }>
+			<span class="column-status" data-state={ m.State }>
+				@Icon(stateIcon(m.State))
+				<span class="visually-hidden">{ stateLabel(m.State) }:</span>
+			</span>
+			<span class="column-name">{ m.Name }</span>
+			<span class="column-uptime" title="Uptime, last 24 hours">{ m.Uptime }</span>
+			@BeatBar(m.Beats)
+		</a>
+	</li>
+}
+
+// columnSearch is what the column's search box matches, in lower case:
+// name, tags and, for admins, the target summary (empty for viewers).
+func columnSearch(m MonitorView) string {
+	parts := append([]string{m.Name, m.Type, m.Target}, m.Tags...)
+	return strings.ToLower(strings.Join(parts, " "))
 }

@@ -226,3 +226,31 @@ func TestOverviewFacts(t *testing.T) {
 		t.Errorf("expired certificate: %v", fs[3])
 	}
 }
+
+// The Overview tab sets the monitor's facts, latest incidents and recent
+// events beside its charts (two columns from 1600 px, docs/03), and only
+// this monitor's.
+func TestOverviewSideColumn(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	id := e.addMonitor(t, "API", "https://api.example.com")
+	other := e.addMonitor(t, "Other", "https://other.example.com")
+	now := time.Now().Truncate(time.Second)
+	e.addIncident(t, "mine", id, now.Add(-time.Hour), nil, false)
+	e.addIncident(t, "theirs", other, now.Add(-time.Hour), nil, false)
+	for _, inc := range []string{"mine", "theirs"} {
+		if _, err := e.db.Writer.Exec(`INSERT INTO incident_events (incident_id, event_type, created_at) VALUES (?, 'declared_down', ?)`, inc, store.FormatTime(now)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	body := e.getAs(t, "v1", "GET", "/monitors/"+id).Body.String()
+	for _, want := range []string{`<div class="detail-side">`, "<h3>Recent incidents</h3>", `href="/incidents/mine"`,
+		"<h3>Recent events</h3>", `<a class="event-label" href="/incidents/mine">Declared down</a>`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("overview lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "/incidents/theirs") {
+		t.Error("another monitor's incident is on this monitor's overview")
+	}
+}

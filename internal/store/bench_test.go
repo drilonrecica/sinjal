@@ -207,3 +207,51 @@ func BenchmarkRecentChecks(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkUptimesRaw is the list column's uptime (M8-05): the last 24 h
+// of 1,000 monitors at once, over a year of history (20 incidents each,
+// one in ten active, 50 pauses), which the incident read scans in full.
+func BenchmarkUptimesRaw(b *testing.B) {
+	d := testDB(b)
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	tx, err := d.Writer.Begin()
+	if err != nil {
+		b.Fatal(err)
+	}
+	ids := make([]string, 1000)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("m%04d", i)
+		if _, err := tx.Exec(`INSERT INTO monitors (id, name, type, enabled, interval_seconds, timeout_ms, failure_threshold, retry_delay_ms, success_threshold, current_state, current_state_since, created_at, updated_at)
+			VALUES (?, ?, 'http', 1, 30, 5000, 2, 5000, 1, 'up', ?, ?, ?)`, ids[i], ids[i], formatTime(now), formatTime(now.AddDate(-1, 0, 0)), formatTime(now)); err != nil {
+			b.Fatal(err)
+		}
+		for j := range 20 {
+			start := now.Add(-time.Duration(j*18+i%17) * 24 * time.Hour / 1).Add(-time.Hour)
+			var end any = formatTime(start.Add(10 * time.Minute))
+			if j == 0 && i%10 == 0 {
+				end = nil
+			}
+			if _, err := tx.Exec(`INSERT INTO incidents (id, monitor_id, started_at, ended_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+				fmt.Sprintf("%s-%d", ids[i], j), ids[i], formatTime(start), end, formatTime(start)); err != nil {
+				b.Fatal(err)
+			}
+		}
+		if i%20 == 0 {
+			if _, err := tx.Exec(`INSERT INTO monitor_pauses (monitor_id, paused_at, resumed_at) VALUES (?, ?, ?)`,
+				ids[i], formatTime(now.Add(-3*time.Hour)), formatTime(now.Add(-2*time.Hour))); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		got, err := UptimesRaw(ctx, d.Reader, now.Add(-24*time.Hour), now, now)
+		if err != nil || len(got) != 1000 {
+			b.Fatal(err, len(got))
+		}
+	}
+}

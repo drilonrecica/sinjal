@@ -172,7 +172,7 @@ func TestCSRFTokenIsRendered(t *testing.T) {
 	for _, want := range []string{
 		`<body hx-headers="{&#34;X-CSRF-Token&#34;:&#34;` + tok + `&#34;}">`,
 		`<input type="hidden" name="_csrf" value="` + tok + `">`,
-		`<form class="signout" method="post" action="/logout">`,
+		`<form class="signout" method="post" action="/logout" hx-boost="false">`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("signed-in page lacks %s", want)
