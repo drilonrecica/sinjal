@@ -87,6 +87,7 @@ Not linked into the `sinjal` binary and not present in production images.
 |---|---|---|
 | templ generator | generate `*_templ.go` | `go.mod` `tool` directive (`go tool templ`) |
 | staticcheck (`honnef.co/go/tools`) | static analysis for `make lint` and CI | `go.mod` `tool` directive |
+| `golang` build image | the `Dockerfile`'s build stage; the runtime stage is `scratch`, so nothing of it ships | `ARG GO_VERSION=1.27` (pin to a digest for releases, M11) |
 | `github.com/chromedp/chromedp` | small browser test suite (`20_TESTING.md`) | separate `tests/browser/go.mod` only (v0.21.0, with `cdproto` and `go-json-experiment/json`) |
 | `modernc.org/sqlite` (test module) | `make screenshots` writes demo history into a stopped server's database | `tests/browser/go.mod` only, at the product's version (v1.60.1) |
 | syft | SBOM generation for releases (`17_MIGRATIONS_RELEASES.md`) | installed binary; the release script records its version in `dist/syft-version.txt` |

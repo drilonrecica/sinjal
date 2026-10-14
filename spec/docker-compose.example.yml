@@ -1,12 +1,18 @@
+# One container, one named volume (docs/16 "Docker"). Build the image from
+# the repository's Dockerfile until released images exist.
 services:
   sinjal:
-    image: sinjal:latest
+    build: .
+    image: sinjal:local
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      SINJAL_DATA_DIR: /data
-      SINJAL_LISTEN: ":8080"
-      SINJAL_LOG_FORMAT: text
+      SINJAL_BASE_URL: "https://sinjal.example.com"
+      # SINJAL_TRUSTED_PROXIES: "172.16.0.0/12"  # the reverse proxy's network
+      # SINJAL_TIMEZONE: "Europe/Berlin"
     volumes:
-      - ./data:/data
+      - sinjal-data:/data
+
+volumes:
+  sinjal-data:

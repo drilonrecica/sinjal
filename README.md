@@ -4,7 +4,7 @@
 
 Sinjal is a small, fast, self-hosted uptime monitor. It is one Go binary with one SQLite database, made for a single technical owner who wants to know when something is down. It does that well, then stays out of the way.
 
-> **Status: pre-release.** Sinjal v1 is in development. There is no tagged release or container image yet. You can build and run it from source today.
+> **Status: pre-release.** Sinjal v1 is in development. There is no tagged release or published image yet. You can build and run it today, with Docker or from source.
 
 ![Sinjal's Home in the Stark theme: "Search is down." above a Needs attention box, recent incidents and events, with the monitor list and its beat bars on the left](docs/screenshots/home-stark.png)
 
@@ -59,6 +59,25 @@ Sinjal is a small, fast, self-hosted uptime monitor. It is one Go binary with on
 
 ## Quick start
 
+### Docker
+
+The repository's `Dockerfile` builds an 18.9 MB image: one static binary, no shell, running as a non-root user, with its own health check.
+
+```bash
+git clone https://github.com/drilonrecica/sinjal.git
+cd sinjal
+docker build -t sinjal .
+docker run -d --name sinjal -p 8080:8080 -v sinjal-data:/data \
+  -e SINJAL_BASE_URL=http://localhost:8080 sinjal
+docker logs sinjal
+```
+
+Use a named volume for `/data`, as above; a host directory must be writable by UID 65532. A Compose file is in [`spec/docker-compose.example.yml`](spec/docker-compose.example.yml).
+
+**Coolify** (or another Docker host that builds from Git): point a Dockerfile resource at this repository, port 8080, a volume at `/data`, and set `SINJAL_BASE_URL` to its domain. Step by step: [deploying with Coolify](docs/16_DEPLOYMENT.md#coolify).
+
+### From source
+
 You need Go 1.27 or newer. No Node or asset build step is involved.
 
 ```bash
@@ -68,7 +87,9 @@ make build                     # produces ./sinjal
 SINJAL_DATA_DIR=./data ./sinjal serve
 ```
 
-On its first start Sinjal logs a one-time setup link:
+### First start
+
+Sinjal logs a one-time setup link:
 
 ```text
 Initial setup: http://localhost:8080/setup?token=…
@@ -76,9 +97,9 @@ Initial setup: http://localhost:8080/setup?token=…
 
 Open it to create the admin account. The token changes on every start until an admin exists.
 
-Lost the admin password? Run `sinjal reset-admin`, with `-login` when there is more than one admin and `-remove-passkeys` to also remove passkeys. It works while the server is running.
+Lost the admin password? Run `sinjal reset-admin`, with `-login` when there is more than one admin and `-remove-passkeys` to also remove passkeys. It works while the server is running; in Docker: `docker exec sinjal /sinjal reset-admin`.
 
-**Docker** will be the primary way to run Sinjal once the first release ships: one container, one volume mounted at `/data`, port 8080. See [deployment](docs/16_DEPLOYMENT.md).
+Until Sinjal's own backups arrive, back up the data directory (or the `/data` volume) yourself, including `master.key`: it encrypts stored secrets. More on running Sinjal: [deployment](docs/16_DEPLOYMENT.md).
 
 ## Configuration
 

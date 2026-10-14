@@ -11,17 +11,16 @@ No Docker Compose stack is required for a single Sinjal instance.
 
 One container. One persistent volume.
 
-Conceptual:
+Until released images exist, build the image from the repository (`Dockerfile` at its root):
 
-```yaml
-services:
-  sinjal:
-    image: sinjal:<version>
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./data:/data
+```bash
+docker build -t sinjal .
+docker run -d --name sinjal -p 8080:8080 -v sinjal-data:/data \
+  -e SINJAL_BASE_URL=https://sinjal.example.com sinjal
+docker logs sinjal   # the one-time "Initial setup: …/setup?token=…" link
 ```
+
+The same as Compose: `spec/docker-compose.example.yml`.
 
 Do not require:
 
@@ -33,13 +32,13 @@ Do not require:
 
 ### Image
 
-The image is not built yet (M10-07). The directional example is `spec/Dockerfile.example`.
+Built (`Dockerfile`, pulled forward from M10-07 on 2026-10-15): 18.9 MB. `.dockerignore` keeps the build context to the Go sources and `web/`.
 
 Runtime base: `scratch`.
 
-- multi-stage build: static `CGO_ENABLED=0` binary built with `-trimpath -tags timetzdata -ldflags "-s -w"`
+- multi-stage build: static `CGO_ENABLED=0` binary built with `-trimpath -ldflags "-s -w -X main.version=$VERSION"` (`--build-arg VERSION=…`, default `dev`)
 - CA bundle copied from the pinned build stage, for outbound HTTPS checks and notifications
-- timezone database embedded in the binary, so `SINJAL_TIMEZONE` works without `/usr/share/zoneinfo` (`cmd/sinjal` also imports `time/tzdata`)
+- timezone database embedded in the binary (`cmd/sinjal` imports `time/tzdata`), so `SINJAL_TIMEZONE` works without `/usr/share/zoneinfo`
 - no shell, no package manager, no curl; nothing in the base to patch
 - runs as non-root UID/GID `65532:65532`
 - `/data` is pre-created and owned by `65532`
@@ -56,7 +55,7 @@ Named Docker volumes inherit the image's `/data` ownership automatically.
 
 Expose `/healthz` and `/readyz`.
 
-Add a Docker `HEALTHCHECK`. The image has no curl, so it runs `sinjal healthcheck` (`15_CONFIG_BACKUP.md` "CLI"), which requests `/healthz` on the local listener and exits 0 (healthy) or 1.
+Add a Docker `HEALTHCHECK`. The image has no curl, so it runs `sinjal healthcheck` (`15_CONFIG_BACKUP.md` "CLI"), which requests `/healthz` on the local listener and exits 0 (healthy) or 1. Built: the `Dockerfile` checks every 30 s (5 s timeout, 10 s start period, 3 retries). Podman keeps it only in Docker format (`podman build --format docker`).
 
 Definitions:
 
@@ -134,6 +133,24 @@ securityContext:
 - The monitor goes DOWN for that reason, never for an unrelated one. Other monitor types are unaffected.
 
 Sinjal remembers which socket kind works per address family after the first check, so a permission change takes effect after a restart.
+
+## Coolify
+
+Coolify builds the image from the repository with its Dockerfile build pack:
+
+1. New resource → Public (or private) repository → this repository, build pack **Dockerfile**, port **8080**.
+2. Storage: a **volume mount** (a named volume) at `/data`. Not a bind mount of a host directory: that is owned by root, and the container runs as 65532.
+3. Environment:
+   - `SINJAL_BASE_URL`: the domain Coolify serves, e.g. `https://sinjal.example.com`. The setup link and sign-in from custom status-page domains use it.
+   - `SINJAL_TRUSTED_PROXIES`: the subnet of Coolify's Docker network (`docker network inspect coolify`), so logs and rate limits see visitors' addresses, not Traefik's.
+   - optional: `SINJAL_TIMEZONE`, `SINJAL_LOG_FORMAT=json`.
+4. Health check: the image's own `HEALTHCHECK` is enough. Leave Coolify's health check off: it runs curl or wget inside the container, and the image has neither.
+5. Domain: set it on the resource; Traefik terminates TLS and passes the event stream through unbuffered.
+6. First start: the deployment logs show `Initial setup: https://…/setup?token=…`. Open it to create the admin. Until an admin exists, every restart prints a new token.
+
+A status page on its own hostname needs that hostname added to the same resource too ("Custom domains" below).
+
+Back up the `/data` volume, `master.key` with it, until Sinjal's own backups exist (M9).
 
 ## Reverse proxy
 

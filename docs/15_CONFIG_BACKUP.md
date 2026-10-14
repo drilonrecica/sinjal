@@ -129,7 +129,7 @@ sinjal healthcheck
 sinjal reset-admin [--login <login>] [--remove-passkeys]
 ```
 
-Built: `serve` (the default when no command is given), `version` and `reset-admin`.
+Built: `serve` (the default when no command is given), `version`, `reset-admin` and `healthcheck`.
 
 Do not grow a huge CLI framework.
 
@@ -139,6 +139,7 @@ Do not grow a huge CLI framework.
 - Exits 0 on HTTP 200, otherwise 1.
 - Makes no other network calls and does not open the database.
 - It exists for the Docker `HEALTHCHECK` in the `scratch` image.
+- Built (`cmd/sinjal/healthcheck.go`): any host in `SINJAL_LISTEN` is replaced by `127.0.0.1`, so `:8080` and `0.0.0.0:8080` both work; a failure says why on stderr.
 
 ### `sinjal reset-admin`
 

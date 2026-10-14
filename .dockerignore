@@ -1,0 +1,15 @@
+# Only what `go build ./cmd/sinjal` needs reaches the build.
+.git
+.github
+.claude
+.igris
+.dev-data
+imp-docs
+docs
+spec
+tests
+scripts
+/sinjal
+*.md
+Dockerfile
+.dockerignore

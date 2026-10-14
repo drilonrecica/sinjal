@@ -65,6 +65,8 @@ The tree below is the current layout. Packages marked "planned" arrive with thei
   .github/
     workflows/      # check-only CI (27_MANUAL_RELEASES.md)
 
+  Dockerfile        # the scratch image (16_DEPLOYMENT.md "Docker")
+  .dockerignore
   Makefile
   go.mod
   go.sum
