@@ -91,6 +91,7 @@ templ Shell(page Page, active string) {
 				</div>
 			}
 			@Palette(page)
+			@ToastRegion()
 		</div>
 	}
 }
@@ -165,4 +166,15 @@ templ PlaceholderPage(page Page, s Section) {
 	@Shell(page, s.Key) {
 		@Placeholder(s.Label)
 	}
+}
+
+// ToastRegion is where toast.js shows feedback (docs/22 "Toasts"). The two
+// live regions are in the page from the start, because a screen reader
+// announces only what is inserted into a region it already knows: polite
+// for confirmations and notes, assertive for errors.
+templ ToastRegion() {
+	<div class="toast-region" data-toast-region>
+		<div class="toast-list" role="status" aria-live="polite" data-toast-polite></div>
+		<div class="toast-list" role="alert" data-toast-alert></div>
+	</div>
 }

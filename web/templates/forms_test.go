@@ -185,3 +185,37 @@ func TestMonitorFormTypes(t *testing.T) {
 		t.Error("the edit form offers a type change")
 	}
 }
+
+var (
+	invalidRe   = regexp.MustCompile(`<[a-z]+\b[^>]*aria-invalid="true"[^>]*>`)
+	describedRe = regexp.MustCompile(`aria-describedby="([^"]+)"`)
+)
+
+// An invalid field points at the element that says why (docs/22 "error
+// association"): every id its aria-describedby names exists on the page.
+func TestInvalidFieldsPointAtTheirErrors(t *testing.T) {
+	page := NewPage("t", "", "")
+	signedIn := page
+	signedIn.Admin = true
+	html := renderString(t, StatusPageFormPage(signedIn, testStatusPageForm))
+	ids := map[string]bool{}
+	for _, m := range idRe.FindAllStringSubmatch(html, -1) {
+		ids[m[1]] = true
+	}
+	tags := invalidRe.FindAllString(html, -1)
+	if len(tags) == 0 {
+		t.Fatal("no invalid field rendered")
+	}
+	for _, tag := range tags {
+		m := describedRe.FindStringSubmatch(tag)
+		if m == nil {
+			t.Errorf("invalid field has no aria-describedby: %s", tag)
+			continue
+		}
+		for _, id := range strings.Fields(m[1]) {
+			if !ids[id] {
+				t.Errorf("aria-describedby names %q, which is not on the page: %s", id, tag)
+			}
+		}
+	}
+}

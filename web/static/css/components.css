@@ -198,16 +198,26 @@
   line-height: 1.6;
 }
 
-/* Toasts: the look only. The live region, dismissal and wiring arrive with
- * M8-10. Overlays are the one place --shadow-2 is used. */
+/* Toasts (behaviour: js/toast.js). The region lets clicks through where
+ * there is no toast. Overlays are the one place --shadow-2 is used. */
 .toast-region {
   position: fixed;
   right: var(--space-4);
   bottom: var(--space-4);
   z-index: 20;
   display: grid;
-  gap: var(--space-2);
   width: min(22rem, calc(100vw - 2 * var(--space-4)));
+  pointer-events: none;
+}
+.toast-list {
+  display: grid;
+  gap: var(--space-2);
+}
+.toast-list:not(:empty) + .toast-list:not(:empty) {
+  margin-top: var(--space-2);
+}
+.toast {
+  pointer-events: auto;
 }
 .toast {
   display: flex;

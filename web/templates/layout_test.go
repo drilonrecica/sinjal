@@ -131,3 +131,22 @@ func TestLayoutMarksSignedInPreferences(t *testing.T) {
 		t.Error("signed-in page lacks data-prefs")
 	}
 }
+
+// docs/22 "Toasts": both live regions are in the page from the start, the
+// polite one for notes and the assertive one for errors, and the script
+// that fills them is part of the shell's assets.
+func TestToastRegionHasLiveRegions(t *testing.T) {
+	html := renderString(t, ToastRegion())
+	for _, want := range []string{`data-toast-region`, `role="status" aria-live="polite" data-toast-polite`, `role="alert" data-toast-alert`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("toast region is missing %q:\n%s", want, html)
+		}
+	}
+	found := false
+	for _, s := range ShellScripts {
+		found = found || s == "js/toast.js"
+	}
+	if !found {
+		t.Error("js/toast.js is not among the shell's scripts")
+	}
+}
