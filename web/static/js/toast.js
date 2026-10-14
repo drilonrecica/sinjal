@@ -25,10 +25,23 @@
   var AUTO_MS = 6000;
   var STREAM_GRACE_MS = 8000;
 
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  // dismiss removes a toast; unless motion is reduced it fades out first.
   function dismiss(el) {
-    if (el && el.parentNode) {
-      el.parentNode.removeChild(el);
+    if (!el || !el.parentNode || el.hasAttribute("data-leaving")) {
+      return;
     }
+    if (reduce.matches) {
+      el.parentNode.removeChild(el);
+      return;
+    }
+    el.setAttribute("data-leaving", "");
+    setTimeout(function () {
+      if (el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    }, 160);
   }
 
   // show puts a toast in the right live region. A toast with the same key

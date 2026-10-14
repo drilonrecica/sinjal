@@ -352,6 +352,12 @@
   color: var(--text);
   box-shadow: var(--shadow-2);
 }
+.palette[open] {
+  animation: palette-in var(--motion-fast) ease-out;
+}
+@keyframes palette-in {
+  from { opacity: 0; transform: translateY(-0.5rem); }
+}
 .palette::backdrop {
   background: rgb(0 0 0 / 0.55);
 }

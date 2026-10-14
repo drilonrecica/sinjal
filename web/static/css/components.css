@@ -79,11 +79,14 @@
   font-weight: 600;
   line-height: 1.5;
   white-space: nowrap;
+  /* A state change settles instead of snapping (docs/04 "Motion"). */
+  transition: background-color var(--motion-fast) ease-out, color var(--motion-fast) ease-out;
 }
 .status .icon {
   width: 1.1em;
   height: 1.1em;
   color: var(--state);
+  transition: color var(--motion-fast) ease-out;
 }
 .status[data-state="up"] { --state: var(--status-up); }
 .status[data-state="down"] { --state: var(--status-down); }
@@ -231,6 +234,16 @@
   box-shadow: var(--shadow-2);
   font-size: var(--text-sm);
 }
+.toast {
+  animation: toast-in var(--motion-fast) ease-out;
+}
+.toast[data-leaving] {
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease-in;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+}
 .toast[data-kind="error"] {
   border-left-color: var(--status-down);
 }
@@ -262,12 +275,19 @@
  * (a monitor's header, Home's sentence), coloured by state, off with
  * data-ambient="off". It stays inside the content's padding (--hero-bleed,
  * set where the padding is narrower), so it never widens the page. */
+/* Registered so the light's colour can transition between states. */
+@property --ambient {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #3d93ff;
+}
 .public-hero,
 .home-hero,
 .monitor-header {
   --ambient: var(--ambient-up);
   position: relative;
   isolation: isolate;
+  transition: --ambient var(--motion-settle) ease-out;
 }
 .public-hero[data-state="down"],
 .home-hero[data-state="down"],
