@@ -24,6 +24,7 @@ templ Shell(page Page, active string) {
 					<summary class="topbar-menu-button">Menu</summary>
 					@topnav(page, active)
 				</details>
+				@PaletteButton()
 				<details class="account-menu">
 					<summary class="account-button">{ accountLabel(page) }</summary>
 					<div class="account-panel">
@@ -69,6 +70,7 @@ templ Shell(page Page, active string) {
 					<aside class="activity-column" aria-label="Live activity" data-activity hx-get="/fragments/activity" hx-trigger="activity" hx-swap="innerHTML"></aside>
 				</div>
 			}
+			@Palette(page)
 		</div>
 	}
 }

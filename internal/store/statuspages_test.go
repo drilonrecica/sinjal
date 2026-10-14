@@ -404,3 +404,23 @@ func TestStatusPagePasswordHash(t *testing.T) {
 		t.Errorf("unknown = %v", err)
 	}
 }
+
+func TestDisplayNamesByMonitor(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	api, site := create(t, d, sample("api")), create(t, d, sample("site"))
+	for _, slug := range []string{"one", "two"} {
+		in := pageInput(slug)
+		in.Monitors = []StatusPageMonitorInput{{MonitorID: api, DisplayName: "Public API " + slug}}
+		if _, err := CreateStatusPage(ctx, d, in, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := DisplayNamesByMonitor(ctx, d.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got[api]) != 2 || len(got[site]) != 0 {
+		t.Errorf("display names = %v", got)
+	}
+}

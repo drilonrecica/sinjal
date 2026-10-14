@@ -12,7 +12,7 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 - problem strip
 - toast region
 - modal/dialog primitive only where appropriate
-- command palette
+- command palette: `Palette` / `PaletteButton` / `PaletteMonitors` (`web/templates/palette.templ`), a `<dialog>` in the shell; a combobox owning one grouped listbox (navigation, Create for admins, themes, and the monitors `/fragments/palette` finds, with Pause/Resume for admins), run by `js/palette.js` (Ctrl/Cmd+K, ↑/↓, Enter, Escape)
 
 ## Monitor components
 

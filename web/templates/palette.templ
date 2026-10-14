@@ -1,0 +1,140 @@
+package templates
+
+// PaletteMonitor is one monitor found by the command palette's search.
+type PaletteMonitor struct {
+	ID     string
+	Name   string
+	State  string // display state (StateUp, StatePaused, ...)
+	Paused bool   // stored state is paused: the palette offers Resume
+}
+
+// Palette is the command palette (docs/03 "Command palette"): Ctrl/Cmd+K
+// opens it anywhere in the shell. It is a combobox (docs/22): the input
+// owns one listbox of options in groups; palette.js filters the commands
+// as you type, moves the active option (aria-activedescendant) and asks
+// /fragments/palette for the monitors that match, which it puts in the
+// first group.
+//
+// Every option is an ordinary link or button inside the boosted shell, so
+// choosing one is a click: links swap the pane, Pause and Resume submit the
+// palette's form to their formaction (with the CSRF token) and land on the
+// monitor, theme buttons are saved by palette.js. The form's own action is
+// a GET-only route: nothing submits it without a formaction.
+templ Palette(page Page) {
+	<dialog class="palette" id="palette" aria-label="Command palette" data-palette>
+		<label for="palette-input" class="visually-hidden">Search commands and monitors</label>
+		<input
+			id="palette-input"
+			class="palette-input"
+			type="text"
+			name="q"
+			role="combobox"
+			aria-expanded="true"
+			aria-controls="palette-list"
+			aria-autocomplete="list"
+			autocomplete="off"
+			spellcheck="false"
+			placeholder="Type a command or a monitor"
+			hx-get="/fragments/palette"
+			hx-trigger="input delay:150ms"
+			hx-target="#palette-monitors"
+			hx-swap="innerHTML"
+			hx-sync="this:replace"
+		/>
+		<form class="palette-form" method="post" action="/fragments/palette">
+			@CSRFField(page)
+			<div id="palette-list" class="palette-list" role="listbox" aria-label="Commands and monitors">
+				<ul id="palette-monitors" class="palette-group" role="group" aria-label="Monitors"></ul>
+				<ul class="palette-group" role="group" aria-labelledby="palette-go">
+					<li id="palette-go" class="palette-heading" role="presentation">Go to</li>
+					@paletteLink("palette-nav-home", "/", "Home")
+					@paletteLink("palette-nav-monitors", "/monitors", "Monitors")
+					for _, s := range Sections {
+						if !s.Admin || page.Admin {
+							@paletteLink("palette-nav-"+s.Key, s.Path, s.Label)
+						}
+					}
+					@paletteLink("palette-nav-appearance", "/account/appearance", "Your appearance")
+				</ul>
+				if page.Admin {
+					<ul class="palette-group" role="group" aria-labelledby="palette-create">
+						<li id="palette-create" class="palette-heading" role="presentation">Create</li>
+						@paletteLink("palette-new-monitor", "/monitors/new", "Add monitor")
+					</ul>
+				}
+				<ul class="palette-group" role="group" aria-labelledby="palette-theme">
+					<li id="palette-theme" class="palette-heading" role="presentation">Theme</li>
+					for _, t := range ThemeOptions {
+						<li role="none">
+							<button
+								type="button"
+								id={ "palette-theme-" + t.Value }
+								class="palette-option"
+								role="option"
+								tabindex="-1"
+								data-palette-theme={ t.Value }
+							>
+								<span class="palette-label">Theme: { t.Label }</span>
+								<span class="palette-hint">{ t.Hint }</span>
+							</button>
+						</li>
+					}
+				</ul>
+			</div>
+		</form>
+		<p class="palette-note" role="status" data-palette-note></p>
+	</dialog>
+}
+
+// PaletteButton opens the palette from the top bar; it is how touch users
+// and anyone who does not know the shortcut find it. palette.js shows it
+// (it does nothing without JavaScript) and names the shortcut for the
+// platform.
+templ PaletteButton() {
+	<button type="button" class="palette-button" aria-haspopup="dialog" aria-controls="palette" data-palette-open hidden>
+		<span>Commands</span>
+		<kbd class="palette-kbd" data-palette-kbd aria-hidden="true">Ctrl K</kbd>
+	</button>
+}
+
+templ paletteLink(id, href, label string) {
+	<li role="none">
+		<a id={ id } class="palette-option" role="option" tabindex="-1" href={ templ.SafeURL(href) }>
+			<span class="palette-label">{ label }</span>
+		</a>
+	</li>
+}
+
+// PaletteMonitors is the palette's monitor group: what /fragments/palette
+// found for the text typed, each with Open and, for admins, Pause or
+// Resume. Empty when nothing matched or nothing was typed.
+templ PaletteMonitors(ms []PaletteMonitor, admin bool) {
+	if len(ms) > 0 {
+		<li class="palette-heading" role="presentation">Monitors</li>
+	}
+	for _, m := range ms {
+		<li role="none">
+			<a id={ "palette-open-" + m.ID } class="palette-option" role="option" tabindex="-1" href={ templ.SafeURL("/monitors/" + m.ID) }>
+				<span class="column-status" data-state={ m.State }>
+					@Icon(stateIcon(m.State))
+					<span class="visually-hidden">{ stateLabel(m.State) }:</span>
+				</span>
+				<span class="palette-label">{ m.Name }</span>
+				<span class="palette-hint">Open</span>
+			</a>
+		</li>
+		if admin {
+			<li role="none">
+				if m.Paused {
+					<button id={ "palette-resume-" + m.ID } class="palette-option" role="option" tabindex="-1" type="submit" formaction={ templ.SafeURL("/monitors/" + m.ID + "/resume") }>
+						<span class="palette-label">Resume { m.Name }</span>
+					</button>
+				} else {
+					<button id={ "palette-pause-" + m.ID } class="palette-option" role="option" tabindex="-1" type="submit" formaction={ templ.SafeURL("/monitors/" + m.ID + "/pause") }>
+						<span class="palette-label">Pause { m.Name }</span>
+					</button>
+				}
+			</li>
+		}
+	}
+}

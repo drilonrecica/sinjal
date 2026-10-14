@@ -569,3 +569,23 @@ func ListPageIncidents(ctx context.Context, q querier, pageID string, since time
 	}
 	return out, notes.Err()
 }
+
+// DisplayNamesByMonitor returns every monitor's public display labels (one
+// per status page that shows it) in one query, for monitor search
+// (docs/29 "Search").
+func DisplayNamesByMonitor(ctx context.Context, q querier) (map[string][]string, error) {
+	rows, err := q.QueryContext(ctx, `SELECT monitor_id, display_name FROM status_page_monitors`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	for rows.Next() {
+		var id, n string
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = append(out[id], n)
+	}
+	return out, rows.Err()
+}
