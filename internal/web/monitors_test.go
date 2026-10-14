@@ -14,7 +14,7 @@ import (
 var monitorsNow = time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 
 // addMonitor creates an HTTP monitor and returns its id.
-func (e *appEnv) addMonitor(t *testing.T, name, url string, tags ...string) string {
+func (e *appEnv) addMonitor(t testing.TB, name, url string, tags ...string) string {
 	t.Helper()
 	id, err := store.CreateMonitor(t.Context(), e.db, store.MonitorInput{
 		Name: name, Enabled: true, Tags: tags,

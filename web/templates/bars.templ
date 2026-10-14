@@ -1,0 +1,45 @@
+package templates
+
+// BeatBar is one mark per recent check, newest on the right (docs/04). The
+// count follows the width: the bar is a reversed flex row that clips its
+// oldest marks, so a wider bar shows more history and never bigger beats.
+// Every colour comes from classes (the CSP allows no inline style); beats.js
+// adds the tooltip and the slide-in. Without it the label still reads. A
+// list row's beats carry no tips; beats.js fetches them on the first hover.
+templ BeatBar(b BeatBarView) {
+	<div
+		class="beat-bar"
+		data-beat-bar
+		data-newest={ b.newest() }
+		role="img"
+		aria-label={ b.Label }
+		if b.TipsHref != "" {
+			data-tips={ b.TipsHref }
+		}
+		if b.Focusable {
+			tabindex="0"
+		}
+	>
+		for _, beat := range b.Beats {
+			if beat.Result == "" {
+				<i></i>
+			} else {
+				if beat.Tip != "" {
+					<i data-b={ beat.Result } data-tip={ beat.Tip }></i>
+				} else {
+					<i data-b={ beat.Result }></i>
+				}
+			}
+		}
+	</div>
+}
+
+// DayBars is a 90-day strip: one bar per local day, oldest first, each
+// with its words as its tooltip and the whole strip summarised in label.
+templ DayBars(days []Day, label string) {
+	<ol class="day-bars" role="img" aria-label={ label }>
+		for _, d := range days {
+			<li data-day={ d.Class } title={ d.Label }></li>
+		}
+	</ol>
+}

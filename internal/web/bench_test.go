@@ -1,18 +1,23 @@
 package web
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/drilonrecica/sinjal/internal/monitor/httpcheck"
+	"github.com/drilonrecica/sinjal/internal/recent"
 	"github.com/drilonrecica/sinjal/internal/store"
 )
 
 // BenchmarkMonitorListPage is docs/18 scenario 6 through the whole handler:
 // GET /monitors for an admin with 1,000 monitors (two tags each, 100 raw
-// results each, one in ten down), measured from the request to the written
-// HTML, session check included. The budget is 50 ms for a localhost page.
+// results each, one in ten down, full beat bars in the engine's memory),
+// measured from the request to the written HTML, session check included.
+// The budget is 50 ms for a localhost page.
 func BenchmarkMonitorListPage(b *testing.B) {
 	e := newAppEnv(b)
 	e.addUser(b, "a1", "admin", "admin", "")
@@ -49,17 +54,31 @@ func BenchmarkMonitorListPage(b *testing.B) {
 	if err := tx.Commit(); err != nil {
 		b.Fatal(err)
 	}
+	for _, id := range ids {
+		for r := range recent.Cap {
+			c := recent.Check{At: monitorsNow.Add(-time.Duration(recent.Cap-r) * 30 * time.Second).Unix(), MS: int32(40 + r%7), OK: true}
+			if r%17 == 0 {
+				c = recent.Check{At: c.At, MS: 5000, Kind: httpcheck.KindTimeout}
+			}
+			e.engine.Recent().Push(id, c)
+		}
+	}
 
 	b.ReportAllocs()
-	size := 0
+	var body []byte
 	for b.Loop() {
 		rec := e.serve(withCookie(req("GET", "/monitors", nil), cookie))
 		if rec.Code != 200 {
 			b.Fatalf("status %d", rec.Code)
 		}
-		size = rec.Body.Len()
+		body = rec.Body.Bytes()
 	}
-	b.ReportMetric(float64(size)/1024, "KiB/page")
+	var gz bytes.Buffer
+	w := gzip.NewWriter(&gz)
+	w.Write(body)
+	w.Close()
+	b.ReportMetric(float64(len(body))/1024, "KiB/page")
+	b.ReportMetric(float64(gz.Len())/1024, "KiB-gzip/page")
 }
 
 // BenchmarkStatusPage builds a 25-service page whose monitors had an
@@ -159,4 +178,46 @@ func BenchmarkHostRouter(b *testing.B) {
 	for b.Loop() {
 		h.ServeHTTP(nil, r)
 	}
+}
+
+// BenchmarkMonitorDetail is the detail page's Overview (M8-16): the header
+// with its 120-beat bar from memory, the 90-day strip of a monitor with an
+// incident every three days, and the 24-hour graph; then a list row's
+// tips as beats.js fetches them on the first hover.
+func BenchmarkMonitorDetail(b *testing.B) {
+	e := newAppEnv(b)
+	e.addUser(b, "a1", "admin", "admin", "")
+	cookie, _ := e.signIn(b, "a1")
+	id := e.addMonitor(b, "API", "https://api.example.com")
+	now := time.Now().Truncate(time.Second)
+	if _, err := e.db.Writer.Exec(`UPDATE monitors SET created_at = ? WHERE id = ?`, store.FormatTime(now.AddDate(0, 0, -100)), id); err != nil {
+		b.Fatal(err)
+	}
+	for d := 1; d <= 90; d += 3 {
+		start := now.AddDate(0, 0, -d)
+		if _, err := e.db.Writer.Exec(`INSERT INTO incidents (id, monitor_id, started_at, ended_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+			fmt.Sprintf("i%d", d), id, store.FormatTime(start), store.FormatTime(start.Add(20*time.Minute)), store.FormatTime(start)); err != nil {
+			b.Fatal(err)
+		}
+	}
+	for r := range recent.Cap {
+		e.engine.Recent().Push(id, recent.Check{At: now.Add(-time.Duration(recent.Cap-r) * 30 * time.Second).Unix(), MS: 40, OK: r%17 != 0})
+	}
+	b.Run("overview", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			if rec := e.serve(withCookie(req("GET", "/monitors/"+id, nil), cookie)); rec.Code != 200 {
+				b.Fatalf("status %d", rec.Code)
+			}
+		}
+	})
+	b.Run("tips", func(b *testing.B) {
+		path := fmt.Sprintf("/fragments/monitors/%s/beats?until=%d", id, now.Unix())
+		b.ReportAllocs()
+		for b.Loop() {
+			if rec := e.serve(withCookie(req("GET", path, nil), cookie)); rec.Code != 200 {
+				b.Fatalf("status %d", rec.Code)
+			}
+		}
+	})
 }

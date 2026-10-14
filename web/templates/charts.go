@@ -43,13 +43,6 @@ type TimelineSegment struct {
 	Title string // "Down: 6 Oct 12:03 to 6 Oct 12:10 (7m)"
 }
 
-// Sparkline is recent latency drawn in a viewBox of 100 by 24.
-type Sparkline struct {
-	Points   string    // polyline points of the successful checks
-	Failures []float64 // x of each failed check
-	Label    string    // the same in words
-}
-
 func coord(f float64) string { return strconv.FormatFloat(f, 'f', 2, 64) }
 
 // timelineLegend lists the timeline's states with their text.

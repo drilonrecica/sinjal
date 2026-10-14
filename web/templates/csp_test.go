@@ -125,7 +125,7 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		Timeline: []TimelineSegment{{X: 0, W: 500, Class: "up", Title: "Up"}, {X: 500, W: 500, Class: "down", Title: "Down"}}, From: "a", To: "b",
 		Selector: true, MonitorID: "m1", FromValue: "2026-10-06T08:00", ToValue: "2026-10-06T09:00", MaxValue: "2026-10-06T09:00",
 		Presets: []RangeOption{{Label: "1 hour", Href: "/monitors/m1?tab=history&range=1h", Current: true}, {Label: "24 hours", Href: "/monitors/m1?tab=history&range=24h"}}}}
-	withData.Monitor.Sparkline = Sparkline{Points: "0,1 100,2", Failures: []float64{50}, Label: "l"}
+	withData.Monitor.Beats = BeatBarView{Beats: []Beat{{Result: BeatUp, Tip: "t"}, {Result: BeatDown, Tip: "u"}, {}}, Newest: 1, Label: "l", Focusable: true}
 	pages["detail-history-data"] = MonitorDetail(page, withData)
 	pages["public"] = PublicStatusPage(testPublicPage, "daylight")
 	pages["publicPassword"] = PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "stark")
@@ -155,7 +155,7 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 var testPublicPage = PublicPage{Title: "Acme", Description: "d", Logo: "/uploads/x.png", Overall: OverallPartial, OverallText: "Partial outage",
 	Uptime: "99.90%", IncidentDays: 30, PoweredBy: true, NoIndex: true, AccentCSS: "html[data-theme]{--accent:#3e67a8;--accent-contrast:#ffffff}",
 	Groups: []PublicGroup{{Name: "Web", Rows: []PublicRow{{Name: "API", State: StateDown, Latency: "80 ms", Uptime: "99.00%",
-		Days: []PublicDay{{Class: DayUp, Label: "a"}, {Class: DayMaintenance, Label: "b"}}, StripText: "s"}}}, {Rows: []PublicRow{{Name: "DB", State: StateMaintenance}}}},
+		Days: []Day{{Class: DayUp, Label: "a"}, {Class: DayMaintenance, Label: "b"}}, StripText: "s"}}}, {Rows: []PublicRow{{Name: "DB", State: StateMaintenance}}}},
 	Incidents: []PublicIncident{{Service: "API", Active: true, Started: "s", Duration: "5m", Notes: []PublicNote{{Message: "m", Time: "t"}}}, {Service: "DB"}}}
 
 var testIncidents = IncidentListView{Fragment: "/fragments/incidents", ShowMonitor: true, Limit: 100, More: true,

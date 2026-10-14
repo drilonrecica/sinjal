@@ -17,7 +17,8 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 
 - monitor row
 - status badge
-- latency sparkline
+- beat bar (`BeatBar`, `web/templates/bars.templ`)
+- 90-day day bars (`DayBars`, same file)
 - uptime metric
 - tag list
 - dependency indicator
@@ -89,6 +90,7 @@ Allowed:
 - local pre-hydration theme choice
 - small accessibility helpers
 - clipboard copy
+- beat bar tooltip, keyboard movement and slide-in (`web/static/js/beats.js`; fetches a list row's tips on the first hover)
 - optional dialog focus management
 
 Avoid using JS for:
@@ -114,6 +116,10 @@ Use for:
 ### Live fragments
 
 `MonitorRow` and `MonitorHeader` (fed by `MonitorView`, built in `internal/web/monitors.go`) are layout-free fragments served at `/fragments/monitors/{id}/row|header`. Mark an element `data-live` with `data-monitor-id` and an `hx-get` of its fragment, put it inside `Live()`, and it refreshes when the monitor's `monitor.updated` event arrives (see `32_SSE_EVENTS.md`, browser side). A page using `Live` adds `templates.LiveScripts` to its assets. `StatusBadge` is the one status icon plus text; its glyph is `aria-hidden` and differs in shape per state.
+
+### Beat bar and day bars
+
+`BeatBar` (`web/templates/bars.templ`, styles in `components.css`) draws `BeatBarView`, built by `beatBar` in `internal/web/beats.go` from the engine's rings (`Engine.Recent()`, `internal/recent`, 120 checks per monitor, pushed by the result processor after each commit and seeded from the database at start). One `<i data-b="up|down">` per check, newest first, padded with empty slots (`--beat-none`); the bar is a reversed flex row that clips its oldest beats, so the width sets how many show. The bar is `role="img"` with the counts and the latest check in words. A list row renders 36 beats without tips and a `data-tips` URL (`/fragments/monitors/{id}/beats?until=<newest>`, a JSON array of tips, newest first, lined up with the beats on the page); the detail header renders 120 with `data-tip`s and `tabindex="0"`. `beats.js` shows one shared `role="tooltip"`, moves through a focused bar with ←/→/Home/End, keeps focus across a live swap, and slides a bar by one beat when its `data-newest` grew. `DayBars` is the 90-day strip of the detail Overview (`internal/web/strip.go`, shared with the status page's computation; the status page keeps its own markup until M8-17).
 
 ### Monitor detail
 

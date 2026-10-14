@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/incident"
+	"github.com/drilonrecica/sinjal/internal/recent"
 )
 
 // BenchmarkProcessorBatch is docs/18 scenario 3: results of 1,000 monitors
@@ -23,6 +24,11 @@ func BenchmarkProcessorBatch(b *testing.B) {
 		ids[i] = newMonitor(b, d, fmt.Sprintf("m%04d", i), nil)
 	}
 	p := New(d, slog.New(slog.NewTextHandler(io.Discard, nil)), time.UTC, func(string, time.Duration) {}, func(string) {}, func(incident.Intent) {}, func(Change) {})
+	// The beat bars' rings, fed the way the engine feeds them (M8-16).
+	beats := recent.New()
+	p.Observe(func(r Result) {
+		beats.Push(r.MonitorID, recent.Check{At: r.CheckedAt.Unix(), MS: int32(r.Duration.Milliseconds()), OK: r.Success, Kind: r.Kind})
+	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { p.Run(ctx); close(done) }()

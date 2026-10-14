@@ -126,23 +126,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The detail header's sparkline. */
-.sparkline {
-  display: block;
-  width: 100%;
-  max-width: 16rem;
-  height: 1.5rem;
-}
-.spark-line {
-  fill: none;
-  stroke: var(--chart-line);
-  stroke-width: 1.5;
-}
-.spark-fail {
-  stroke: var(--chart-outage);
-  stroke-width: 2;
-}
-
 .history-stats {
   flex-wrap: wrap;
   margin-bottom: var(--space-4);

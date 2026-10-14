@@ -30,7 +30,7 @@ import (
 // detail serves GET /monitors/{id}.
 func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 	ctx, q, id := r.Context(), h.db.Reader, chi.URLParam(r, "id")
-	m, mv, err := h.view(r, id)
+	m, mv, err := h.view(r, id, heroBar)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		http.NotFound(w, r)
@@ -60,6 +60,9 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 		}
 		if err == nil {
 			v.Overview = overviewFacts(m, hb, now)
+			v.Strip, err = h.strip(r, id, now)
+		}
+		if err == nil {
 			v.History, err = h.historyView(r, m, false)
 		}
 	case "history":
@@ -80,6 +83,17 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, h.log, http.StatusOK, templates.MonitorDetail(pageFor(r, m.Name+" — Sinjal"), v))
+}
+
+// strip is a monitor's last 90 days, as its status page service shows them.
+func (h *Monitors) strip(r *http.Request, id string, now time.Time) (templates.StripView, error) {
+	days := stripBounds(now, h.loc)
+	iv, err := store.GetIntervals(r.Context(), h.db.Reader, id, days[0], days[len(days)-1], now, h.loc)
+	if err != nil {
+		return templates.StripView{}, err
+	}
+	bars, adjusted, label := stripOf(iv, days, now)
+	return templates.StripView{Days: bars, Uptime: adjusted.Percent(), Label: label}, nil
 }
 
 // overviewFacts are the facts under the header that do not change with

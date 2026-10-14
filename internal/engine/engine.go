@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"math"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/logging"
 	"github.com/drilonrecica/sinjal/internal/monitor/httpcheck"
 	"github.com/drilonrecica/sinjal/internal/monitor/icmpcheck"
+	"github.com/drilonrecica/sinjal/internal/recent"
 	"github.com/drilonrecica/sinjal/internal/results"
 	"github.com/drilonrecica/sinjal/internal/scheduler"
 	"github.com/drilonrecica/sinjal/internal/store"
@@ -43,6 +45,8 @@ type Engine struct {
 	sch  *scheduler.Scheduler
 	pool *scheduler.Pool
 	proc *results.Processor
+	// recent holds each monitor's last checks for the beat bars.
+	recent *recent.Store
 
 	// updated is told the id of a monitor whose row has changed: a stored
 	// result, a pause, a resume. It must not block.
@@ -80,12 +84,46 @@ func New(d *db.DB, key *vault.Key, workers int, userAgent string, loc *time.Loca
 		icmp:      icmpcheck.New(),
 		updated:   updated,
 		incidents: incidents,
+		recent:    recent.New(),
 		done:      make(chan struct{}),
 	}
 	e.pool = scheduler.NewPool(workers, 0, e.check, logging.Sub(logger, "scheduler"))
 	e.sch = scheduler.New(e.pool.Submit)
 	e.proc = results.New(d, logging.Sub(logger, "results"), loc, e.sch.Retry, updated, intent, e.incidentChanged)
+	e.proc.Observe(func(r results.Result) {
+		e.recent.Push(r.MonitorID, recentCheck(r.CheckedAt, r.Duration, r.Success, r.Kind))
+	})
 	return e
+}
+
+// Recent returns every monitor's last checks, newest first on reading, for
+// the beat bars. They come from memory: no page reads them from SQLite.
+func (e *Engine) Recent() *recent.Store { return e.recent }
+
+func recentCheck(at time.Time, d time.Duration, ok bool, kind string) recent.Check {
+	return recent.Check{At: at.Unix(), MS: int32(min(d.Milliseconds(), math.MaxInt32)), OK: ok, Kind: kind}
+}
+
+// seedRecent fills the beat bars from the database. It runs beside the
+// first checks (about 300 ms for 1,000 monitors, docs/18), which
+// recent.Store.Seed merges with. A monitor deleted meanwhile may get a ring
+// back that nothing reads; it is gone at the next start.
+func (e *Engine) seedRecent(ctx context.Context) {
+	stored, err := store.RecentChecks(ctx, e.db.Reader, recent.Cap)
+	if err != nil {
+		if ctx.Err() == nil {
+			e.log.Warn("beat bars start empty: reading recent checks failed", "err", err)
+		}
+		return
+	}
+	var cs []recent.Check
+	for id, rcs := range stored {
+		cs = cs[:0]
+		for _, c := range rcs {
+			cs = append(cs, recentCheck(c.CheckedAt, c.Duration, c.Success, c.Kind))
+		}
+		e.recent.Seed(id, cs)
+	}
 }
 
 // Start schedules every enabled monitor and returns; checks run until ctx
@@ -105,6 +143,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	var work, processor sync.WaitGroup
 	work.Go(func() { e.sch.Run(ctx) })
 	work.Go(func() { e.pool.Run(ctx) })
+	work.Go(func() { e.seedRecent(ctx) })
 	processor.Go(func() { e.proc.Run(procCtx) })
 	go func() {
 		defer close(e.done)
@@ -206,6 +245,7 @@ func (e *Engine) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	e.sch.Remove(id)
+	e.recent.Drop(id)
 	return nil
 }
 

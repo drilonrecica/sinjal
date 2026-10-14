@@ -109,19 +109,3 @@ templ AvailabilityTimeline(v HistoryView) {
 		</ul>
 	</figure>
 }
-
-// SparklineSVG is recent latency in the detail header: a line through the
-// successful checks, a tick for each failure, and the same in words.
-templ SparklineSVG(s Sparkline) {
-	if s.Label != "" {
-		<svg class="sparkline" viewBox="0 0 100 24" preserveAspectRatio="none" role="img" aria-label={ s.Label }>
-			<title>{ s.Label }</title>
-			if s.Points != "" {
-				<polyline class="spark-line" points={ s.Points } vector-effect="non-scaling-stroke"></polyline>
-			}
-			for _, x := range s.Failures {
-				<line class="spark-fail" x1={ coord(x) } x2={ coord(x) } y1="16" y2="24" vector-effect="non-scaling-stroke"></line>
-			}
-		</svg>
-	}
-}

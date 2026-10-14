@@ -182,3 +182,28 @@ func seededList(b testing.TB, monitors, results int) *db.DB {
 	}
 	return d
 }
+
+// BenchmarkRecentChecks is the engine's start-up seed of the beat bars
+// (M8-16): the newest 120 checks of each of 1,000 monitors with 150 each.
+func BenchmarkRecentChecks(b *testing.B) {
+	d := testDB(b)
+	ctx := context.Background()
+	start := time.Now().Add(-time.Hour)
+	durations := make([]int, 150)
+	for i := range durations {
+		durations[i] = 40 + i%30
+		if i%13 == 0 {
+			durations[i] = -5000
+		}
+	}
+	for i := range 1000 {
+		addResults(b, d, create(b, d, sample(fmt.Sprintf("m%04d", i))), start, durations...)
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		got, err := RecentChecks(ctx, d.Reader, 120)
+		if err != nil || len(got) != 1000 {
+			b.Fatal(err, len(got))
+		}
+	}
+}

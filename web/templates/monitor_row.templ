@@ -21,7 +21,7 @@ type MonitorView struct {
 	// held back (docs/10_INCIDENTS.md "Parent dependency").
 	ParentDown bool
 	Tags       []string
-	Sparkline  Sparkline // recent latency; filled for the detail header only
+	Beats      BeatBarView // recent checks: a compact bar in the list, a focusable one on the detail
 }
 
 // Monitor states as shown. Flapping is an overlay on up/down in storage
@@ -105,6 +105,7 @@ templ MonitorRow(m MonitorView) {
 				<span class="monitor-target">{ m.Target }</span>
 			}
 		</div>
+		@BeatBar(m.Beats)
 		<dl class="monitor-facts">
 			<div>
 				<dt>Latency</dt>
@@ -173,6 +174,7 @@ templ MonitorHeader(m MonitorView) {
 				@dependency(m)
 			}
 		</p>
+		@BeatBar(m.Beats)
 		<dl class="monitor-facts">
 			<div>
 				<dt>In state</dt>
@@ -196,6 +198,5 @@ templ MonitorHeader(m MonitorView) {
 				</dd>
 			</div>
 		</dl>
-		@SparklineSVG(m.Sparkline)
 	</header>
 }

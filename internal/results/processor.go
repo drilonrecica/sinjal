@@ -100,6 +100,9 @@ type Processor struct {
 	// persisted: after a restart a monitor needs its full threshold again.
 	counters map[string]tracked
 
+	// observe is given every stored result after its commit (Observe).
+	observe func(Result)
+
 	persisted, discarded, failedFlushes atomic.Uint64
 	warning                             atomic.Pointer[string]
 	lastFailureLog                      time.Time
@@ -129,6 +132,13 @@ func New(d *db.DB, log *slog.Logger, loc *time.Location, retry func(monitorID st
 		counters:   make(map[string]tracked),
 	}
 }
+
+// Observe makes fn see every stored result, in order, after its batch has
+// committed and before its monitor is announced (notify), so whatever the
+// announcement makes a page read again already has it. Discarded results
+// (paused or deleted monitors) are not seen. Call it before Run; fn runs on
+// the processor's goroutine and must not block.
+func (p *Processor) Observe(fn func(Result)) { p.observe = fn }
 
 // Add hands a result to the processor. It waits while the queue is full,
 // which is how a database that cannot keep up slows the workers down
@@ -300,6 +310,13 @@ func (p *Processor) write(ctx context.Context, batch []Result) error {
 	if p.warning.Swap(nil) != nil {
 		p.lastFailureLog = time.Time{}
 		p.log.Info("check results are being saved again")
+	}
+	if p.observe != nil {
+		for i := range batch {
+			if !work[batch[i].MonitorID].skip {
+				p.observe(batch[i])
+			}
+		}
 	}
 	for id, w := range work {
 		if w.skip || w.counters == (incident.Counters{}) {

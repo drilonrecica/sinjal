@@ -272,6 +272,89 @@
   background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 12%, transparent), transparent);
 }
 
+/* Beat bar (docs/04): one mark per recent check, newest on the right. The
+ * row is reversed, so the newest mark (first in the markup) sits at the
+ * right edge and the oldest are clipped at the left: the width sets how
+ * much history shows, never the size of a beat. */
+.beat-bar {
+  --beat-w: 4px;
+  --beat-gap: 2px;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: var(--beat-gap);
+  min-width: 0;
+  height: 1.25rem;
+  /* Room for the active beat's ring inside the clipping box. */
+  padding: 3px;
+  overflow: hidden;
+}
+.beat-bar > i {
+  flex: none;
+  width: var(--beat-w);
+  border-radius: calc(var(--beat-w) / 2);
+  background: var(--beat-none);
+}
+.beat-bar > [data-b="up"] { background: var(--beat-up); }
+.beat-bar > [data-b="down"] { background: var(--beat-down); }
+.beat-bar > [data-b]:first-child { filter: brightness(1.2) saturate(1.1); }
+.beat-bar > [data-active] { box-shadow: 0 0 0 1px var(--bg), 0 0 0 2px var(--text); }
+.monitor-header .beat-bar { height: 2rem; }
+
+/* A new beat (beats.js): the bar slides left by one beat and the new one
+ * grows in. Reduced motion shows the end state at once. */
+.beat-bar[data-slide] > i {
+  animation: beat-slide var(--motion-settle) ease-out;
+}
+.beat-bar[data-slide] > .beat-new {
+  animation: beat-in var(--motion-settle) ease-out;
+}
+@keyframes beat-slide {
+  from { transform: translateX(calc(var(--beat-w) + var(--beat-gap))); }
+}
+@keyframes beat-in {
+  from { opacity: 0; transform: scaleY(0.3); }
+}
+
+/* The one tooltip of all beat bars, placed by beats.js. */
+.beat-tip {
+  position: fixed;
+  z-index: 50;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 6px));
+}
+.beat-tip[hidden] { display: none; }
+
+/* 90-day bars: one per local day, oldest first (docs/12 strip rules). */
+.day-bars {
+  display: grid;
+  grid-template-columns: repeat(90, minmax(0, 1fr));
+  gap: 1px;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.day-bars > li {
+  border-radius: 1px;
+  background: var(--status-up);
+}
+.day-bars > [data-day="partial"] { background: var(--status-warning); }
+.day-bars > [data-day="down"] { background: var(--status-down); }
+.day-bars > [data-day="maint"] {
+  background: repeating-linear-gradient(135deg, var(--chart-maintenance) 0 2px, transparent 2px 4px);
+  box-shadow: inset 0 0 0 1px var(--chart-maintenance);
+}
+.day-bars > [data-day="none"] { background: var(--surface-3); }
+
 /* ---- Terminal personality (docs/05 "Terminal") ---- */
 
 /* State as text: [UP] stays in the base colour; problems invert. */
@@ -295,6 +378,7 @@
 [data-theme="terminal"] .monitor-header::before {
   display: none;
 }
+[data-theme="terminal"] .beat-bar > i { border-radius: 0; }
 
 /* Box rules and a block cursor after the page title. */
 [data-theme="terminal"] .monitor-list,

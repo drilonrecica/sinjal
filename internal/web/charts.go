@@ -25,9 +25,6 @@ import (
 // chartBuckets is the most points the latency chart draws.
 const chartBuckets = 720
 
-// sparklinePoints is how many recent results the header sparkline shows.
-const sparklinePoints = 30
-
 // historyView builds the History tab for the range asked for in the query.
 //
 // With selector the tab offers the range selector; the Overview tab shows
@@ -300,44 +297,4 @@ func historySummary(over string, s store.LatencyStats, iv store.Intervals, from,
 		fmt.Fprintf(&b, " Uptime %s, adjusted %s.", raw.Percent(), adjusted.Percent())
 	}
 	return b.String()
-}
-
-// sparkline is the SVG of recent durations, 100 wide and 24 high: a line
-// through successful checks and a tick for each failure.
-func sparkline(durations []float64) templates.Sparkline {
-	var sp templates.Sparkline
-	if len(durations) < 2 {
-		return sp
-	}
-	top := 0.0
-	for _, d := range durations {
-		top = max(top, d)
-	}
-	if top <= 0 {
-		top = 1
-	}
-	step := 100 / float64(len(durations)-1)
-	var pts []string
-	var ok []float64
-	for i, d := range durations {
-		x := float64(i) * step
-		if d < 0 {
-			sp.Failures = append(sp.Failures, math.Round(x*10)/10)
-			continue
-		}
-		ok = append(ok, d)
-		pts = append(pts, strconv.FormatFloat(x, 'f', 1, 64)+","+strconv.FormatFloat(22-d/top*20, 'f', 1, 64))
-	}
-	sp.Points = strings.Join(pts, " ")
-	if len(ok) > 0 {
-		slices.Sort(ok)
-		sp.Label = fmt.Sprintf("Latency of the last %d checks: %s to %s", len(durations),
-			formatLatency(time.Duration(ok[0]*float64(time.Millisecond))), formatLatency(time.Duration(ok[len(ok)-1]*float64(time.Millisecond))))
-	} else {
-		sp.Label = fmt.Sprintf("The last %d checks failed", len(durations))
-	}
-	if n := len(sp.Failures); n > 0 && len(ok) > 0 {
-		sp.Label += fmt.Sprintf(", %d failed", n)
-	}
-	return sp
 }

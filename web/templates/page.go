@@ -94,9 +94,10 @@ func (p Page) withShellAssets() Page {
 	return p
 }
 
-// LiveScripts are what a page needs to use Live: the htmx SSE extension and
-// the glue that routes events to elements.
-var LiveScripts = []string{"js/htmx-ext-sse.js", "js/live.js"}
+// LiveScripts are what a page needs to use Live: the htmx SSE extension,
+// the glue that routes events to elements, and the beat bars' tooltip and
+// slide-in (every live row and header has a beat bar).
+var LiveScripts = []string{"js/htmx-ext-sse.js", "js/live.js", "js/beats.js"}
 
 // Section is one entry of the primary navigation (docs/03_INFORMATION_ARCHITECTURE.md).
 type Section struct {

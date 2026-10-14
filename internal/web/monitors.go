@@ -14,6 +14,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/engine"
 	"github.com/drilonrecica/sinjal/internal/logging"
+	"github.com/drilonrecica/sinjal/internal/recent"
 	"github.com/drilonrecica/sinjal/internal/store"
 	"github.com/drilonrecica/sinjal/internal/vault"
 	"github.com/drilonrecica/sinjal/internal/web/sse"
@@ -51,8 +52,9 @@ func RegisterMonitors(r chi.Router, h *Monitors) {
 		r.Method(method, "/monitors", http.HandlerFunc(h.list))
 		r.Method(method, "/monitors/{id}", http.HandlerFunc(h.detail))
 		r.Method(method, "/fragments/monitors", http.HandlerFunc(h.listFragment))
-		r.Method(method, "/fragments/monitors/{id}/row", h.fragment(func(m templates.MonitorView) templ.Component { return templates.MonitorRow(m) }))
-		r.Method(method, "/fragments/monitors/{id}/header", h.fragment(func(m templates.MonitorView) templ.Component { return templates.MonitorHeader(m) }))
+		r.Method(method, "/fragments/monitors/{id}/row", h.fragment(rowBar, func(m templates.MonitorView) templ.Component { return templates.MonitorRow(m) }))
+		r.Method(method, "/fragments/monitors/{id}/beats", http.HandlerFunc(h.beatTips))
+		r.Method(method, "/fragments/monitors/{id}/header", h.fragment(heroBar, func(m templates.MonitorView) templ.Component { return templates.MonitorHeader(m) }))
 	}
 }
 
@@ -66,12 +68,11 @@ type viewInput struct {
 	Tags       []string
 	Latency    time.Duration
 	HasLatency bool
-	Target     string    // store.Target, only read for admins
-	Parent     string    // parent monitor's name
-	ParentDown bool      // the parent monitor is down
-	Recent     []float64 // durations for the sparkline; the detail header only
-	Uptime     string    // 24 hours, raw; the detail header only ("" reads as "—")
-	Adjusted   string    // the same with maintenance excluded
+	Target     string // store.Target, only read for admins
+	Parent     string // parent monitor's name
+	ParentDown bool   // the parent monitor is down
+	Uptime     string // 24 hours, raw; the detail header only ("" reads as "—")
+	Adjusted   string // the same with maintenance excluded
 	Admin      bool
 }
 
@@ -90,7 +91,6 @@ func monitorView(m store.Monitor, in viewInput, now time.Time) templates.Monitor
 		Parent:     in.Parent,
 		Tags:       in.Tags,
 		ParentDown: in.ParentDown,
-		Sparkline:  sparkline(in.Recent),
 	}
 	if in.Uptime != "" {
 		v.Uptime = in.Uptime
@@ -201,7 +201,7 @@ func (h *Monitors) listFragment(w http.ResponseWriter, r *http.Request) {
 }
 
 // rows builds every row of the list in four queries, however many
-// monitors there are.
+// monitors there are. The beat bars come from the engine's memory.
 func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, error) {
 	ctx, q := r.Context(), h.db.Reader
 	monitors, err := store.ListMonitors(ctx, q)
@@ -228,19 +228,25 @@ func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, e
 	}
 	now := h.now()
 	var out []templates.MonitorView
+	buf := make([]recent.Check, 0, listBeats)
+	clock := newBeatClock(now, h.loc)
 	for _, m := range monitors {
 		d, ok := latencies[m.ID]
-		out = append(out, monitorView(m, viewInput{
+		v := monitorView(m, viewInput{
 			Tags: tags[m.ID], Latency: d, HasLatency: ok, Target: targets[m.ID],
 			Parent: names[m.ParentMonitorID], ParentDown: down[m.ParentMonitorID], Admin: admin,
-		}, now))
+		}, now)
+		buf = h.engine.Recent().Newest(m.ID, rowBar.n, buf[:0])
+		v.Beats = beatBar(m.ID, buf, rowBar, clock)
+		out = append(out, v)
 	}
 	return out, nil
 }
 
-// view loads one monitor for display, or store.ErrNotFound. It returns the
-// row as well, for pages that show more than the view.
-func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.MonitorView, error) {
+// view loads one monitor for display, with a beat bar of kind bar, or
+// store.ErrNotFound. It returns the row as well, for pages that show more
+// than the view.
+func (h *Monitors) view(r *http.Request, id string, bar barKind) (store.Monitor, templates.MonitorView, error) {
 	ctx, q := r.Context(), h.db.Reader
 	m, err := store.GetMonitor(ctx, q, id)
 	if err != nil {
@@ -258,9 +264,6 @@ func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.Mo
 			return m, templates.MonitorView{}, err
 		}
 	}
-	if in.Recent, err = store.RecentDurations(ctx, q, id, sparklinePoints); err != nil {
-		return m, templates.MonitorView{}, err
-	}
 	// The list does not show uptime: reading it costs about 140 µs per
 	// monitor, 140 ms for 1,000, over the list's budget (docs/18).
 	now := h.now()
@@ -276,13 +279,15 @@ func (h *Monitors) view(r *http.Request, id string) (store.Monitor, templates.Mo
 		}
 		in.Parent, in.ParentDown = p.Name, p.State == "down"
 	}
-	return m, monitorView(m, in, now), nil
+	v := monitorView(m, in, now)
+	v.Beats = beatBar(id, h.engine.Recent().Newest(id, bar.n, nil), bar, newBeatClock(now, h.loc))
+	return m, v, nil
 }
 
 // fragment serves one component for the monitor named in the URL.
-func (h *Monitors) fragment(component func(templates.MonitorView) templ.Component) http.HandlerFunc {
+func (h *Monitors) fragment(bar barKind, component func(templates.MonitorView) templ.Component) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, v, err := h.view(r, chi.URLParam(r, "id"))
+		_, v, err := h.view(r, chi.URLParam(r, "id"), bar)
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			http.NotFound(w, r)

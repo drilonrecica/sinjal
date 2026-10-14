@@ -26,15 +26,6 @@ const (
 // Public service states besides the monitor states (StateUp, …).
 const StateMaintenance = "maintenance"
 
-// Uptime strip day classes.
-const (
-	DayUp          = "up"      // 100 % adjusted
-	DayPartial     = "partial" // some downtime, at least DayDownBelow
-	DayDown        = "down"    // below DayDownBelow
-	DayMaintenance = "maint"   // fully covered by excluded maintenance
-	DayNoData      = "none"    // before the monitor existed, or paused all day
-)
-
 // PublicPage is one rendered status page.
 type PublicPage struct {
 	Title       string
@@ -69,19 +60,13 @@ type PublicRow struct {
 	State     string // StateUp, StateDown, StatePending, StatePaused, StateFlapping or StateMaintenance
 	Latency   string // "128 ms", or "" when not shown
 	Uptime    string // 90-day adjusted
-	Days      []PublicDay
+	Days      []Day
 	StripText string // a text summary of the strip for screen readers
 
 	// Not shown in HTML; for api.json (internal/web/publicfeed.go).
 	Key        string // opaque, stable per page; not an id
 	LatencyMS  int64
 	HasLatency bool
-}
-
-// PublicDay is one bar of the uptime strip.
-type PublicDay struct {
-	Class string // Day…
-	Label string // date, uptime and incidents, in words
 }
 
 // PublicIncident is an incident of a service on the page.

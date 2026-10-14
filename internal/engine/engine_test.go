@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/db"
+	"github.com/drilonrecica/sinjal/internal/recent"
 	"github.com/drilonrecica/sinjal/internal/store"
 	"github.com/drilonrecica/sinjal/internal/vault"
 )
@@ -782,5 +783,40 @@ func TestPauseAnnouncesTheClosedIncident(t *testing.T) {
 	defer mu.Unlock()
 	if want := []string{"incident.closed inc1 " + down}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("announced %q, want %q", got, want)
+	}
+}
+
+func (r *running) recent(id string) []recent.Check { return r.Recent().Newest(id, recent.Cap, nil) }
+
+// The beat bars read the engine's rings: every stored check arrives in
+// them, a restart seeds them from the database, and a delete drops them.
+func TestRecentChecks(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	tg := newTarget(t)
+	tg.fail.Store(true)
+	id := e.monitor("api", tg.URL, nil)
+
+	r := e.start()
+	eventually(t, "the monitor to be down", func() bool { return e.get(id).State == "down" })
+	r.stop()
+	got := r.recent(id)
+	if len(got) != 2 || got[0].OK || got[0].Kind != "http_status" || got[0].At < got[1].At {
+		t.Fatalf("before the restart: %+v, want the check and its retry, newest first", got)
+	}
+
+	tg.fail.Store(false)
+	r = e.start()
+	eventually(t, "the seed and a check after the restart", func() bool { return len(r.recent(id)) == 3 })
+	got = r.recent(id)
+	if !got[0].OK || got[1].OK || got[2].OK {
+		t.Fatalf("after the restart: %+v, want the new success before the two seeded failures", got)
+	}
+
+	if err := r.Delete(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.recent(id); len(got) != 0 {
+		t.Fatalf("after delete: %+v", got)
 	}
 }

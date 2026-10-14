@@ -617,3 +617,44 @@ func TestConcurrentAdd(t *testing.T) {
 		}
 	}
 }
+
+// The beat bars read what Observe is given (internal/recent): every stored
+// result in order, none that was discarded, and a monitor's results before
+// its row is announced, so the refetch the announcement causes sees them.
+func TestObserveSeesStoredResultsBeforeTheAnnouncement(t *testing.T) {
+	d, _ := testDB(t)
+	h := newHarness(t, d)
+	h.p.flushAfter, h.p.batchMax = time.Hour, 4
+	var events []string
+	h.p.Observe(func(r Result) {
+		h.mu.Lock()
+		events = append(events, "observe "+r.MonitorID+" "+r.CheckedAt.Format(time.TimeOnly))
+		h.mu.Unlock()
+	})
+	notify := h.p.notify
+	h.p.notify = func(id string) {
+		h.mu.Lock()
+		events = append(events, "notify "+id)
+		h.mu.Unlock()
+		notify(id)
+	}
+	h.run()
+	live := newMonitor(t, d, "live", nil)
+	paused := newMonitor(t, d, "paused", func(m *store.MonitorInput) { m.Enabled = false })
+	for _, r := range []Result{ok(live, 1), fail(paused, 1), fail(live, 2), ok(live, 3)} {
+		h.p.Add(context.Background(), r)
+	}
+	h.wait("the batch", func(s Stats) bool { return s.Persisted+s.Discarded == 4 })
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	want := []string{
+		"observe " + live + " " + at(1).Format(time.TimeOnly),
+		"observe " + live + " " + at(2).Format(time.TimeOnly),
+		"observe " + live + " " + at(3).Format(time.TimeOnly),
+		"notify " + live,
+	}
+	if strings.Join(events, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("events:\n%s\nwant:\n%s", strings.Join(events, "\n"), strings.Join(want, "\n"))
+	}
+}

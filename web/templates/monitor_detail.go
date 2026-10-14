@@ -9,11 +9,20 @@ type MonitorDetailView struct {
 	Paused   bool
 	Tab      string // one of the DetailTabs keys
 	Overview []Fact
+	// Strip is the Overview's last 90 days, the status page's strip.
+	Strip    StripView
 	Config   []ConfigGroup
 	Failures []FailureView
 	History  HistoryView
 	// Incidents is the Incidents tab: this monitor's incidents.
 	Incidents IncidentListView
+}
+
+// StripView is a 90-day strip with its adjusted uptime.
+type StripView struct {
+	Days   []Day
+	Uptime string // adjusted, "—" without data
+	Label  string // the strip in words
 }
 
 // Fact is one label/value pair.

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -18,7 +17,6 @@ import (
 	"github.com/drilonrecica/sinjal/internal/db"
 	"github.com/drilonrecica/sinjal/internal/incident"
 	"github.com/drilonrecica/sinjal/internal/logging"
-	"github.com/drilonrecica/sinjal/internal/maintenance"
 	"github.com/drilonrecica/sinjal/internal/ratelimit"
 	"github.com/drilonrecica/sinjal/internal/statuspage"
 	"github.com/drilonrecica/sinjal/internal/store"
@@ -27,11 +25,6 @@ import (
 )
 
 const (
-	// stripDays is the length of the uptime strip (docs/12, P0-15).
-	stripDays = 90
-	// dayDownBelow: a day under this adjusted uptime is drawn as down,
-	// one at or above it with some downtime as partial.
-	dayDownBelow = 0.95
 	// publicIncidentLimit bounds the incidents a page lists.
 	publicIncidentLimit = 50
 	// publicCacheTTL is how long a page's figures are reused: visitors of
@@ -260,70 +253,10 @@ func (h *Public) row(ctx context.Context, pageID string, pm store.StatusPageMoni
 			row.LatencyMS, row.HasLatency = d.Milliseconds(), true
 		}
 	}
-	_, adjusted := store.UptimeOf(iv, from, to, now)
+	var adjusted incident.Ratio
+	row.Days, adjusted, row.StripText = stripOf(iv, days, now)
 	row.Uptime = adjusted.Percent()
-
-	counts := map[string]int{}
-	for i := 0; i+1 < len(days); i++ {
-		d := stripDay(iv, days[i], days[i+1], now)
-		row.Days = append(row.Days, d)
-		counts[d.Class]++
-	}
-	row.StripText = fmt.Sprintf("Last %d days: %s uptime; %d without incidents, %d with downtime, %d in maintenance, %d without data",
-		stripDays, row.Uptime, counts[templates.DayUp], counts[templates.DayPartial]+counts[templates.DayDown],
-		counts[templates.DayMaintenance], counts[templates.DayNoData])
 	return row, adjusted, nil
-}
-
-// stripBounds returns the starts of the strip's days in loc, oldest first,
-// and the start of tomorrow: stripDays+1 local midnights. Midnights are
-// computed from the calendar, so a day of a daylight-saving change is 23
-// or 25 hours long.
-func stripBounds(now time.Time, loc *time.Location) []time.Time {
-	t := now.In(loc)
-	out := make([]time.Time, 0, stripDays+1)
-	for i := stripDays - 1; i >= -1; i-- {
-		d := t.AddDate(0, 0, -i)
-		out = append(out, maintenance.Local(d.Year(), d.Month(), d.Day(), 0, 0, 0, loc))
-	}
-	return out
-}
-
-// stripDay is one bar: the adjusted uptime of [from, to) as of now.
-func stripDay(iv store.Intervals, from, to, now time.Time) templates.PublicDay {
-	raw, adjusted := store.UptimeOf(iv, from, to, now)
-	n := 0
-	for _, s := range iv.Down {
-		end := s.To
-		if end.IsZero() {
-			end = now
-		}
-		if s.From.Before(to) && end.After(from) {
-			n++
-		}
-	}
-	date := from.Format("Mon 2 Jan 2006")
-	incidents := "no incidents"
-	switch {
-	case n == 1:
-		incidents = "1 incident"
-	case n > 1:
-		incidents = strconv.Itoa(n) + " incidents"
-	}
-	switch {
-	case !raw.OK():
-		return templates.PublicDay{Class: templates.DayNoData, Label: date + ": no data"}
-	case !adjusted.OK():
-		return templates.PublicDay{Class: templates.DayMaintenance, Label: date + ": maintenance, " + incidents}
-	}
-	class := templates.DayUp
-	switch {
-	case adjusted.Up < adjusted.Den && adjusted.Value() < dayDownBelow:
-		class = templates.DayDown
-	case adjusted.Up < adjusted.Den:
-		class = templates.DayPartial
-	}
-	return templates.PublicDay{Class: class, Label: date + ": " + adjusted.Percent() + " uptime, " + incidents}
 }
 
 // inMaintenance reports whether a maintenance window covers the monitor

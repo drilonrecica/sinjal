@@ -112,6 +112,8 @@ Pages that show live monitors wrap them in the `Live` component (`web/templates/
 - `sse:maintenance.updated`: refresh every `data-live-list`. The Maintenance page's own `<div sse-connect>` names only this event, and its list (`MaintenanceSections`, `hx-get="/fragments/maintenance"`) is the `data-live-list` there; the monitor pages do not listen for it. A window starting or ending is not an event: the sections move on the next refresh or reload.
 - `htmx:sseOpen` (first load, reconnect, server restart): refresh every `data-live-list` and every `data-live` element that is not inside one (a list brings its rows along), since nothing is replayed after a gap.
 
+`web/static/js/beats.js` listens to the same swaps (`htmx:beforeSwap`, `htmx:load`) only to slide a beat bar that gained a beat and to keep its keyboard focus; it does not change what is fetched.
+
 Why a script instead of an `hx-trigger` filter such as `sse:monitor.updated[...]`: htmx runs trigger filters through `eval`, which the page turns off (`allowEval: false`, no `unsafe-eval` in the CSP). The payload is never rendered; an id that matches nothing is ignored, and a malformed one is dropped.
 
 Frame:

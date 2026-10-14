@@ -144,3 +144,11 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+
+/* Overview: the last 90 days above the 24-hour graph. */
+.strip-uptime {
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}

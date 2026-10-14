@@ -106,6 +106,20 @@ M7-10: `api.json` (25 services, 10 KB) 0.26 ms and `feed.xml` (14 KB) 0.39 ms pe
 
 M7-06: `web.BenchmarkHostRouter` (what every request pays for custom hostnames: one primary-key read of the request's host): 14 µs, 20 allocations. No cache: mappings change in the admin and must apply at once.
 
+### M8 (M8-16, beat bars)
+
+| Scenario | Benchmark | Result |
+|---|---|---|
+| ring push | `recent.BenchmarkPush` (1,000 full rings) | 79 ns, no allocation, per stored result on the processor goroutine |
+| ring read for the list | `recent.BenchmarkNewestList` (36 checks of each of 1,000 monitors into one buffer) | 0.18 ms, no allocation; the SQL read it replaces cost 48 ms (M3 "sparkline data") |
+| ring memory | `recent.TestMemoryAt1000` | 3.9 MiB for 1,000 monitors × 120 checks (32 bytes a check); rings exist only for monitors with checks |
+| 3 result batching | `results.BenchmarkProcessorBatch`, with the ring push wired as in production | 102–103 µs per result, 82 allocations: unchanged (98–105 µs at M3) |
+| start-up seed | `store.BenchmarkRecentChecks` (newest 120 of each of 1,000 monitors with 150) | 300–450 ms (noisy), 1.1 M allocations: nearly all the driver handing 120,000 rows over; an `ORDER BY` added about 90 ms, so each monitor's few checks are sorted in Go. Too slow to hold the start (cold start <1 s), so the engine seeds in the background beside the first checks and `recent.Store.Seed` merges what was pushed meanwhile |
+| 6 monitor list page | `web.BenchmarkMonitorListPage` with full beat bars | 28–30 ms (26–30 ms before), 2.2 MB of HTML, 63 KB gzip. With a tooltip on every beat it was 45 ms and 3.8 MB (84 KB gzip), 90 % of the budget, after building tips with one buffer per request (48 ms before that): list tips are fetched on the first hover instead (owner decision, M8-16) |
+| row tips on hover | `web.BenchmarkMonitorDetail/tips` | 0.11 ms, from memory |
+| page weight | `js/beats.js`, gzip -9 | 2.0 KB, on every live page (`LiveScripts`): 49.0 KB of the 100 KB JS budget in total |
+| detail Overview | `web.BenchmarkMonitorDetail/overview` (120-beat header, 90-day strip with an incident every three days, 24-hour graph) | 1.5–1.7 ms |
+
 ### M6 (M6-08)
 
 | Scenario | Benchmark | Result |

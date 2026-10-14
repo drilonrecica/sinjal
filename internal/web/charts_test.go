@@ -77,22 +77,6 @@ func TestChartJSON(t *testing.T) {
 	}
 }
 
-func TestSparkline(t *testing.T) {
-	sp := sparkline([]float64{10, 20, -1, 40, 30})
-	if sp.Points != "0.0,17.0 25.0,12.0 75.0,2.0 100.0,7.0" || len(sp.Failures) != 1 || sp.Failures[0] != 50 {
-		t.Fatalf("%+v", sp)
-	}
-	if sp.Label != "Latency of the last 5 checks: 10 ms to 40 ms, 1 failed" {
-		t.Fatalf("label %q", sp.Label)
-	}
-	if sp := sparkline([]float64{-1, -1}); sp.Points != "" || sp.Label != "The last 2 checks failed" {
-		t.Fatalf("all failed: %+v", sp)
-	}
-	if sp := sparkline([]float64{5}); sp.Label != "" {
-		t.Fatalf("one point: %+v", sp)
-	}
-}
-
 func TestHistorySummary(t *testing.T) {
 	ms := time.Millisecond
 	s := store.LatencyStats{Checks: 2880, Failures: 3, Samples: 2877, Current: 120 * ms, Avg: 118 * ms, P95: 310 * ms, Max: 900 * ms}
@@ -178,10 +162,6 @@ func TestHistoryTab(t *testing.T) {
 	bad := e.getAs(t, "v1", "GET", "/monitors/"+id+"?tab=history&from=2026-01-02T00:00&to=2026-01-01T00:00").Body.String()
 	if !strings.Contains(bad, "The end must be after the start.") || !strings.Contains(bad, "Over the last 24 hours") {
 		t.Error("an invalid custom range is not explained")
-	}
-	header := e.getAs(t, "v1", "GET", "/fragments/monitors/"+id+"/header").Body.String()
-	if !strings.Contains(header, `class="sparkline"`) || !strings.Contains(header, "Latency of the last 30 checks") {
-		t.Errorf("header has no sparkline:\n%s", header)
 	}
 }
 
