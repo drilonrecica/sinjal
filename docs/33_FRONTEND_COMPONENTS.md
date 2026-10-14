@@ -92,6 +92,7 @@ Implemented in `web/templates/public.templ` (M7-04): `PublicLayout` (own documen
 Allowed:
 - uPlot chart initialization/update (`web/static/js/chart.js`: reads `data-series`, `data-overlays`, `data-tz` of `[data-chart]`, draws overlays in uPlot hooks, redraws on resize and theme change; loaded only on a History tab with data)
 - command palette keyboard handling
+- keyboard shortcuts: `js/shortcuts.js` (`/`, `g d`, `g m`, `g i`, `n`; off while typing or with a dialog open)
 - local pre-hydration theme choice
 - small accessibility helpers
 - clipboard copy

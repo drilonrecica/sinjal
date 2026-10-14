@@ -167,7 +167,7 @@ var (
 		"css/statuspages.css", "css/settings.css", "css/overview.css", "css/audit.css",
 	}
 	ShellScripts = []string{
-		"js/htmx.min.js", "js/htmx-ext-sse.js", "js/live.js", "js/beats.js", "js/shell.js", "js/palette.js",
+		"js/htmx.min.js", "js/htmx-ext-sse.js", "js/live.js", "js/beats.js", "js/shell.js", "js/palette.js", "js/shortcuts.js",
 		"js/uplot.min.js", "js/chart.js", "js/copy.js", "js/passkey.js", "js/toast.js",
 	}
 )
