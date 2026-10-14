@@ -157,8 +157,8 @@ func (p Page) withAssets(styles, scripts []string) Page {
 // ShellStyles and ShellScripts are every page of the app shell's assets,
 // the same on every page. The shell swaps only its pane when it moves
 // between pages (htmx boost, docs/03), so a page cannot bring assets of
-// its own; one set, cached immutably, is 20 KB of CSS and 53 KB of JS
-// gzipped (docs/18). htmx comes first: deferred scripts run in order and
+// its own; one set, cached immutably, is 22 KB of CSS and 58 KB of JS
+// gzipped (docs/18, M8-14). htmx comes first: deferred scripts run in order and
 // its extensions need it.
 var (
 	ShellStyles = []string{

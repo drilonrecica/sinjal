@@ -1,6 +1,8 @@
 # Approved Dependencies
 
-This is the authoritative dependency allow-list (decision P0-05). Each entry answers the five questions from `AGENTS.md` §4:
+This is the authoritative dependency allow-list (decision P0-05). An approved entry may not be in use yet: `go.yaml.in/yaml/v3` arrives with config export (M9).
+
+Each entry answers the five questions from `AGENTS.md` §4:
 
 1. Problem: what concrete problem does it solve?
 2. Not stdlib: why is the standard library or an existing dependency not enough?
@@ -8,12 +10,16 @@ This is the authoritative dependency allow-list (decision P0-05). Each entry ans
 4. Transitive: what does it pull in?
 5. Worth it: is it worth the maintenance?
 
-Any dependency not on this list, including a replacement for one on it, needs a new decision task before it is added. Pin exact versions in `go.mod` or in the vendored file header. Binary-size figures are approximate and are checked against `18_PERFORMANCE.md` when M0 and M10 are measured.
+Rules:
+
+- Any dependency not on this list, including a replacement for one on it, needs a new decision task before it is added.
+- Pin exact versions in `go.mod` or in the vendored file header.
+- Binary-size figures are approximate. They are checked against `18_PERFORMANCE.md` when M0 and M10 are measured.
 
 ## Go modules
 
 ### `github.com/go-chi/chi/v5`: routing
-1. Problem: route groups, per-group middleware, URL params for ~60 routes (`31_HTTP_ROUTES.md`).
+1. Problem: route groups, per-group middleware and URL params for the route table (`31_HTTP_ROUTES.md`).
 2. Not stdlib: `net/http.ServeMux` patterns cover matching but not middleware groups/sub-routers; replicating that is code we would own.
 3. Cost: negligible (<100 KB), no init work.
 4. Transitive: none.
@@ -23,12 +29,12 @@ Any dependency not on this list, including a replacement for one on it, needs a 
 1. Problem: the only database (`09_DATABASE.md`).
 2. Not stdlib: no SQLite in stdlib; cgo drivers break static `CGO_ENABLED=0` builds, cross-compilation to arm64 and the `scratch` image.
 3. Cost: the largest dependency, roughly 6–10 MB of binary. Accepted because it is the database.
-4. Transitive: `modernc.org/libc`, `mathutil`, `fileutil`, `golang.org/x/sys` (and their small deps).
+4. Transitive: `modernc.org/libc`, `mathutil`, `memory`, `fileutil`, `golang.org/x/sys` (and their small deps).
 5. Worth it: **approved**. Use only via `database/sql` with handwritten SQL.
 
 ### `github.com/a-h/templ`: templates
 1. Problem: type-checked server-rendered HTML components.
-2. Not stdlib: `html/template` is stringly typed with runtime errors; component composition for four themes is error-prone.
+2. Not stdlib: `html/template` is stringly typed with runtime errors; component composition for three themes is error-prone.
 3. Cost: small runtime package; generated code is plain Go.
 4. Transitive: runtime has none of note. The generator is pinned with the `go.mod` `tool` directive (`go tool templ generate`) and is not linked into the binary.
 5. Worth it: **approved**. Generation workflow per `35_DEV_BUILD_WORKFLOW.md`.
@@ -82,18 +88,24 @@ Not linked into the `sinjal` binary and not present in production images.
 | templ generator | generate `*_templ.go` | `go.mod` `tool` directive (`go tool templ`) |
 | staticcheck (`honnef.co/go/tools`) | static analysis for `make lint` and CI | `go.mod` `tool` directive |
 | `github.com/chromedp/chromedp` | small browser test suite (`20_TESTING.md`) | separate `tests/browser/go.mod` only (v0.21.0, with `cdproto` and `go-json-experiment/json`) |
-| syft | SBOM generation for releases (`17_MIGRATIONS_RELEASES.md`) | installed binary, version recorded in the release script |
+| syft | SBOM generation for releases (`17_MIGRATIONS_RELEASES.md`) | installed binary; the release script records its version in `dist/syft-version.txt` |
 
 Adding another dev-only tool follows the same rule as runtime dependencies: list it here first.
 
 ## Vendored web assets
 
-Each asset is vendored into `web/static/` with a header comment recording upstream URL, exact version, and licence, embedded via `embed.FS`, and counted against the budgets in `18_PERFORMANCE.md` (<100 KB compressed first-party JS; ≤150 KB fonts). These are never loaded from a CDN.
+Each asset is:
+
+- vendored with a header comment recording upstream URL, exact version and licence (JS and CSS under `web/static/`; icons in `web/templates/icons.go`; fonts, which cannot carry a comment, are recorded below)
+- embedded via `embed.FS` (`web/embed.go`)
+- counted against the budgets in `18_PERFORMANCE.md` (<100 KB compressed first-party JS; ≤150 KB fonts)
+
+These are never loaded from a CDN.
 
 | Asset | Problem | Why not hand-written | Approx. size (gzip) | Licence | Verdict |
 |---|---|---|---|---|---|
 | htmx 2.x | partial page interactions (`AGENTS.md` §3) | mandated by the architecture | ~17 KB | Zero-Clause BSD (0BSD) | **approved**; vendored as **2.0.11** in `web/static/js/htmx.min.js` |
-| htmx SSE extension | live status updates over SSE (`32_SSE_EVENTS.md`) | integrates SSE with htmx swaps | ~3 KB | Zero-Clause BSD (0BSD) | **approved**; vendored as **htmx-ext-sse 2.2.4** in `web/static/js/htmx-ext-sse.js` (unminified upstream file, ~2.5 KB gzip) |
+| htmx SSE extension | live status updates over SSE (`32_SSE_EVENTS.md`) | integrates SSE with htmx swaps | ~3 KB | Zero-Clause BSD (0BSD) | **approved**; vendored as **htmx-ext-sse 2.2.4** in `web/static/js/htmx-ext-sse.js` (unminified upstream file, 2.8 KB gzip -9) |
 | uPlot | latency/availability charts | tiny, canvas-based, fast with large series | ~20 KB JS + ~1 KB CSS | MIT | **approved**; vendored as **1.6.32** in `web/static/js/uplot.min.js` (upstream `uPlot.iife.min.js`, 22.3 KB gzip) and `web/static/css/uplot.min.css` (1 KB gzip) |
 | Lucide icons (subset) | UI icons | consistent icon set | only icons used, inlined as SVG | ISC (Feather-derived icons MIT) | **approved**, used icons only, no icon font; shapes from **lucide-static 1.49.0** in `web/templates/icons.go`, licence text in `web/templates/LICENSE-lucide.txt`; a test fails on an icon nothing uses |
 | Inter (variable, subset) | primary UI typeface (`04_DESIGN_SYSTEM.md`) | system stacks render differently per OS | part of ≤150 KB font budget (29.9 KB) | OFL-1.1 | **approved**; **Inter 4.1** as `web/static/fonts/inter-var.woff2`, OFL text in `OFL-inter.txt` |

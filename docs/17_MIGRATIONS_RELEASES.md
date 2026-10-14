@@ -5,8 +5,9 @@
 Semantic Versioning.
 
 Before 1.0:
-- breaking API/config changes permitted
-- database upgrade safety still required
+
+- breaking API/config changes are permitted
+- database upgrade safety is still required
 
 ## Migration system
 
@@ -31,46 +32,51 @@ internal/db/migrations/
 
 One migration per milestone, created with the milestone that first needs the tables. `spec/schema.sql` is the consolidated end-state reference; the migrations are authoritative.
 
-Runner behaviour (`internal/db`):
-- migration files are `NNN_name.sql`, numbered contiguously from 001; each runs in its own transaction and is recorded in `schema_migrations`
-- before applying anything to a database that already has tables, the runner writes `<data dir>/backups/pre-migration-<app version>-<UTC timestamp>.db` with `VACUUM INTO`; if that fails, nothing is migrated and startup aborts
-- the only exception is a brand-new empty database, which has nothing to back up
-- a database whose recorded version is newer than the binary knows is refused untouched (downgrade = restore the pre-upgrade backup)
-- a failed migration rolls back its own transaction; earlier migrations in the same run stay applied
-
 Rules:
+
 - append-only
 - never edit an already-released migration
-- schema version recorded in DB
-- migration runs at startup
+- schema version recorded in the DB
+- migrations run at startup
 - pre-migration backup mandatory
+
+Runner behaviour (built, `internal/db/migrate.go`):
+
+- Migration files are `NNN_name.sql`, numbered contiguously from 001. Each runs in its own transaction and is recorded in `schema_migrations`.
+- Before applying anything to a database that already has tables, the runner writes `<data dir>/backups/pre-migration-<app version>-<UTC timestamp>.db` with `VACUUM INTO`. If that fails, nothing is migrated and startup aborts.
+- The only exception is a brand-new empty database, which has nothing to back up.
+- A database whose recorded version is newer than the binary knows is refused untouched (downgrade = restore the pre-upgrade backup).
+- A failed migration rolls back its own transaction; earlier migrations in the same run stay applied.
 
 ## Downgrade
 
 No reverse migrations.
 
 Downgrade procedure:
-1. stop new version
-2. restore pre-upgrade backup
-3. run previous binary/container
+
+1. Stop the new version.
+2. Restore the pre-upgrade backup.
+3. Run the previous binary/container.
 
 ## Release model
 
 **Manual builds and manual uploads.**
 
-No tag-triggered publishing.
-No automatic GitHub release publication.
-No automatic Docker registry publication.
+- No tag-triggered publishing.
+- No automatic GitHub release publication.
+- No automatic Docker registry publication.
 
-A local helper script may perform deterministic build chores, but the owner explicitly decides when and where to upload artifacts.
+A local helper script may perform deterministic build chores, but the owner explicitly decides when and where to upload artifacts. The step-by-step procedure is `27_MANUAL_RELEASES.md`.
 
 ## Manual release helper
 
-Target:
+Target (M11-03):
 
 ```bash
 ./scripts/release.sh 0.3.0
 ```
+
+Today only the draft `scripts/release.sh.example` exists, and `make release-local` fails with "not implemented until M11".
 
 Output:
 
@@ -80,6 +86,7 @@ dist/
   sinjal-linux-arm64
   checksums.txt
   sbom.spdx.json
+  syft-version.txt
   signatures/
 ```
 
@@ -95,6 +102,7 @@ Other builds may work but are not guaranteed in v1.
 ## Supply-chain artifacts
 
 Target:
+
 - checksums
 - SBOM
 - signatures
@@ -102,8 +110,9 @@ Target:
 Do not add runtime complexity for release tooling.
 
 Tooling (decision P0-17):
+
 - checksums: `sha256sum` over the binaries and the SBOM → `checksums.txt`
-- SBOM: `syft scan file:dist/sinjal-linux-amd64 -o spdx-json=dist/sbom.spdx.json` (dev-only tool; the `syft version` output is saved next to the artifacts)
+- SBOM: `syft scan file:dist/sinjal-linux-amd64 -o spdx-json=dist/sbom.spdx.json` (dev-only tool; the `syft version` output is saved next to the artifacts as `syft-version.txt`)
 - signature: `ssh-keygen -Y sign -n sinjal-release` over `checksums.txt` → `signatures/checksums.txt.sig`
 - signing key: a **dedicated Ed25519 release key**, not a login key; generated and stored privately by the owner; passed to the release script via `SINJAL_RELEASE_KEY`
 - public key: `docs/release-signing/allowed_signers`
@@ -123,6 +132,7 @@ No external signing service, transparency log or keyless OIDC flow.
 Maintain `CHANGELOG.md` once real releases begin.
 
 Release notes:
+
 - features
 - fixes
 - migrations

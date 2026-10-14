@@ -2,11 +2,8 @@
 
 ## Configuration split
 
-Environment/CLI:
-- how Sinjal runs
-
-SQLite:
-- what Sinjal monitors and user-managed app configuration
+- Environment/CLI: how Sinjal runs.
+- SQLite: what Sinjal monitors, and user-managed app configuration.
 
 ## Environment variables
 
@@ -32,7 +29,11 @@ SINJAL_WORKERS=16
 | `SINJAL_TIMEZONE` | `UTC` | IANA name (tz database is embedded) |
 | `SINJAL_WORKERS` | auto | integer 1–256; auto is `min(32, max(8, NumCPU*4))` |
 
-Blank values count as unset. Invalid values and unknown `SINJAL_*` variables (typos) are fatal at startup, and every problem is reported at once.
+Startup checks (`internal/config`):
+
+- Blank values count as unset.
+- Invalid values and unknown `SINJAL_*` variables (typos) are fatal at startup.
+- Every problem is reported at once.
 
 Do not put every monitor in environment variables.
 
@@ -41,7 +42,9 @@ Do not put every monitor in environment variables.
 Support config export/import separate from full backup.
 
 ### Safe config export
+
 Human-readable YAML or JSON containing:
+
 - monitor definitions
 - groups/tags
 - status pages
@@ -49,6 +52,7 @@ Human-readable YAML or JSON containing:
 - non-secret settings
 
 Exclude:
+
 - passwords
 - passkeys
 - TOTP secret
@@ -56,54 +60,65 @@ Exclude:
 - auth headers
 - heartbeat raw tokens unless intentionally regenerated
 
+The file format is in `37_BACKUP_FORMAT.md` "Safe config export".
+
 ### Config import (decision P0-16)
 
 Matching existing items:
+
 - monitors, notification profiles, tags: by `name`
 - notification channels: by their export `id` key (e.g. `telegram-main`)
 - status pages: by `slug`
 
 Modes:
+
 - `skip` (default): matched items are left unchanged; unmatched items are created
 - `replace`: matched items are overwritten with the imported definition; unmatched items are created
 - nothing is ever deleted by an import
 
 Preview is mandatory:
+
 - CLI: `sinjal import-config --dry-run [--mode skip|replace] <path>` prints the plan; without `--dry-run` it applies it
 - UI: upload shows the plan; applying requires explicit confirmation
 - the plan lists every item as create / replace / skip / error, with reasons
 
 Errors (the whole import is rejected):
+
 - duplicate names/keys/slugs within the file
 - a name that matches more than one existing monitor
 - a reference (profile on a monitor, monitor on a status page, channel in a route) that resolves neither in the file nor in the database
 - any validation failure from `38_CONFIG_VALIDATION.md`
 
 Secrets (the safe export never contains them):
+
 - `replace` keeps the existing secrets of a matched item
 - newly created notification channels are created **disabled** and marked "needs credentials"
 - newly created heartbeat monitors get fresh tokens, shown once after import
 - secret-looking values in the file (any `secrets`/`token` field other than `REDACTED`) are rejected
 
 Application:
+
 - the file is fully parsed and validated before any write
 - the plan is applied in a single transaction; on any error nothing changes
 - one audit event `config_imported` records mode and counts
 
 ### Full backup
+
 Contains everything required for disaster recovery:
+
 - SQLite DB
 - master key
 - necessary uploaded assets
 - metadata/version manifest
 
-Full backup is sensitive.
+Full backup is sensitive. The archive layout is in `37_BACKUP_FORMAT.md`.
 
 ## CLI
 
 Target commands:
 
 ```text
+sinjal [serve]
 sinjal version
 sinjal backup <path>
 sinjal restore <path>
@@ -114,9 +129,21 @@ sinjal healthcheck
 sinjal reset-admin [--login <login>] [--remove-passkeys]
 ```
 
-`sinjal healthcheck` performs `GET http://127.0.0.1:<port>/healthz` (port taken from `SINJAL_LISTEN`) with a 3 s timeout and exits 0 on HTTP 200, otherwise 1. It makes no other network calls and does not open the database. It exists for the Docker `HEALTHCHECK` in the `scratch` image.
+Built: `serve` (the default when no command is given), `version` and `reset-admin`.
 
-`sinjal reset-admin` recovers a locked-out admin (decision P0-11):
+Do not grow a huge CLI framework.
+
+### `sinjal healthcheck`
+
+- Performs `GET http://127.0.0.1:<port>/healthz` (port taken from `SINJAL_LISTEN`) with a 3 s timeout.
+- Exits 0 on HTTP 200, otherwise 1.
+- Makes no other network calls and does not open the database.
+- It exists for the Docker `HEALTHCHECK` in the `scratch` image.
+
+### `sinjal reset-admin`
+
+Recovers a locked-out admin (decision P0-11):
+
 - operates on the database in `SINJAL_DATA_DIR`
 - `--login` is required only when more than one admin exists
 - sets a new random password and prints it once to stdout
@@ -126,18 +153,16 @@ sinjal reset-admin [--login <login>] [--remove-passkeys]
 - writes the audit event `admin_reset_cli`
 - safe while the server is running (e.g. `docker exec <container> /sinjal reset-admin`): it performs ordinary transactional DB writes, and the server never caches authentication state in memory
 
-Implemented in M1-15: stdout carries only the password (so `pw=$(sinjal reset-admin)` works), messages go to stderr, exit codes are 0 / 1 (failure) / 2 (usage).
+Built (M1-15):
 
-Do not grow a huge CLI framework.
+- stdout carries only the password, so `pw=$(sinjal reset-admin)` works; messages go to stderr
+- exit codes are 0 (success), 1 (failure) and 2 (usage)
 
 ## Automatic local backup
 
-Daily.
-
-Default retention: 14 daily backups.
-
-Path:
-`/data/backups/`
+- Frequency: daily.
+- Default retention: 14 daily backups.
+- Path: `/data/backups/`.
 
 Old backup cleanup must never delete outside that directory.
 
@@ -147,14 +172,17 @@ Mandatory before schema migration.
 
 If backup fails, migration must not proceed.
 
+Built in `internal/db`; the file name and runner rules are in `17_MIGRATIONS_RELEASES.md` "Migration system".
+
 ## Restore
 
 Restore is destructive and requires explicit command/admin confirmation.
 
 Validation:
+
 - archive manifest
 - compatible format
 - DB integrity where possible
 - key presence for encrypted secrets
 
-Document rollback path clearly.
+Document the rollback path clearly. Archive safety rules are in `37_BACKUP_FORMAT.md` "Restore safety".

@@ -32,7 +32,7 @@ Do not add any of the following unless the specification is explicitly amended:
 - Prometheus server/scraping subsystem
 - OpenTelemetry stack
 - APM
-- browser automation / Playwright / Chromium in the product (the only exception is the dev-only `tests/browser` module, see `docs/20_TESTING.md`)
+- browser automation / Playwright / Chromium in the product (the only exception is the dev-only `tests/browser` chromedp module, see `docs/20_TESTING.md`)
 - distributed probe agents
 - OAuth/OIDC/SAML
 - generic policy/RBAC framework
@@ -65,9 +65,9 @@ Every new dependency must answer:
 4. Does it bring transitive dependencies?
 5. Is the feature worth the maintenance cost?
 
-The approved dependency list, with these answers recorded per dependency, is `docs/40_DEPENDENCIES.md`. It is authoritative: anything not on it (Go module or vendored web asset) requires an explicit decision and an update to that file before it is added.
+The approved dependency list, with these answers recorded per dependency, is `docs/40_DEPENDENCIES.md`. It is authoritative: anything not on it (Go module, vendored web asset or dev-only tool) requires an explicit decision and an update to that file before it is added.
 
-Summary:
+Summary of the approved list (not all are in use yet):
 
 - `github.com/go-chi/chi/v5` — routing
 - `modernc.org/sqlite` — pure-Go SQLite
@@ -76,8 +76,8 @@ Summary:
 - `golang.org/x/net` — ICMP; `dnsmessage` for DNS test servers
 - `github.com/go-webauthn/webauthn` — passkeys
 - `rsc.io/qr` — TOTP enrolment QR code
-- `go.yaml.in/yaml/v3` — YAML config export/import
-- vendored: htmx + SSE extension, uPlot, Lucide icon subset
+- `go.yaml.in/yaml/v3` — YAML config export/import (M9; not yet in `go.mod`)
+- vendored: htmx + SSE extension, uPlot, Lucide icon subset, Inter and JetBrains Mono fonts
 - TOTP is hand-written on stdlib (RFC 6238), not a dependency
 
 Do not add a frontend framework, CSS framework runtime, or generic component kit that causes the interface to look like a stock dashboard.
@@ -117,13 +117,13 @@ Do not bury these behaviors in generic callback/event abstractions.
 
 - SQLite only.
 - WAL mode.
-- sensible pragmas and indexes.
-- one clear write path for high-frequency check results.
-- migrations are numbered embedded SQL files.
-- automatic backup before schema migration.
-- never mutate old migration files after release.
-- migrations are forward-only; rollback uses the pre-upgrade backup.
-- raw check retention and rollups are mandatory.
+- Sensible pragmas and indexes.
+- One clear write path for high-frequency check results.
+- Migrations are numbered embedded SQL files.
+- Automatic backup before schema migration.
+- Never mutate old migration files after release.
+- Migrations are forward-only; rollback uses the pre-upgrade backup.
+- Raw check retention and rollups are mandatory.
 
 ## 8. Security rules
 
@@ -134,11 +134,11 @@ Do not bury these behaviors in generic callback/event abstractions.
 - CSRF protection for state-changing browser requests.
 - Secure, HttpOnly session cookies.
 - SameSite protection.
-- login rate limiting.
-- security headers.
-- trusted proxy behavior must be explicit.
-- status pages never reveal internal targets by default.
-- viewer accounts cannot create/modify monitors.
+- Login rate limiting.
+- Security headers.
+- Trusted proxy behavior must be explicit.
+- Status pages never reveal internal targets by default.
+- Viewer accounts cannot create/modify monitors.
 
 ## 9. UI rules
 
@@ -164,7 +164,7 @@ Prefer:
 - clear state labels
 - proper empty/loading/error states
 - responsive mobile inspection experience
-- four genuinely distinct themes sharing one layout system
+- three genuinely distinct themes sharing one layout system
 
 ## 10. Testing rule
 
@@ -189,6 +189,7 @@ When behavior changes, update the relevant spec and user documentation in the sa
 ## 14. No surprise feature additions
 
 Do not silently add:
+
 - telemetry
 - analytics
 - external calls

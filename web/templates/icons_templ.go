@@ -74,8 +74,8 @@ func iconShape(name string) string {
 	return s
 }
 
-// Mark is the open ring with its accent pip, alone: favicon-sized uses and
-// the collapsed sidebar. Decorative; the link around it names it.
+// Mark is the open ring with its accent pip, alone, for favicon-sized
+// uses. Decorative; the link around it names it.
 func Mark() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

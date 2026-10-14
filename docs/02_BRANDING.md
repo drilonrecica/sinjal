@@ -4,7 +4,7 @@
 
 **Sinjal**
 
-The name is intentionally short, CLI-friendly, infrastructure-flavored, and associated with "signal" without using a generic English uptime name.
+The name is short, CLI-friendly and infrastructure-flavored. It suggests "signal" without being a generic English uptime name.
 
 ## Descriptor
 
@@ -73,6 +73,8 @@ Rules:
 - minimum size 16 px; stroke stays 7/64 of the box (no hairline variant)
 - wordmark is always lowercase "sinjal", tracking −0.03em
 - no gradients, glows or effects; the pip is never replaced by a status color (the mark does not imply live state)
+
+Built (M8-01): `Mark()` and `Wordmark()` in `web/templates/icons.templ` inline the paths from the files above (`web/templates/brand.go`). `components.css` colours the ring and letters with `currentColor` and the pip with `var(--accent)`. The top bar shows the wordmark as the link to Home.
 
 ## Status-page branding
 

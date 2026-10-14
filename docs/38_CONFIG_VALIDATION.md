@@ -1,8 +1,12 @@
 # Configuration Validation
 
+Rules every configuration write must pass. Bounds that are built are named in code next to the rule (`internal/store/validate.go` for monitors unless noted).
+
 ## General
 
 Reject invalid configuration at write/import time, not during monitor execution.
+
+Built: every field is checked on each write, and the form shows all problems at once, each next to its field.
 
 ## Monitor common
 
@@ -19,6 +23,8 @@ Suggested minimum active interval:
 
 Do not allow sub-second or high-frequency monitoring in v1.
 
+Built bounds: interval 10 s to 24 h (`MinIntervalSeconds`, `MaxIntervalSeconds`); failure and success thresholds 1 to 100. A heartbeat monitor has no timeout; its interval is its expected interval.
+
 ## HTTP
 
 - valid http/https URL
@@ -31,27 +37,38 @@ Do not allow sub-second or high-frequency monitoring in v1.
 - TLS warning days positive and deduplicated
 - secret headers separated from normal display where configured
 
+Built bounds: body cap 1 KiB to 1 MiB (the hard read cap of `06`; an admin may only lower it); a request body only for POST, at most 64 KiB. Credentials in the URL, and `Authorization`, `Proxy-Authorization` or `Host` as headers, are refused (`13_AUTH_SECURITY.md` "Monitor secrets in the form").
+
 ## TCP
+
 - valid host
 - port 1–65535
 
 ## ICMP
+
 - valid hostname/IP
 
 ## DNS
+
 - valid hostname
 - supported record type
-- resolver valid when provided (`host` or `host:port`, default port 53)
+- resolver valid when provided (an IP address, optionally with a port, `IP` or `IP:port`; default port 53)
 - match mode `any` or `all`
 - at most 20 expected values, deduplicated after normalization
 - expected values valid for the query type: IPv4 literal (A), IPv6 literal (AAAA), hostname (CNAME, NS), `host` or `pref host` (MX), any non-empty string ≤ 1024 bytes (TXT)
 
+Built: the hostname must be a name, not an IP address (`internal/monitor/dnscheck`).
+
 ## Heartbeat
+
 - positive expected interval
 - non-negative grace
 - token generated securely
 
+Built bounds: expected interval 10 s to 24 h; grace 0 to 24 h.
+
 ## Status page
+
 - unique slug
 - hostname normalized/lowercase
 - host mapping unique
@@ -60,7 +77,10 @@ Do not allow sub-second or high-frequency monitoring in v1.
 - unlisted token generated server-side only, never user-supplied
 - a hostname cannot equal the instance's own base URL host
 
+Built (`internal/statuspage`): slug of lowercase letters, digits and inner hyphens, at most 64 characters; at most 10 hostnames per page, each a plain DNS name or IP address without scheme, port or path; page password 8–128 characters; public history 1–365 days.
+
 ## Maintenance
+
 - name: required, at most 100 characters
 - start date and time required
 - positive duration: 1 minute to 31 days
@@ -75,3 +95,5 @@ Import must be:
 - transactionally applied where practical
 - clear about duplicate/conflict behavior (matching, `skip`/`replace` modes and mandatory preview: `15_CONFIG_BACKUP.md` "Config import")
 - unable to smuggle secret fields into safe-import format unless explicitly supported
+
+Import is not built yet (M9).

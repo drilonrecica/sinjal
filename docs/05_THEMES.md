@@ -1,6 +1,6 @@
 # Themes
 
-Sinjal ships with three first-class themes (owner decision 2026-10-14, after the "Clear" design concepts; they replace Carbon, Paper, Midnight and the old Terminal):
+Sinjal ships three first-class themes (owner decision 2026-10-14, after the "Clear" design concepts). They replace Carbon, Paper, Midnight and the old Terminal.
 
 | Theme | Kind | Key | Default for |
 |---|---|---|---|
@@ -15,7 +15,7 @@ All themes share:
 - accessibility requirements (AA contrast, status as colour + shape + text)
 - motion
 
-They differ in character, set through tokens and a few theme-scoped rules (never separate components).
+They differ in character, set through tokens and a few theme-scoped rules, never through separate components.
 
 ## Stark
 
@@ -25,7 +25,7 @@ Personality: stark, high-contrast, dramatic, precise.
 - near-white text; one vivid electric-blue accent (`#3d93ff`)
 - vivid status colours: green means up and nothing else, red means down
 - large heavy numerals, filled status blocks
-- **Ambient light** (on by default, a per-user setting): one soft radial light behind the status hero whose colour follows the state, blue when healthy, red when down, amber when flapping. It is the only decorative gradient in the product besides chart area fills. Switched off, Stark is pure black.
+- **Ambient light** (on by default, a per-user setting): one soft radial light behind the status hero. Its colour follows the state: blue when healthy, red when down, amber when flapping. It is the only decorative gradient in the product besides chart area fills (`04_DESIGN_SYSTEM.md` "Ambient light"). Switched off, Stark is pure black.
 
 ## Terminal
 
@@ -49,7 +49,14 @@ Personality: crisp, bright, editorial contrast.
 
 The default for public status pages: a page's visitors are not its operators.
 
-Built (M8-01, M8-02): every rule above is in `tokens.css` and the theme-scoped sections of `components.css`. Terminal's short tag where it is not the word itself (`[FLAP]`) is a separate `aria-hidden` span next to the word, which is visually hidden in Terminal only, so assistive technology still reads "Flapping". The status hero in Terminal is a box rule in the base amber for a calm state and an inverse block only for a problem. Double box rules frame every panel (monitor, incident, maintenance and channel lists, status page monitors, the problem strip, forms, the sign-in panel); controls keep single rules. The public status page (M8-17) shares the hero's Ambient light, the day bars and, in Terminal, the double box rules on its service list, incidents and note.
+## Built
+
+M8-01, M8-02, M8-17. Every rule above is in `css/tokens.css` and the theme-scoped sections of `css/components.css`.
+
+- **Terminal's short tag.** Where the tag is not the word itself (`[FLAP]`), it is a separate `aria-hidden` span next to the word. Terminal alone hides the word visually, so assistive technology still reads "Flapping".
+- **Terminal's status hero.** A box rule in the base amber for a calm state; an inverse block only for a problem.
+- **Terminal's box rules.** Double rules frame the panels: incident, maintenance and channel lists, status page monitors, the problem strip, form sections and the sign-in panel. Controls keep single rules.
+- **Public status page** (M8-17). It shares the hero's Ambient light and the day bars and, in Terminal, the double box rules on its service list, incidents and note. An unknown or empty page theme falls back to Daylight.
 
 ## Token model
 
@@ -98,10 +105,15 @@ At minimum:
 
 - authenticated user preference persisted server-side (theme and Ambient light, `users.theme`, `users.ambient_light`)
 - may additionally use local storage for fast pre-hydration to avoid flash
-
-Built (M8-04): Settings → Appearance (`/account/appearance`, every signed-in user, no re-authentication) saves theme, density and Ambient light into the user's row; the server renders them on every page. A hashed inline script (see docs/13) keeps them in `localStorage` key `sinjal.prefs` and applies them before first paint on pages without a signed-in user. Status pages do not run it.
 - status pages select their own theme independently (default `daylight`)
-- stored values from before 009_themes map carbon/midnight → stark, paper → daylight, terminal → terminal
+- stored values from before `009_themes` map carbon/midnight → stark, paper → daylight, terminal → terminal
+
+Built (M8-04):
+- Settings → Appearance (`/account/appearance`) is open to every signed-in user, without re-authentication. It saves theme, density and Ambient light into the user's row (`users.theme`, `users.density`, `users.ambient_light`; a `NULL` theme is the default, Stark).
+- The server renders them on every page as `data-theme`, `data-density` and `data-ambient` on `<html>`.
+- The one inline script, `templates.PrehydrateScript` (admitted by its hash in the CSP, `13_AUTH_SECURITY.md`), stores them in `localStorage` key `sinjal.prefs` on signed-in pages. On pages without a signed-in user (sign-in, setup) it applies them before first paint.
+- The command palette's Theme commands save the theme the same way.
+- Public status pages run no script and use their own theme.
 
 ## Customization
 

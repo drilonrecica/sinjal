@@ -1,5 +1,7 @@
 # Threat Model
 
+What Sinjal protects, whom it trusts, and how each threat is met. The rules behind the mitigations are in `13_AUTH_SECURITY.md`; section names below refer to it unless another file is named.
+
 ## Assets to protect
 
 - admin account
@@ -29,7 +31,8 @@ Less trusted:
 ## Primary threats
 
 ### Credential theft
-Mitigations:
+
+Mitigations ("Password hashing", "Passkeys", "TOTP", "Sessions", "Re-authentication actions"):
 - Argon2id
 - passkeys
 - optional TOTP
@@ -38,53 +41,61 @@ Mitigations:
 - no secrets in logs
 
 ### CSRF
-Mitigation:
+
+Mitigation ("CSRF"):
 - per-session/form CSRF tokens for browser state changes
 
 ### XSS
-Mitigations:
+
+Mitigations ("Security headers", "Response data"):
 - templ escaping
 - avoid raw HTML injection
 - CSP
 - sanitize/escape diagnostic snippets
 
 ### SSRF abuse
+
 Admin is intentionally allowed to monitor private networks.
 
-Mitigations:
+Mitigations ("Internal monitoring / SSRF"):
 - only admin configures monitors
 - viewer/public cannot submit arbitrary destinations
 - status pages hide targets
 - bounded redirects/body/timeouts
 
 ### Reverse-proxy spoofing
-Mitigation:
+
+Mitigation ("Proxy trust"):
 - explicit trusted proxies
 - validate Host mapping
 
 ### Secret-at-rest theft
-Mitigation:
+
+Mitigation ("Secrets at rest"):
 - AEAD-encrypted sensitive fields
 - separate master key file
 - filesystem permissions
 
-Note:
-If attacker steals both DB and master key/full backup, secrets are recoverable. Full backups are therefore high-value secrets.
+Note: if an attacker steals both the DB and the master key, or a full backup, secrets are recoverable. Full backups are therefore high-value secrets ("Backup implications").
 
 ### Backup path traversal
+
 Restore must:
 - reject archive entries escaping target directory
 - validate expected file list/manifest
 - avoid unsafe symlink extraction
 
+See `15_CONFIG_BACKUP.md` and `37_BACKUP_FORMAT.md`.
+
 ### Untrusted remote response
+
 Monitored endpoints may return malicious:
 - huge body
 - invalid encoding
 - HTML/script
 - redirect chain
 
-Mitigations:
+Mitigations (`06_MONITORING_ENGINE.md`, "Response/body privacy"):
 - body limit
 - timeout
 - no rendering response as raw HTML
@@ -92,9 +103,10 @@ Mitigations:
 - escaped snippets
 
 ### Denial of service through configuration
+
 Admin can create many monitors.
 
-Mitigations:
+Mitigations (`07_SCHEDULER.md`, `18_PERFORMANCE.md`):
 - bounded worker pool
 - bounded queues
 - body limit
@@ -102,15 +114,17 @@ Mitigations:
 - operational soft limits/warnings
 
 ### Instance takeover during setup
+
 A fresh instance reachable from the internet could be claimed by whoever opens `/setup` first.
 
-Mitigations:
+Mitigations ("Initial setup"):
 - one-time setup token logged at startup, required by `/setup`
 - token kept in memory only and rotated on restart
 - `/setup` returns 404 once an admin exists
 
 ### Session theft
-Mitigations:
+
+Mitigations ("Sessions"):
 - TLS expected at reverse proxy
 - Secure/HttpOnly
 - expiry/rotation

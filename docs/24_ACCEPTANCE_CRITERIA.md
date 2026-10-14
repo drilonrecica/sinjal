@@ -2,6 +2,8 @@
 
 Sinjal v1 is complete only when these criteria are satisfied.
 
+Boxes are ticked in the final acceptance walkthrough (M11), each with its evidence: a test name, a benchmark or a manual check.
+
 ## Deployment
 - [ ] Runs as one native binary.
 - [ ] Runs as one Docker container.
@@ -106,7 +108,7 @@ Sinjal v1 is complete only when these criteria are satisfied.
 - [ ] no internal target leakage by default.
 
 ## UI
-- [ ] sidebar nav.
+- [ ] top bar with monitor list column and detail pane.
 - [ ] problem-first overview.
 - [ ] compact monitor rows.
 - [ ] detail tabs.
@@ -115,10 +117,11 @@ Sinjal v1 is complete only when these criteria are satisfied.
 - [ ] shortcuts.
 - [ ] compact/comfortable density.
 - [ ] mobile monitoring experience is good.
-- [ ] Carbon complete.
-- [ ] Paper complete.
-- [ ] Midnight complete.
+- [ ] beat bar in list rows and the detail.
+- [ ] search, filters and saved views.
+- [ ] Stark complete, with Ambient light on and off.
 - [ ] Terminal complete.
+- [ ] Daylight complete.
 - [ ] no generic stock-dashboard appearance.
 
 ## Accessibility
@@ -162,7 +165,7 @@ Sinjal v1 is complete only when these criteria are satisfied.
 
 ## Release/repository
 - [ ] MIT license.
-- [ ] Issues templates.
+- [ ] Issue templates.
 - [ ] PR-not-accepted policy.
 - [ ] AI PR policy.
 - [ ] manual release build script.

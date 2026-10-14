@@ -1,5 +1,7 @@
 # Backup Archive Format
 
+Not built yet (M9). What a backup contains, and the restore rules, are in `15_CONFIG_BACKUP.md`.
+
 ## Full backup
 
 Recommended archive structure:
@@ -29,13 +31,10 @@ Example:
 
 ## Safe config export
 
-Separate format:
-
-```text
-sinjal-config.yaml
-```
+Separate format: `sinjal-config.yaml`.
 
 Does not contain:
+
 - master key
 - password hash
 - passkeys
@@ -47,6 +46,7 @@ Does not contain:
 ## Restore safety
 
 Before restore:
+
 - validate archive file names
 - reject absolute paths
 - reject `..`
@@ -55,8 +55,9 @@ Before restore:
 - check DB integrity if possible
 - require explicit confirmation
 - stop scheduler/writes
-- take current backup before replacing current data where possible
+- take a current backup before replacing current data, where possible
 
 After restore:
-- verify master key matches encrypted data operationally
-- run required forward migrations only after preserved restore point exists
+
+- verify operationally that the master key matches the encrypted data
+- run required forward migrations only after a preserved restore point exists

@@ -20,7 +20,7 @@ This summarizes the locked design rounds.
 - jitter.
 - WAL + batched dedicated result writes.
 - HTMX + SSE + small vanilla JS.
-- four designed themes.
+- four designed themes (superseded by the M8 themes entry below).
 - env/CLI for runtime, SQLite for app state.
 - built-in backup/export.
 - system diagnostics.
@@ -97,7 +97,7 @@ This summarizes the locked design rounds.
 - progressive monitor form.
 - detail tabs.
 - genuine theme personalities.
-- four themes.
+- four themes (superseded by the M8 themes entry below).
 - minimal functional motion.
 
 ## Operations

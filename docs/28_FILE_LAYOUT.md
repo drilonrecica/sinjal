@@ -1,53 +1,73 @@
 # Recommended Repository Layout
 
+The tree below is the current layout. Packages marked "planned" arrive with their milestone.
+
 ```text
 /
   cmd/
     sinjal/
-      main.go
+      main.go       # subcommands: serve (default), version, reset-admin
+      reset.go      # sinjal reset-admin
 
   internal/
-    app/
+    assets/         # embedded static files under content-hashed URLs
+    audit/          # the security and activity log
     auth/
-    backup/
-    config/
+    config/         # SINJAL_* environment variables
+    datadir/        # prepares the data directory
     db/
-      migrations/
+      migrations/   # numbered embedded SQL (17_MIGRATIONS_RELEASES.md)
+    dispatch/
     engine/
-    incident/
+    history/        # history ranges and bucket math
+    ids/            # primary keys for TEXT id columns
+    incident/       # the monitor state machine
+    jobs/           # the daily internal job
+    logging/
     maintenance/
     monitor/
       httpcheck/
       tcpcheck/
       icmpcheck/
-      dnscheck/
-      heartbeat/
+      dnscheck/     # heartbeat monitors need no checker: results arrive at /api/v1/heartbeat
     notify/
-    dispatch/
+    ratelimit/      # memory-bounded failure counter for setup and login
+    recent/         # the last checks per monitor in memory (beat bar, Live activity)
     results/
     retention/
     scheduler/
-    statuspage/
+    secret/         # a string type that never prints its value
+    statuspage/     # status page rules that need no database
     store/
-    system/
+    vault/          # master key and encrypted envelopes
     web/
-      handlers/
       middleware/
+      proxy/        # trusted proxy handling
       sse/
-      viewmodels/
+    # planned (M9): backup/, system/
 
   web/
+    embed.go        # embeds static/
     templates/      # icons are inline SVG in templates/icons.go (M8-01), not files
     static/
       css/
-      js/
+      js/           # first-party scripts and the vendored htmx, SSE extension, uPlot
       fonts/        # self-hosted woff2 + their OFL texts
 
   docs/
-  spec/
-  scripts/
+    brand/
+    release-signing/  # allowed_signers (17_MIGRATIONS_RELEASES.md)
+  spec/             # examples and the consolidated schema; not built
+  scripts/          # release.sh.example until M11
   tests/
+    integration/    # black-box tests against the built binary
+    browser/        # chromedp suite, its own Go module (make test-browser)
+  .github/
+    workflows/      # check-only CI (27_MANUAL_RELEASES.md)
 
+  Makefile
+  go.mod
+  go.sum
   AGENTS.md
   CLAUDE.md
   README.md
@@ -58,20 +78,14 @@
 
 ## Package guidance
 
-Avoid cyclical mega-packages.
+Avoid cyclical mega-packages. Do not force every package behind an interface.
 
-`store` should contain concrete DB access, not abstract repository interfaces for every entity.
-
-`monitor` owns monitor execution semantics; scheduler does not need protocol-specific details.
-
-`incident` owns state-transition/incident decisions.
-
-`engine` wires scheduler, worker pool, check executors and result processor together and is the only package that knows all of them; `results` is the single write path for check results.
-
-`retention` owns the rollup policy (tiers, cutoffs, the run loop); the SQL of one rollup step is `store/rollup.go`, the bucket math `history/bucket.go`.
-
-`notify` owns channel configuration, message rendering and the senders (one file per channel type, no subpackages); `dispatch` owns routing, retries and delivery records. It is a sibling of `notify` rather than part of it because `store` needs `notify` (channel configurations) and the dispatcher needs `store`.
-
-`web` converts domain/store data into presentation-specific view models.
-
-Do not force every package behind an interface.
+- `store` contains concrete DB access, not abstract repository interfaces for every entity.
+- `monitor` owns monitor execution semantics. The scheduler does not need protocol-specific details.
+- `incident` owns state-transition and incident decisions.
+- `engine` wires the scheduler, worker pool, check executors and result processor together. It is the only package that knows all of them.
+- `results` is the single write path for check results.
+- `retention` owns the rollup policy (tiers, cutoffs, the run loop). The SQL of one rollup step is `store/rollup.go`; the bucket math is `history/bucket.go`.
+- `notify` owns channel configuration, message rendering and the senders (one file per channel type, no subpackages).
+- `dispatch` owns routing, retries and delivery records. It is a sibling of `notify` rather than part of it, because `store` needs `notify` (channel configurations) and the dispatcher needs `store`.
+- `web` converts domain/store data into presentation-specific view models.

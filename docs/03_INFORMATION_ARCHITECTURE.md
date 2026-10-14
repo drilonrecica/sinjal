@@ -8,20 +8,44 @@ Master–detail, like Uptime Kuma, with one job per region:
 - **Monitor list column** (left, up to ~360 px, scrolls on its own): "Add monitor", search, filter chips (status, type, tags), then one row per monitor: status icon, name, uptime %, a compact beat bar. Keyboard-navigable; the selected monitor is marked by an accent edge as well as colour.
 - **Detail pane** (right): Home when no monitor is selected, otherwise the monitor. Incidents, status pages, notifications, maintenance and settings open in the same pane.
 
-Wide screens use the width with more of the same content, never widgets:
+Wide screens use the width for more of the same content, never for widgets:
 - from 1600 px the pane splits into two columns (monitor: status hero, beat bar, the four numbers and the chart on the left; incidents, recent events and facts on the right; Home the same way)
 - from 2200 px a third column, **Live activity**, streams check results and state changes across all monitors
 - beat bars and the chart show more history as they get wider
 
 Phones: the list and the detail are separate views; the top bar becomes a menu.
 
-Built (M8-05, `web/templates/shell.templ`, `css/shell.css`, `js/shell.js`):
-- **Top bar:** the wordmark (Home, `/`), then Status Pages (admins only: its pages are admin-only), Incidents, Notifications, Maintenance, Settings, and an account menu (a `<details>` with the login, Account and Sign out). Routes are unchanged.
-- **Monitor column:** loaded once per page load from `/fragments/monitors`. "Add monitor" (admins), a search box (name, tags, public display labels, and for admins the host), chips (All, Down, Up, Paused) and a "More" panel (type, tag, sort, TLS expiring, recently failing, saved views) are one form: the server answers with the filtered list (M8-08, docs/29), and the state is put in the page address. Each row is one link: state glyph (the word for assistive technology), name, raw 24-hour uptime (the detail header's raw figure, all monitors read at once by `store.UptimesRaw`), and a 36-beat bar. ↑/↓/Home/End move between rows; the row of the monitor in the pane is `aria-current` with an accent edge. The list state lives in the query (`q`, `state`, `type`, `tag`, `tls`, `failing`, `sort`): opening an address with it starts the column from it, and a saved view is a link to `/monitors` with its query. Saved views are the signed-in user's own (viewers too), at most 30, in the More panel; filters of one kind match any value, kinds combine with AND; "Slowest" sorts by the newest check's duration. Recently failing and slowest read the engine's memory, TLS expiring looks 30 days ahead.
-- **Pane navigation:** links and forms are boosted (htmx). The server aims a boosted answer at `#main` (`HX-Retarget`/`HX-Reselect`, `internal/web/boost.go`), so only the pane changes and the column keeps its rows, scroll and live updates; an answer without a pane (sign-in, re-authentication, a public status page) loads as a page. Every shell page links the same CSS and JS, so no page needs assets of its own; back and forward fetch the page again (no htmx history cache: a cached page would carry runtime inline styles the CSP blocks).
-- **One event stream:** the shell opens the only `/events` stream.
-- **Wide screens:** from 1600 px Home and a monitor's Overview tab are two columns (charts on the left; facts, latest incidents and recent events on the right). From 2200 px the Live activity column shows the newest stored checks of all monitors (the engine's in-memory feed) merged with incident events, newest first, refreshed on events at most every 3 s and loaded only while it is shown.
-- **Phones (< 48 rem):** the column and the pane are separate views. `/monitors` is the list view (the column; Home in the pane on larger screens), every other page shows the pane; the top bar's sections are a "Menu" disclosure that starts with Monitors.
+### Built (M8-05, M8-08)
+
+Files: `web/templates/shell.templ`, `css/shell.css`, `js/shell.js`. Components: `33_FRONTEND_COMPONENTS.md` "Shared layout".
+
+**Top bar.** The wordmark links to Home (`/`). Then Status Pages (admins only, since its pages are admin-only), Incidents, Notifications, Maintenance, Settings, a "Commands" button that opens the command palette (shown by JavaScript), and the account menu (a `<details>` labelled with the login, holding Account and Sign out).
+
+**List column.** Loaded once per page load from `/fragments/monitors`.
+- Head: "Add monitor" (admins), a search box, the chips All, Down, Up and Paused, and a "More" panel (type, tag, sort, TLS expiring, recently failing, saved views; loaded on first open from `/fragments/column-filters`). They are one form; the server answers with the filtered list. Search, filters and saved views: `29_SAVED_VIEWS_SEARCH.md`.
+- Rows: see "Monitor list" below.
+- Keyboard: ↑/↓, Home and End move between rows. The row of the monitor in the pane is `aria-current="page"` and has an accent edge.
+
+**Pane navigation.**
+- Links and forms are boosted (htmx). The server aims a boosted answer at `#main` (`HX-Retarget`/`HX-Reselect`, `internal/web/boost.go`), so only the pane changes. The column keeps its rows, scroll position and live updates.
+- An answer without a pane (sign-in, re-authentication, a public status page) loads as a full page.
+- Every shell page links the same CSS and JS, so no page needs assets of its own.
+- Back and forward fetch the page again. There is no htmx history cache: a cached page would carry runtime inline styles that the CSP blocks.
+
+**Event stream.** The shell opens the only `/events` stream.
+
+**Wide screens.**
+- From 1600 px, Home and a monitor's Overview tab have two columns (see "Overview (Home)" and "Monitor detail").
+- From 2200 px, the Live activity column shows the newest checks of all monitors (the engine's in-memory feed, at most 50) merged with the newest 20 incident events, newest first, 40 lines at most. It refreshes on `monitor.updated` and `incident.*` events at most every 3 s, and loads only while it is shown. Event messages are left out, as on Home.
+
+### Phones
+
+Below 48 rem the column and the pane are separate views:
+- `/monitors` is the list view: it shows the column. On larger screens the same address shows Home in the pane.
+- Every other page shows the pane.
+- The top bar's sections are a "Menu" disclosure that starts with Monitors.
+
+Phone-specific details: "Mobile" below.
 
 ## Overview (Home)
 
@@ -40,15 +64,43 @@ Home opens with one calm status sentence ("All 23 monitors are up." / "Postgres 
 
 Healthy systems should feel calm. Do not fill the dashboard with decorative widgets.
 
-Built (M3 follow-up, `GET /`): the problem strip ("Needs attention") exists only when there is something to list: monitors that are down (with for how long), flapping ones, and certificates that expire within 14 days or have expired (enabled monitors only; each line is glyph, text and a link to the monitor), at most 8 with "and n more" after them. Then the monitors by state (total, up, down, flapping, pending, paused) as the figures row of the monitor pages, with a link to Monitors, and the latest incidents (the active ones and the last 5 ended, the incident list component) with a link to Incidents. The monitor list itself is on Monitors: a thousand rows do not belong on the first page. Notification channel and DB/disk/system warnings join the strip with their features (M5, M9), and the separate "warnings" section is the strip's certificate lines until then. With no monitors the page offers to create the first one (admins) or says an admin has not (viewers). It refreshes when an incident changes or a monitor is created or deleted, and once a minute, which also shows a monitor's first result.
+### Built (M3 follow-up, M8-03, M8-09)
 
-Built (M8-03): Home opens with the status sentence as its hero, with the Ambient light behind it (red when a monitor is down, amber when one flaps, the accent when calm; none in Terminal). Down: the first down monitor whose parent is not down is named as the cause, and every other monitor that is down or flapping counts as affected ("Postgres primary is down. 3 more monitors are affected."). Otherwise: flapping ("API is flapping." / "2 monitors are flapping."), or the calm forms: "All 23 monitors are up.", "21 monitors are up; 2 are paused." ("All" only when every monitor is up), waiting for a first check, all paused, and a single monitor by name. The problem strip adds, in order, a system warning first (results not being saved; the database's words for admins only), then down and flapping monitors, notification channels that are failing or failed recently (enabled ones, linking to Notifications, which viewers may open too), then certificates; at most 8 in all. Its border is red only with an outage or the system warning, the warning colour otherwise. Recent events lists the last 10 incident timeline entries across monitors (monitor, what happened, when, linking to the monitor and the incident; the entry's message stays on the incident page, as it can name internal hosts). From 1600 px the page is two columns: sentence, strip and figures on the left, incidents and events on the right. Disk and database warnings join the strip with M9.
+`GET /` (`internal/web/overview.go`, `OverviewBody` in `web/templates/overview.templ`).
+
+**Status sentence.** The hero of the page, with the Ambient light behind it: red when a monitor is down, amber when one flaps, the accent when calm; none in Terminal.
+- Down: the first down monitor whose parent is not down is named as the cause. Every other monitor that is down or flapping counts as affected ("Postgres primary is down. 3 more monitors are affected.").
+- Flapping: "API is flapping." / "2 monitors are flapping."
+- Calm: "All 23 monitors are up.", "21 monitors are up; 2 are paused." ("All" only when every monitor is up). Also forms for waiting for a first check, all paused, and a single monitor by name.
+
+**Problem strip** ("Needs attention"). Present only when there is something to list. Each line is a glyph, text and a link. In order:
+1. a system warning: check results are not being saved (the database's words for admins only)
+2. down monitors, with for how long
+3. flapping monitors
+4. enabled notification channels that are failing or failed recently (linking to Notifications, which viewers may open too)
+5. certificates of enabled monitors that expire within 14 days or have expired
+
+At most 8 lines, then "and n more on Monitors". The border is red only with an outage or the system warning; otherwise it uses the warning colour.
+
+**Maintenance notes.** The windows in effect and those beginning within 24 hours, with their scope (see "Mobile").
+
+**Figures.** The monitors by state (total, up, down, flapping, pending, paused) as the figures row of the monitor pages, with a link to all monitors. The monitor list itself is the list column: a thousand rows do not belong on the first page.
+
+**Recent incidents.** The active ones and the last 5 ended (the incident list component), with a link to Incidents.
+
+**Recent events.** The last 10 incident timeline entries across monitors: monitor, what happened, when, linking to the monitor and the incident. The entry's message stays on the incident page, as it can name internal hosts.
+
+**Layout.** From 1600 px two columns: sentence, strip, maintenance notes and figures on the left; incidents and events on the right.
+
+**Empty state.** With no monitors the page offers to create the first one (admins) or says an admin has not added any (viewers).
+
+**Refresh.** The page body refreshes when an incident changes, a monitor is created or deleted, maintenance changes or a channel's health moves, and once a minute (which also shows a monitor's first result).
+
+**Not yet built.** Disk and database warnings join the strip with M9. Until then the separate "warnings" section is the strip's certificate and channel lines.
 
 ## Monitor list
 
 Use compact responsive rows, not card grids.
-
-Built (M2-16, `GET /monitors`): rows are ordered by name, case-insensitively, and refresh in place from the event stream. The target is `scheme://host` only, shown to admins; viewers see no address. Uptime reads "—" until rollups exist. Each row has a compact beat bar (M8-16): its last 36 checks, newest on the right, from the engine's memory (`internal/recent`), not SQLite, since reading the last 30 results of every monitor costs 48 ms at 1,000 monitors, the whole budget of the list (`18_PERFORMANCE.md`). A row's beats carry no tooltips in the HTML; the first hover fetches them (`/fragments/monitors/{id}/beats`). The dependency indicator names the parent monitor. With no monitors, admins get a "Create monitor" action (`/monitors/new`) and viewers a plain explanation. Since M2-18 the list refetches itself when a monitor is created or deleted anywhere; only the empty state (which opens no stream) needs a reload. Since M4-06 the target column covers every type, still for admins only: `scheme://host` (HTTP), `host:port` (TCP, IPv6 in brackets), the host (ping), `hostname TYPE` (DNS), and a heartbeat monitor's source label, or "push" without one. A heartbeat token never appears in a list.
 
 Each row should provide:
 - status icon + text
@@ -62,6 +114,19 @@ Each row should provide:
 - optional dependency indicator
 
 Actions should be accessible but not visually dominant.
+
+### Built (M2-16, reshaped by M8-05 and M8-16)
+
+The list is the shell's list column (`ColumnList`/`ColumnRow`, `web/templates/monitors.templ`); `/monitors` is the phones' list view (see "Phones").
+
+- **Order:** by name, case-insensitively, unless the list is sorted by "Slowest" (`29_SAVED_VIEWS_SEARCH.md`).
+- **Row:** one link to the monitor: state glyph (the state word for assistive technology), name, raw 24-hour uptime ("—" without data), and a 36-beat bar. A long name wraps to two lines on phones.
+- **Uptime:** the same raw figure as the detail header. `store.UptimesRaw` reads it for all monitors at once.
+- **Beat bar** (M8-16): the last 36 checks, newest on the right, from the engine's memory (`internal/recent`), not SQLite. Reading the last 30 results of every monitor from SQLite costs 48 ms at 1,000 monitors, the list's whole budget (`18_PERFORMANCE.md`). The beats carry no tooltips in the HTML; the first hover fetches them (`/fragments/monitors/{id}/beats`).
+- **Live:** each row refreshes in place from the event stream. The whole column refetches when a monitor is created or deleted.
+- **Empty:** "No monitors yet." with "Create the first one" (`/monitors/new`) for admins; "No monitors match." when filters hide every monitor.
+- **Target:** not shown in the row. For admins it is matched by search: `scheme://host` (HTTP), `host:port` (TCP, IPv6 in brackets), the host (ping), `hostname TYPE` (DNS), a heartbeat monitor's source label or "push" without one. A heartbeat token never appears in a list.
+- **Not in the row:** type, target, latest latency, tags and the dependency indicator. The detail header shows type, target (admins), latency and the dependency.
 
 ## Monitor detail
 
@@ -83,11 +148,40 @@ Tabs:
 4. Configuration
 5. Diagnostics
 
-Built (M2-18, skeleton): the live header (status, time in state, last latency, last check, uptime "—"), then for admins Edit, Pause or Resume, and Delete. Tabs are links (`?tab=history` …), so each has an address and works without JavaScript. Overview lists the check interval, last success and failure, the certificate expiry when known and the creation date; graphs and uptime arrive with history (M3). History and Incidents are honest empty states until M3. Configuration shows the timing to everyone and, to admins, the request, assertions and advanced settings with secrets by name only. Diagnostics lists the 20 newest failed checks: time, kind, status and duration for everyone; the error message and the response excerpt (as escaped text) for admins only, since both can name internal hosts. Delete asks on a page of its own (no dialog) and says that pausing keeps everything. When the monitor is deleted elsewhere, an open detail page moves to the list. Per type (M4-06): a heartbeat monitor's Overview shows "Expects a beat every" (with the grace period), the last beat and when it will be late instead of a check interval; Configuration shows the type by name, then for admins the target of a TCP or ping monitor, the query of a DNS monitor (host name, record type, resolver, expected values, match), and a heartbeat monitor's source label with a "Regenerate push URL" button (re-authentication required; see below). Diagnostics names the new failure kinds (Permission, No such name, No such record, Unexpected answer, DNS error, Missed heartbeat).
+### Built (M2-18, M3-10, M3-12, M4-06, M8-05, M8-16)
 
-Charts (M3-10): the header carried a sparkline of the last 30 checks; since M8-16 it carries the beat bar instead (up to 120 checks from memory, refreshed with the header, a tab stop whose arrow keys, Home and End move a tooltip through the beats). The Overview tab shows the last 90 days as day bars (the status page's strip rules, from incident intervals, `12_STATUS_PAGES.md` "Implementation (M7-04)") with the adjusted uptime, above the last 24 hours. The History tab shows, for the range in `?range=` or `?from=&to=` (default 24 hours): the range, one or two sentences with every figure (latency, checks and failures, outages and their total, maintenance windows, raw and adjusted uptime), the figures as a row, the latency chart (uPlot: average and maximum per interval, outage, maintenance and paused bands, a tick at each outage's start, hover values, times in the instance time zone) and the availability timeline (SVG, no script; up, down, maintenance, paused, no data, each segment titled with its state and times). Keys name every colour in text. With no checks in the range there is an empty note and no chart.
+`MonitorDetail` (`web/templates/monitor_detail.templ`), fed by `internal/web/monitor_detail.go`.
 
-Range, Overview graph and uptime (M3-12): the History tab starts with the range selector: the presets 1 hour, 24 hours, 7 days, 30 days, 90 days and 1 year as links (the shown one is `aria-current`), and a custom range as a plain GET form (`from`, `to`, `datetime-local` in the instance time zone, prefilled with the shown range, no JavaScript needed; an invalid range is explained and the default shown). The Overview tab shows the last 24 hours below its facts: the same summary, figures, latency chart and availability timeline, no selector, and a link to the other ranges. The detail header's Uptime is the last 24 hours, raw, with "(x adjusted)" next to it when maintenance changes the figure; "—" without data. The monitor list's Uptime column stays "—" until rollups exist: reading it costs about 140 µs per monitor (`BenchmarkUptimeDay`), 140 ms for 1,000 monitors against the list's 50 ms budget, so as with the sparkline it is on the detail page only. Since M6-05 ranges reaching past raw retention combine raw results with the rollups; their p95 then reads "p95 (approximate)" in the figures and the text summary (`09_DATABASE.md` "History queries").
+**Header** (`MonitorHeader`, live): name and status, type, target (admins), dependency, beat bar, then time in state, latency, last check and uptime. Then, for admins, Edit, Pause or Resume, and Delete.
+- Uptime is the last 24 hours, raw, with "(x adjusted)" next to it when maintenance changes the figure; "—" without data.
+- Beat bar (M8-16, replacing the M3-10 sparkline): up to 120 checks from memory, refreshed with the header. It is a tab stop: ←/→, Home and End move a tooltip through the beats.
+
+**Tabs** are links (`?tab=history` …), so each has an address and works without JavaScript.
+
+**Overview.** From 1600 px two columns.
+- Left: the last 90 days as day bars with the adjusted uptime (the status page's strip rules, from incident intervals, `12_STATUS_PAGES.md` "Implementation (M7-04)"); then the last 24 hours as on the History tab (summary, figures, latency chart, availability timeline), without the range selector, and a link to the other ranges.
+- Right: facts (check interval, last success and failure, certificate expiry when known, creation date), the monitor's active incidents and its last 5 ended ones, and its 8 latest incident events.
+
+**History.** For the range in `?range=` or `?from=&to=` (default 24 hours):
+- Range selector: the presets 1 hour, 24 hours, 7 days, 30 days, 90 days and 1 year as links (the shown one is `aria-current`), and a custom range as a plain GET form (`from`, `to`, `datetime-local` in the instance time zone, prefilled with the shown range, no JavaScript). An invalid range is explained and the default shown.
+- One or two sentences with every figure: latency, checks and failures, outages and their total, maintenance windows, raw and adjusted uptime. Then the figures as a row.
+- Latency chart (uPlot): average and maximum per interval; outage, maintenance and paused bands; a tick at each outage's start; hover values; times in the instance time zone.
+- Availability timeline (SVG, no script): up, down, maintenance, paused, no data; each segment titled with its state and times.
+- Keys name every colour in text. With no checks in the range there is an empty note and no chart.
+- Since M6-05, ranges reaching past raw retention combine raw results with the rollups. Their p95 then reads "p95 (approximate)" in the figures and the summary (`09_DATABASE.md` "History queries").
+
+**Incidents.** The incident list of this monitor (see "Incidents").
+
+**Configuration.** The timing for everyone. For admins also the request, assertions and advanced settings, with secrets by name only. The notification profile by name.
+
+**Diagnostics.** The 20 newest failed checks: time, kind, status and duration for everyone. The error message and the response excerpt (as escaped text) for admins only, since both can name internal hosts.
+
+**Per type** (M4-06):
+- Heartbeat: Overview shows "Expects a beat every" (with the grace period), the last beat and when it will be late, instead of a check interval.
+- Configuration shows the type by name, then for admins: the target of a TCP or ping monitor; the query of a DNS monitor (host name, record type, resolver, expected values, match); a heartbeat monitor's source label with a "Regenerate push URL" button (re-authentication required; see "Monitor creation/editing").
+- Diagnostics names the failure kinds Permission, No such name, No such record, Unexpected answer, DNS error and Missed heartbeat.
+
+**Delete** asks on a page of its own (no dialog) and says that pausing keeps everything. When the monitor is deleted elsewhere, an open detail page moves to `/monitors`.
 
 ## Monitor creation/editing
 
@@ -107,9 +201,32 @@ A normal HTTP monitor should require only:
 - URL
 - interval if overriding default
 
-Built (M2-17, `/monitors/new` and `/monitors/{id}/edit`, admins only): one page, no JavaScript. Basics (type; name; tags; "start checking now" on create), Request (URL, method, POST body, redirects, plain headers as `Name: value` lines, authentication, secret headers), Assertions (status, contains / does not contain, JSON rows: path, check, expected value), Retry & timing (in seconds), Dependencies (parent), Notifications (the profile, M5-11), and Advanced in a collapsed `<details>` that opens when one of its fields has an error. Everything but name and URL has a default. A failed save lists every problem at the top, linked to its field, and marks each field. Secrets are write-only (`13_AUTH_SECURITY.md`). Pausing is not on the form: a new monitor can start paused, an existing one is paused from its page.
+### Built (M2-17, M4-06, M5-11)
 
-Per type (M4-06): on the create page the type is a row of links (HTTP(S), TCP port, Ping, DNS, Heartbeat → `/monitors/new?type=…`, the current one marked `aria-current`), so it works without JavaScript; choosing another type starts the form over, which is why it comes first. Once created, a monitor's type is fixed and the edit page shows it as text. Only the chosen type's section is on the page: Target (host; port for TCP), Query (host name, record type, optional resolver, expected values one per line, match all/any) or Heartbeat (expected interval and grace in seconds, source label); Assertions and Advanced belong to HTTP. A heartbeat monitor has no interval or timeout of its own: its cadence is the expected interval. Creating a heartbeat monitor answers with a one-time page holding its push URL (path form and bearer form, `curl` examples, a copy button from `js/copy.js` that stays hidden without JavaScript) instead of the redirect; the token is not shown anywhere again. "Regenerate push URL" on the Configuration tab (`POST /monitors/{id}/heartbeat/token`, recent re-authentication) issues a new one on the same kind of page, and the old one stops working at once.
+`/monitors/new` and `/monitors/{id}/edit`, admins only. One page, no JavaScript.
+
+**Sections:**
+- Basics: type; name; tags; "start checking now" (create only)
+- Request: URL, method, POST body, redirects, plain headers as `Name: value` lines, authentication, secret headers
+- Assertions: status; contains / does not contain; JSON rows (path, check, expected value)
+- Retry & timing, in seconds
+- Dependencies: the parent
+- Notifications: the profile (None, or one of the profiles; with none, a link to create one)
+- Advanced: a collapsed `<details>` that opens when one of its fields has an error
+
+**Rules:**
+- Everything but name and URL has a default.
+- A failed save lists every problem at the top, each linked to its field, and marks each field.
+- Secrets are write-only (`13_AUTH_SECURITY.md`).
+- Pausing is not on the form: a new monitor can start paused; an existing one is paused from its page.
+
+**Per type** (M4-06):
+- On the create page the type is a row of links (HTTP(S), TCP port, Ping, DNS, Heartbeat → `/monitors/new?type=…`, the current one `aria-current`), so it works without JavaScript. Choosing another type starts the form over, which is why it comes first.
+- Once created, a monitor's type is fixed; the edit page shows it as text.
+- Only the chosen type's section is on the page: Target (host; port for TCP), Query (host name, record type, optional resolver, expected values one per line, match all/any) or Heartbeat (expected interval and grace in seconds, source label). Assertions and Advanced belong to HTTP.
+- A heartbeat monitor has no interval or timeout of its own: its cadence is the expected interval.
+
+**Push URL.** Creating a heartbeat monitor answers with a one-time page holding its push URL instead of the redirect: path form and bearer form, `curl` examples, and a copy button from `js/copy.js` that stays hidden without JavaScript. The token is not shown anywhere again. "Regenerate push URL" on the Configuration tab (`POST /monitors/{id}/heartbeat/token`, recent re-authentication) issues a new one on the same kind of page; the old one stops working at once.
 
 ## Maintenance
 
@@ -120,21 +237,59 @@ List, grouped by when a window applies:
 - empty state that explains what maintenance does
 - updates live when a window changes (`maintenance.updated`)
 
-Create/edit (admin): one page, no dialog; start as a local date and time, duration in hours and minutes, once/daily/weekly with weekdays, the two effects, all monitors or chosen monitors and tags. Help text says that adjusted uptime is computed from the windows as they are now. Delete is on the edit page and asks first.
+Create/edit (admin):
+- one page, no dialog
+- start as a local date and time; duration in hours and minutes
+- once, daily, or weekly with weekdays
+- the two effects
+- all monitors, or chosen monitors and tags
+- help text says that adjusted uptime is computed from the windows as they are now
+- delete is on the edit page and asks first
 
 ## Status Pages
 
-Built (M7-02, `/status-pages`, admins only: the pages name hostnames, internal monitor names and the way into password and unlisted pages): the list shows each page's title, who may see it, its address (`/status/{slug}`; "Secret address, shown once" for an unlisted page), the number of monitors and its mapped hostnames, with Edit. Empty state explains what a status page is. Create and edit are one page without JavaScript: Page (title, address/slug, description), Access (the four modes with what each means, the page password), Appearance (theme, accent as #rrggbb checked for contrast against the theme's background and surface, "Powered by Sinjal", incident history days), Groups (one name per line, in order), Monitors (one row per monitor of the instance: show, **public name** — required, never prefilled with the monitor's own name — group, position, show latency) and Hostnames (one per line, normalized to lowercase; the instance's own base URL host and a host mapped to another page are refused). New groups become choices for a monitor after the first save. The page password is write-only (empty keeps the stored one; leaving password mode drops it). Choosing unlisted issues a secret address on save, shown **once** on a page of its own (also after "Issue a new address", which needs recent re-authentication and stops the old address at once); the edit page never shows it. Delete asks on a page of its own. The logo (M7-03) has a section of its own on the edit page: a separate form that uploads at once (PNG or JPEG, at most 512 KB and 1024 × 1024), with the current logo, Replace and Remove; a refused file is explained next to the field and unsaved changes in the main form are not kept. The public page itself (M7-04, `/status/{slug}`) is described in `12_STATUS_PAGES.md` "Rendering": header (logo, title, description), overall status with the 90-day uptime, groups of services with the uptime strip, incidents within the history window with published notes, and the optional footer. Access enforcement and hostname routing arrive with M7-05 and M7-06.
+### Built (M7-02, M7-03, M7-04)
+
+`/status-pages`, admins only: the pages name hostnames, internal monitor names and the way into password and unlisted pages.
+
+**List.** Each page's title, who may see it, its address (`/status/{slug}`; "Secret address, shown once" for an unlisted page), the number of monitors and its mapped hostnames, with Edit. The empty state explains what a status page is.
+
+**Create and edit.** One page without JavaScript:
+- Page: title, address (slug), description
+- Access: the four modes with what each means; the page password
+- Appearance: theme; accent as `#rrggbb`, checked for contrast against the theme's background and surface; "Powered by Sinjal"; incident history days
+- Groups: one name per line, in order. New groups become choices for a monitor after the first save.
+- Monitors: one row per monitor of the instance: show, **public name** (required, never prefilled with the monitor's own name), group, position, show latency
+- Hostnames: one per line, normalized to lowercase. The instance's own base URL host and a host mapped to another page are refused.
+
+**Secrets.**
+- The page password is write-only: empty keeps the stored one; leaving password mode drops it.
+- Choosing unlisted issues a secret address on save, shown **once** on a page of its own. The same happens after "Issue a new address", which needs recent re-authentication and stops the old address at once. The edit page never shows it.
+
+**Logo** (M7-03). A section of its own on the edit page: a separate form that uploads at once (PNG or JPEG, at most 512 KB and 1024 × 1024), with the current logo, Replace and Remove. A refused file is explained next to the field; unsaved changes in the main form are not kept.
+
+**Delete** asks on a page of its own.
+
+**Public page** (M7-04, `/status/{slug}`): described in `12_STATUS_PAGES.md` "Rendering". Access enforcement and hostname routing: M7-05 and M7-06 (`12_STATUS_PAGES.md`).
 
 ## Notifications
 
-Built (M5-11, `/notifications`; viewers read, admins change):
-- Channels: name, type, health in words (Healthy, Warning, Failed, Disabled, Not used yet), last success and last failure with its error. The list refreshes on `notification.channel_updated` (`/fragments/notifications`). Empty state explains what a channel is.
-- Profiles: name, how many monitors use it, its routes in words ("Critical: Mail, Ops chat"; "Routes nothing" when empty), quiet hours ("Quiet 23:00–07:00 Europe/Belgrade, critical bypasses") and reminder. Empty state explains what a profile is; with no channel it says to add one first.
-- Channel edit page: "Send test notification" sends a `[TEST]` DOWN for an example monitor through the saved configuration (also for a disabled channel), then shows "sent" or the sender's one-line error on the edit page it redirects to (a reload sends nothing), and is recorded like a delivery (`event_type` `test`), so it moves the channel's health.
-- Profile page (create/edit, one page): name; the routing matrix, channels down and severities across (each column names what it carries: info recovery and stable, warning certificate expiry and flapping, critical down and still down; a disabled channel is marked); quiet hours (on/off, from and until as times in the instance time zone, critical bypass, on by default); the outage reminder in minutes (empty: none). Every problem is listed at once. On the edit page, "Simulate incident" and delete (it asks first and says how many monitors lose their profile).
-- "Simulate incident" sends a `[TEST]` DOWN along the profile's critical routes and a `[TEST]` RECOVERY along its info routes to the enabled channels, in parallel, and shows each outcome and what the quiet hours would do with a real incident now. It records nothing but its audit entry: no incident, no delivery row, no health change.
-- Monitor form, Notifications section: the profile (None, or one of the profiles; with none, a link to create one). The detail page's Configuration tab names it.
+### Built (M5-11)
+
+`/notifications`; viewers read, admins change.
+
+- **Channels:** name, type, health in words (Healthy, Warning, Failed, Disabled, Not used yet), last success, and last failure with its error. The list refreshes on `notification.channel_updated` (`/fragments/notifications`). The empty state explains what a channel is.
+- **Profiles:** name, how many monitors use it, its routes in words ("Critical: Mail, Ops chat"; "Routes nothing" when empty), quiet hours ("Quiet 23:00–07:00 Europe/Belgrade, critical bypasses") and reminder. The empty state explains what a profile is; with no channel it says to add one first.
+- **Channel edit page:** "Send test notification" sends a `[TEST]` DOWN for an example monitor through the saved configuration (also for a disabled channel). It then shows "sent" or the sender's one-line error on the edit page it redirects to (a reload sends nothing). It is recorded like a delivery (`event_type` `test`), so it moves the channel's health.
+- **Profile page** (create and edit, one page):
+  - name
+  - the routing matrix: channels down, severities across. Each column names what it carries: info (recovery and stable), warning (certificate expiry and flapping), critical (down and still down). A disabled channel is marked.
+  - quiet hours: on/off, from and until as times in the instance time zone, critical bypass (on by default)
+  - the outage reminder in minutes (empty: none)
+  - every problem is listed at once
+  - on the edit page, "Simulate incident" and delete (it asks first and says how many monitors lose their profile)
+- **Simulate incident:** sends a `[TEST]` DOWN along the profile's critical routes and a `[TEST]` RECOVERY along its info routes to the enabled channels, in parallel. It shows each outcome and what the quiet hours would do with a real incident now. It records nothing but its audit entry: no incident, no delivery row, no health change.
+- **Monitor form:** see "Monitor creation/editing". The detail page's Configuration tab names the profile.
 
 ## Incidents
 
@@ -151,10 +306,19 @@ An incident timeline may include:
 
 Do not build PagerDuty-style incident workflow states.
 
-Implementation (M3-11):
-- `/incidents` lists the active incidents first (newest first), then the latest 100 ended ones; a row shows the status (text and glyph), the monitor, the summary (the message of the confirming failure), the start in the instance time zone, the duration ("so far" while active), and the markers "Parent down: notification held", "During maintenance" and "Flapping: notifications held" (a notification of the incident was suppressed because the monitor flapped). Viewers see the same. Empty state: "No incidents". It refreshes on `incident.*` events.
-- `/incidents/{id}` is the timeline in the order it was written: First failure, Declared down, Notification held back / Held notification released (with the reason), Notification sent / Notification failed (the kind, the channel and the last error), Recovered or Monitor paused, and Notes. Admins get a form to add a note (up to 1,000 characters, plain text, shown escaped); the page refreshes when the incident changes.
-- The monitor detail's Incidents tab is the same list for that monitor, without the monitor's name on each row.
+### Built (M3-11)
+
+- **`/incidents`** lists the active incidents first (newest first), then the latest 100 ended ones. A row shows:
+  - the status (text and glyph)
+  - the monitor
+  - the summary (the message of the confirming failure)
+  - the start, in the instance time zone
+  - the duration ("so far" while active)
+  - the markers "Parent down: notification held", "During maintenance" and "Flapping: notifications held" (a notification of the incident was suppressed because the monitor flapped)
+
+  Viewers see the same. Empty state: "No incidents". It refreshes on `incident.*` events.
+- **`/incidents/{id}`** is the timeline in the order it was written: First failure, Declared down, Notification held back / Held notification released (with the reason), Notification sent / Notification failed (the kind, the channel and the last error), Recovered or Monitor paused, and Notes. Admins get a form to add a note (up to 1,000 characters, plain text, shown escaped). The page refreshes when the incident changes.
+- The monitor detail's **Incidents tab** is the same list for that monitor, without the monitor's name on each row.
 
 ## Settings
 
@@ -179,6 +343,8 @@ Supports:
 - go to incidents
 - switch theme
 
+Built (M8-06): `Palette` in the shell, also opened by the top bar's "Commands" button. Groups: the monitors that match the typed text (Open; Pause or Resume for admins), Go to (Home, Monitors, the top bar's sections, Your appearance), Create (Add monitor, admins) and Theme (the three themes, saved to the user's appearance). Markup and keyboard model: `33_FRONTEND_COMPONENTS.md` "Shared layout", `22_ACCESSIBILITY.md` "Keyboard".
+
 ## Keyboard shortcuts
 
 Suggested:
@@ -190,6 +356,8 @@ Suggested:
 - `Ctrl/Cmd + K` palette
 
 Do not create a full Vim-like interface.
+
+Built (M8-07, `js/shortcuts.js`): all six. `/` focuses the list column's search; `g` then `d`, `m` or `i` (within 1.5 s) goes to Home, Monitors or Incidents; `n` opens Add monitor (admins only). When shortcuts are inactive: `22_ACCESSIBILITY.md` "Keyboard".
 
 ## Mobile
 
@@ -203,9 +371,12 @@ Optimize for:
 
 Complex configuration remains functional but is secondary.
 
-Built (M8-09): the phone views are the shell's (see "Phones" above) with
-- **rows** read in the order they show: state, name, uptime ("99.50% uptime, last 24 hours" to assistive technology), beats; a long name wraps to two lines instead of losing its end
-- **detail, incidents, graphs:** the pane at full width; the Ambient light stays inside the narrower padding, so no page scrolls sideways
-- **pause/resume** on the monitor page (and the command palette); **channel health** in Home's problem strip
-- **maintenance awareness:** Home and every tab of a monitor page list the windows in effect ("until …") and those beginning within 24 hours ("from …"), linking to Maintenance; Home with each window's scope, a monitor page only the windows covering it. Viewers see them too.
-- **touch targets:** with a coarse pointer, controls are 44 px (`--control-h`) and so are chips, tabs, range links, the wordmark, the account menu's links and the links that stand on their own line; links inside a line of text get padding instead
+### Built (M8-09)
+
+The phone views are the shell's (see "Phones"):
+- **Rows** read in the order they show: state, name, uptime ("99.50% uptime, last 24 hours" to assistive technology), beats. A long name wraps to two lines instead of losing its end.
+- **Detail, incidents, graphs:** the pane at full width. The Ambient light stays inside the narrower padding, so no page scrolls sideways.
+- **Pause/resume:** on the monitor page and in the command palette.
+- **Channel health:** in Home's problem strip.
+- **Maintenance awareness:** Home and every tab of a monitor page list the windows in effect ("until …") and those beginning within 24 hours ("from …"), linking to Maintenance. Home shows each window's scope; a monitor page shows only the windows covering it. Viewers see them too.
+- **Touch targets:** with a coarse pointer, controls are 44 px (`--control-h`), and so are chips, tabs, range links, the wordmark, the account menu's links and links that stand on their own line. Links inside a line of text get padding instead.

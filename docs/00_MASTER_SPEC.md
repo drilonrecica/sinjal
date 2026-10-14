@@ -18,7 +18,7 @@ Sinjal exists to provide a personal, self-hosted uptime monitor that is:
 - easy to reason about
 - intentionally narrower than large observability platforms
 
-It may be used by others and is open source, but product decisions optimize for a technically capable single owner rather than a SaaS company or enterprise team.
+It is open source and others may use it. Product decisions still optimize for a technically capable single owner, not a SaaS company or an enterprise team.
 
 ## Deployment model
 
@@ -64,7 +64,7 @@ Default active monitor behavior:
 6. First later successful check immediately recovers the monitor and closes the active incident.
 7. Frequent transitions may mark the monitor FLAPPING and suppress repeated notifications until stable.
 
-Defaults are configurable per monitor, but the UI should present sensible defaults rather than expose unnecessary knobs prominently.
+Defaults are configurable per monitor. The UI presents sensible defaults and does not put unnecessary knobs in front.
 
 ## Monitor states
 
@@ -74,9 +74,11 @@ Defaults are configurable per monitor, but the UI should present sensible defaul
 - FLAPPING
 - PAUSED
 
-UP, PENDING, DOWN and PAUSED are the stored state (`current_state`). FLAPPING is a displayed state: an overlay set while the monitor is flapping (`flapping_since`), shown instead of UP/DOWN. The real UP/DOWN state and its incidents continue underneath (see `10_INCIDENTS.md`).
+UP, PENDING, DOWN and PAUSED are stored states (`current_state`).
 
-There is no `DEGRADED` state. Conditions where the target is reachable but needs attention (v1: TLS certificate expiring soon) are shown as a **warning indicator alongside UP**, not as a monitor state. Warnings never change the monitor state, never open incidents, and never affect uptime.
+FLAPPING is a displayed state: an overlay set while the monitor is flapping (`flapping_since`) and shown instead of UP/DOWN. The real UP/DOWN state and its incidents continue underneath (see `10_INCIDENTS.md`).
+
+There is no `DEGRADED` state. A target that is reachable but needs attention (v1: TLS certificate expiring soon) shows a **warning indicator alongside UP**, not a monitor state. Warnings never change the monitor state, never open incidents and never affect uptime.
 
 A failed assertion (status, text, JSON) is an ordinary check failure and follows the normal PENDING → DOWN path.
 
@@ -199,13 +201,12 @@ Features:
 
 ## Themes
 
-Four v1 themes:
-- Carbon
-- Paper
-- Midnight
-- Terminal
+Three v1 themes (`05_THEMES.md`):
+- **Stark**: the default, with an optional Ambient light
+- **Terminal**: amber phosphor
+- **Daylight**: the default for status pages
 
-Themes share layout and semantics but may vary:
+Themes share layout and semantics. They may vary:
 - colors
 - surfaces
 - shadows
@@ -214,21 +215,17 @@ Themes share layout and semantics but may vary:
 - chart treatment
 - mono usage
 
-Status colors retain consistent semantic meaning across themes.
+Status colors keep the same semantic meaning in every theme.
 
 ## UI
 
-Primary nav:
-- Overview
-- Monitors
-- Incidents
-- Status Pages
-- Notifications
-- Maintenance
-- Settings
+Layout (`03_INFORMATION_ARCHITECTURE.md` "Layout"):
+- a slim top bar: the wordmark (Home), Status Pages, Incidents, Notifications, Maintenance, Settings, the account menu
+- the monitor list column on the left and the detail pane on the right; every page opens in the pane
+- from 1600 px the pane splits into two columns; from 2200 px a Live activity column appears
 
 Desktop:
-- collapsible left sidebar
+- the list column stays while the pane changes
 
 Mobile:
 - excellent read/response experience

@@ -2,7 +2,13 @@
 
 Do not implement Sinjal in one giant pass.
 
-Each milestone has an exit condition.
+Each milestone has an exit condition. Work and acceptance rules are in `AGENTS.md` and `CLAUDE.md`; the log of what was built is `IMPLEMENTATION_CHECKLIST.md`.
+
+## Status
+
+- Built: M0–M8.
+- Not built: M9 (backup, restore, diagnostics, settings), M10 (hardening, Docker image), M11 (release readiness).
+- Built ahead of its milestone: the pre-migration backup (M9 list) is part of the M0 migration runner (`17_MIGRATIONS_RELEASES.md`).
 
 ## Milestone 0 — Repository foundation
 
@@ -18,7 +24,7 @@ Create:
 - logging
 - `/healthz`, `/readyz`
 - base HTML shell
-- Carbon/Paper/Midnight/Terminal token scaffolding
+- Carbon/Paper/Midnight/Terminal token scaffolding (replaced in M8 by Stark, Terminal and Daylight; `05_THEMES.md`)
 - tests and local dev commands
 
 Exit:
@@ -165,7 +171,11 @@ Implement:
 - shortcuts
 - mobile optimization
 - polished empty/loading/error states
-- all four themes fully tuned
+- the three themes fully tuned (Stark with Ambient light, Terminal, Daylight)
+- app shell: top bar, monitor list column, detail pane, Live activity
+- beat bar
+- search, filters and saved views
+- public status page in the same design
 - accessibility pass
 
 Exit:

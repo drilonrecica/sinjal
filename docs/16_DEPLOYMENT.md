@@ -2,15 +2,14 @@
 
 ## Supported modes
 
-1. Docker — primary documented server path
-2. Native binary — equally supported
+1. Docker — the primary documented server path.
+2. Native binary — equally supported.
 
 No Docker Compose stack is required for a single Sinjal instance.
 
 ## Docker
 
-One container.
-One persistent volume.
+One container. One persistent volume.
 
 Conceptual:
 
@@ -25,6 +24,7 @@ services:
 ```
 
 Do not require:
+
 - Redis
 - PostgreSQL
 - sidecar
@@ -33,11 +33,13 @@ Do not require:
 
 ### Image
 
-Runtime base: `scratch` (see `spec/Dockerfile.example`).
+The image is not built yet (M10-07). The directional example is `spec/Dockerfile.example`.
+
+Runtime base: `scratch`.
 
 - multi-stage build: static `CGO_ENABLED=0` binary built with `-trimpath -tags timetzdata -ldflags "-s -w"`
-- CA bundle copied from the pinned build stage for outbound HTTPS checks and notifications
-- timezone database embedded in the binary (`timetzdata`) so `SINJAL_TIMEZONE` works without `/usr/share/zoneinfo`
+- CA bundle copied from the pinned build stage, for outbound HTTPS checks and notifications
+- timezone database embedded in the binary, so `SINJAL_TIMEZONE` works without `/usr/share/zoneinfo` (`cmd/sinjal` also imports `time/tzdata`)
 - no shell, no package manager, no curl; nothing in the base to patch
 - runs as non-root UID/GID `65532:65532`
 - `/data` is pre-created and owned by `65532`
@@ -52,26 +54,27 @@ Named Docker volumes inherit the image's `/data` ownership automatically.
 
 ## Docker health
 
-Expose:
-- `/healthz`
-- `/readyz`
+Expose `/healthz` and `/readyz`.
 
-Add Docker `HEALTHCHECK`. The image has no curl, so it runs `sinjal healthcheck`, which requests `/healthz` on the local listener and exits 0 (healthy) or 1.
+Add a Docker `HEALTHCHECK`. The image has no curl, so it runs `sinjal healthcheck` (`15_CONFIG_BACKUP.md` "CLI"), which requests `/healthz` on the local listener and exits 0 (healthy) or 1.
 
 Definitions:
-- healthz: process can serve and core DB access works (`SELECT 1` on the read pool, 2 s limit)
-- readyz: instance ready for normal traffic and migrations complete
 
-Both are unauthenticated plain-text endpoints (`200 ok` / `200 ready`, `503 unhealthy` / `503 not ready`) with `Cache-Control: no-store`. They never include versions, paths or error details; failures are logged instead.
+- `healthz`: the process can serve and core DB access works (`SELECT 1` on the read pool, 2 s limit).
+- `readyz`: the instance is ready for normal traffic and migrations are complete.
 
-Startup order is config, data directory, database, migrations, then the listener opens, so while a long migration runs nothing is listening yet rather than `/readyz` answering 503.
+Built behaviour (`internal/web/health.go`):
+
+- Both are unauthenticated plain-text endpoints with `Cache-Control: no-store`: `200 ok` / `503 unhealthy` and `200 ready` / `503 not ready`.
+- They never include versions, paths or error details; failures are logged instead.
+- Startup order is config, data directory, database, migrations, then the listener opens. While a long migration runs, nothing is listening yet, rather than `/readyz` answering 503.
 
 ## ICMP
 
-Sinjal pings with an unprivileged ICMP datagram ("ping") socket first and falls back to a raw socket (see `06_MONITORING_ENGINE.md`). It never needs root or a privileged container. What it needs is one of:
+Sinjal pings with an unprivileged ICMP datagram ("ping") socket first and falls back to a raw socket (see `06_MONITORING_ENGINE.md`). It never needs root or a privileged container. It needs one of:
 
-- **ping sockets allowed for its group:** the process's group ID lies within the kernel setting `net.ipv4.ping_group_range` (two numbers, lowest and highest allowed GID). This one setting covers IPv6 too: Linux has no separate IPv6 range. It is per network namespace, so a container has its own value.
-- **the raw-socket capability `CAP_NET_RAW`** actually held by the process (in its effective set, not only allowed by the runtime).
+- **Ping sockets allowed for its group.** The process's group ID lies within the kernel setting `net.ipv4.ping_group_range` (two numbers: the lowest and highest allowed GID). This one setting covers IPv6 too; Linux has no separate IPv6 range. It is per network namespace, so a container has its own value.
+- **The raw-socket capability `CAP_NET_RAW`**, actually held by the process (in its effective set, not only allowed by the runtime).
 
 The image runs as `65532:65532`, so for ping sockets the range must include GID 65532. A range of `1 0` (lowest above highest) allows nobody.
 
@@ -92,9 +95,9 @@ The image runs as `65532:65532`, so for ping sockets the range must include GID 
 
 ### Podman
 
-Podman's default (`default_sysctls` in `containers.conf`) is `net.ipv4.ping_group_range=0 0`: only group 0 may ping, so the non-root image cannot, and ICMP monitors fail with the `permission` error. Either:
+Podman's default (`default_sysctls` in `containers.conf`) is `net.ipv4.ping_group_range=0 0`. Only group 0 may ping, so the non-root image cannot, and ICMP monitors fail with the `permission` error. Either:
 
-- allow the image's group: `--sysctl net.ipv4.ping_group_range="0 65535"` (rootless Podman refuses ranges beyond the GIDs mapped into the container, so `0 2147483647` fails there with "Invalid argument"; `65532 65532` is the narrowest that works), or
+- allow the image's group: `--sysctl net.ipv4.ping_group_range="0 65535"`. Rootless Podman refuses ranges beyond the GIDs mapped into the container, so `0 2147483647` fails there with "Invalid argument"; `65532 65532` is the narrowest range that works. Or
 - add the capability: `--cap-add NET_RAW` (Podman makes it effective for the non-root user).
 
 Checked with rootless Podman 5 and crun: default denied; the sysctl with `0 65535` or `65532 65532` allows ping sockets; `--cap-add NET_RAW` allows raw sockets.
@@ -121,18 +124,21 @@ securityContext:
   ```
 
   or allow only Sinjal's group (e.g. `= 970 970` for a `sinjal` group with GID 970).
-- Or give only the binary the raw-socket capability: `sudo setcap cap_net_raw+ep /usr/local/bin/sinjal` (repeat after every upgrade: replacing the file drops it; a systemd unit can use `AmbientCapabilities=CAP_NET_RAW` instead).
+- Or give only the binary the raw-socket capability: `sudo setcap cap_net_raw+ep /usr/local/bin/sinjal`. Repeat this after every upgrade, because replacing the file drops it; a systemd unit can use `AmbientCapabilities=CAP_NET_RAW` instead.
 - Do not run Sinjal as root for ICMP.
 
 ### When it is not allowed
 
-Every check of an ICMP monitor then fails with the error kind `permission` (shown as "Permission" on the monitor's Diagnostics tab) and the message "ICMP is not permitted for this process: allow unprivileged ping (sysctl net.ipv4.ping_group_range) or grant the CAP_NET_RAW capability; see docs/16". The monitor goes DOWN for that reason, never for an unrelated one. Other monitor types are unaffected.
+- Every check of an ICMP monitor fails with the error kind `permission` (shown as "Permission" on the monitor's Diagnostics tab).
+- The message is "ICMP is not permitted for this process: allow unprivileged ping (sysctl net.ipv4.ping_group_range) or grant the CAP_NET_RAW capability; see docs/16".
+- The monitor goes DOWN for that reason, never for an unrelated one. Other monitor types are unaffected.
 
 Sinjal remembers which socket kind works per address family after the first check, so a permission change takes effect after a restart.
 
 ## Reverse proxy
 
 Expected behind:
+
 - Caddy
 - Traefik
 - Coolify-managed proxy
@@ -140,7 +146,11 @@ Expected behind:
 
 TLS termination remains outside Sinjal in normal deployments.
 
-Live updates use one long-lived response per open browser tab (`GET /events`, `32_SSE_EVENTS.md`). The proxy must pass it on unbuffered and must not cut idle connections in under 20 s. Caddy and Traefik do this without configuration; for nginx, Sinjal sends `X-Accel-Buffering: no`. Over HTTP/1.1 a browser allows about six connections per host, so serve Sinjal over HTTP/2 (any of these proxies with TLS) if many tabs stay open.
+Live updates use one long-lived response per open browser tab (`GET /events`, `32_SSE_EVENTS.md`):
+
+- The proxy must pass it on unbuffered and must not cut idle connections in under 20 s.
+- Caddy and Traefik do this without configuration. For nginx, Sinjal sends `X-Accel-Buffering: no`.
+- Over HTTP/1.1 a browser allows about six connections per host. Serve Sinjal over HTTP/2 (any of these proxies with TLS) if many tabs stay open.
 
 ## Native binary
 
@@ -150,19 +160,22 @@ Goal:
 SINJAL_DATA_DIR=/var/lib/sinjal ./sinjal
 ```
 
+`serve` is the default command, so this starts the server.
+
 No runtime Node or asset build dependency.
 
 ## Static assets
 
-Embed production assets into binary where practical.
+Embed production assets into the binary where practical. Built: everything under `web/static` is embedded and served under content-hashed URLs (`internal/assets`).
 
 ## Custom domains
 
-Custom status-page hostnames depend on reverse proxy DNS/TLS configuration.
+Custom status-page hostnames depend on the reverse proxy's DNS/TLS configuration.
 
-Sinjal only maps trusted Host to configured page.
+Sinjal only maps a trusted Host to the configured page.
 
 Set-up for a custom status hostname (M7-06):
+
 1. Point the name's DNS at the reverse proxy and give the proxy a certificate for it.
 2. Proxy the name to Sinjal like the main address, keeping the `Host` header (or sending it as `X-Forwarded-Host` from an address listed in `SINJAL_TRUSTED_PROXIES`).
 3. Add the name under Hostnames on the status page's edit page. The page then answers at `https://<name>/`; the admin UI and every other route answer 404 there.
@@ -171,13 +184,14 @@ Set `SINJAL_BASE_URL` too: an authenticated page on a custom hostname sends its 
 
 ## Timezone
 
-Persist timestamps UTC.
+Persist timestamps in UTC.
 
-Instance timezone affects:
+The instance timezone affects:
+
 - display
 - quiet hours
 - maintenance scheduling
 
-Default may come from environment, but user can configure instance timezone.
+The default may come from the environment, but the user can configure the instance timezone.
 
-Today the instance time zone is `SINJAL_TIMEZONE` (default UTC). Maintenance windows repeat at their local time of day in it, across daylight-saving changes (`10_INCIDENTS.md` "Maintenance"); changing it moves recurring windows to the same local time in the new zone.
+Today the instance time zone is `SINJAL_TIMEZONE` (default UTC). Maintenance windows repeat at their local time of day in it, across daylight-saving changes (`10_INCIDENTS.md` "Maintenance"). Changing it moves recurring windows to the same local time in the new zone.
