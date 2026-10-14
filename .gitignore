@@ -42,3 +42,4 @@ imp-docs/
 .playwright-mcp/
 .igris/
 .claude/settings.local.json
+/tests/browser/out/

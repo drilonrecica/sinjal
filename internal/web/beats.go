@@ -66,7 +66,7 @@ func (k *beatClock) when(buf []byte, at int64) []byte {
 func (k *beatClock) tip(c recent.Check) string {
 	b := append(k.when(k.buf[:0], c.At), " · "...)
 	b = append(b, formatLatency(time.Duration(c.MS)*time.Millisecond)...)
-	switch kind := failureKinds[c.Kind]; {
+	switch kind := failureKind(c); {
 	case c.OK:
 		b = append(b, " · Up"...)
 	case kind != "":
@@ -76,6 +76,16 @@ func (k *beatClock) tip(c recent.Check) string {
 	}
 	k.buf = b
 	return string(b)
+}
+
+// failureKind names a failed check's kind, with its status code when it
+// has one ("HTTP status 503"); "" for a kind without a name.
+func failureKind(c recent.Check) string {
+	kind := failureKinds[c.Kind]
+	if kind != "" && c.Status != 0 {
+		kind += " " + strconv.Itoa(int(c.Status))
+	}
+	return kind
 }
 
 // beatBar turns a monitor's checks, newest first, into a bar of kind k.

@@ -108,6 +108,14 @@ func TestOverviewPage(t *testing.T) {
 			}
 		}
 	}
+	// From 1600 px the main column holds the incidents, the side column
+	// only the events (docs/03 "Home"); narrower, they follow in this order.
+	main, side, ok := strings.Cut(body, `<div class="home-side">`)
+	if !ok || !strings.Contains(main, `<section class="overview-incidents"`) || strings.Contains(side, "overview-incidents") ||
+		!strings.Contains(side, `<section class="overview-events"`) {
+		t.Errorf("Home columns: incidents should end the main column and events fill the side:\n%s", body)
+	}
+
 	frag := e.getAs(t, "v1", "GET", "/fragments/overview").Body.String()
 	if strings.Contains(frag, "<html") || !strings.Contains(frag, "Needs attention") {
 		t.Errorf("fragment:\n%s", frag)

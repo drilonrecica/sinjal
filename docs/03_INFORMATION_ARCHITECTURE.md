@@ -36,14 +36,15 @@ Files: `web/templates/shell.templ`, `css/shell.css`, `js/shell.js`. Components: 
 
 **Wide screens.**
 - From 1600 px, Home and a monitor's Overview tab have two columns (see "Overview (Home)" and "Monitor detail").
-- From 2200 px, the Live activity column shows the newest checks of all monitors (the engine's in-memory feed, at most 50) merged with the newest 20 incident events, newest first, 40 lines at most. It refreshes on `monitor.updated` and `incident.*` events at most every 3 s, and loads only while it is shown. Event messages are left out, as on Home.
+- From 2200 px, the Live activity column shows the newest checks of all monitors (the engine's in-memory feed, at most 50) merged with the newest 20 incident events, newest first, 40 lines at most. A failed check names its kind and, when there is one, its status code ("Down: HTTP status 503"), as the beat tooltips do. It refreshes on `monitor.updated` and `incident.*` events at most every 3 s, and loads only while it is shown. Event messages are left out, as on Home.
 
 ### Phones
 
 Below 48 rem the column and the pane are separate views:
 - `/monitors` is the list view: it shows the column. On larger screens the same address shows Home in the pane.
 - Every other page shows the pane.
-- The top bar's sections are a "Menu" disclosure that starts with Monitors.
+- The top bar stays one row: wordmark, "Menu", Commands, account. "Menu" is a disclosure that starts with Monitors; it opens as a panel under the bar, over the page, and closes on navigation, Escape or a click elsewhere. Without JavaScript it is open from the start and takes its own row in the page.
+- The monitor detail's tabs stay one row and scroll sideways; the current tab is scrolled into view, and the right edge fades while more tabs are hidden.
 
 Phone-specific details: "Mobile" below.
 
@@ -90,7 +91,7 @@ At most 8 lines, then "and n more on Monitors". The border is red only with an o
 
 **Recent events.** The last 10 incident timeline entries across monitors: monitor, what happened, when, linking to the monitor and the incident. The entry's message stays on the incident page, as it can name internal hosts.
 
-**Layout.** From 1600 px two columns: sentence, strip, maintenance notes and figures on the left; incidents and events on the right.
+**Layout.** From 1600 px two columns: sentence, strip, maintenance notes, figures and recent incidents on the left; recent events on the right. Narrower, they follow in that order. (Until the M8-15 sign-off the incidents sat on the right, which left the left half empty on wide screens.)
 
 **Empty state.** With no monitors the page offers to create the first one (admins) or says an admin has not added any (viewers).
 

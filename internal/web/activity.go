@@ -64,7 +64,7 @@ func activityLinesOf(checks []recent.Entry, events []store.RecentEvent, names ma
 		if !c.Check.OK {
 			state = templates.BeatDown
 			what = "Down"
-			if kind := failureKinds[c.Check.Kind]; kind != "" {
+			if kind := failureKind(c.Check); kind != "" {
 				what = "Down: " + kind
 			}
 		}

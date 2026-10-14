@@ -150,3 +150,16 @@ func TestToastRegionHasLiveRegions(t *testing.T) {
 		t.Error("js/toast.js is not among the shell's scripts")
 	}
 }
+
+// Both documents name the icon, so browsers never ask for /favicon.ico.
+func TestLayoutsLinkTheIcon(t *testing.T) {
+	want := `<link rel="icon" type="image/svg+xml" href="` + assets.URL("img/favicon.svg") + `">`
+	for name, out := range map[string]string{
+		"app":    renderWith(t, Layout(NewPage("Overview", "", "")), templ.Raw("")),
+		"public": renderWith(t, PublicLayout(NewPage("Status", "", ""), "", false, false), templ.Raw("")),
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("%s layout has no %s", name, want)
+		}
+	}
+}

@@ -368,8 +368,9 @@ func TestMilestone0(t *testing.T) {
 	t.Run("assets are hashed, immutable and gzip", func(t *testing.T) {
 		_, b := body(t, http.DefaultClient, s.base+"/settings/general", signedIn)
 		urls := regexp.MustCompile(`(?:href|src)="(/static/[^"]+)"`).FindAllStringSubmatch(string(b), -1)
-		// tokens, base, components, the shell's set, the preloaded Inter.
-		if want := 3 + len(templates.ShellStyles) + len(templates.ShellScripts) + 1; len(urls) != want {
+		// tokens, base, components, the shell's set, the preloaded Inter,
+		// the icon.
+		if want := 3 + len(templates.ShellStyles) + len(templates.ShellScripts) + 2; len(urls) != want {
 			t.Fatalf("page links %d static assets, want %d", len(urls), want)
 		}
 		raw := &http.Client{Transport: &http.Transport{DisableCompression: true}}
@@ -383,7 +384,7 @@ func TestMilestone0(t *testing.T) {
 			if cc := plainResp.Header.Get("Cache-Control"); !strings.Contains(cc, "immutable") {
 				t.Errorf("%s Cache-Control = %q", m[1], cc)
 			}
-			if !regexp.MustCompile(`\.[0-9a-f]{16}\.(css|js|woff2)$`).MatchString(m[1]) {
+			if !regexp.MustCompile(`\.[0-9a-f]{16}\.(css|js|woff2|svg)$`).MatchString(m[1]) {
 				t.Errorf("%s is not content-hashed", m[1])
 			}
 			if strings.HasSuffix(m[1], ".woff2") {

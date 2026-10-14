@@ -51,9 +51,9 @@
 .public-overall-major .public-glyph { color: var(--status-down); }
 .public-overall-degraded .public-glyph { color: var(--status-flapping); }
 .public-overall-maintenance .public-glyph { color: var(--chart-maintenance); }
-/* The newest published note of an ongoing incident, read first. */
+/* The newest published note of an ongoing incident, read first. As wide
+ * as the services below it; its text keeps a readable measure. */
 .public-hero-note {
-  max-width: 42rem;
   margin-top: var(--space-4);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-strong);
@@ -61,6 +61,7 @@
   background: var(--surface-1);
 }
 .public-hero-note p {
+  max-width: 70ch;
   margin: 0;
   overflow-wrap: anywhere;
 }

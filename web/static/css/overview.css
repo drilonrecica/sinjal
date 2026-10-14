@@ -1,8 +1,9 @@
 /* Home: calm by default; the strip only exists when something needs
  * attention. One column, then two from 1600 px (docs/03): the sentence,
- * the strip and the figures on the left (.home-main), incidents and
- * events on the right (.home-side). Each column stacks on its own, so a
- * long strip never opens a gap on the other side. */
+ * the strip, the figures and recent incidents on the left (.home-main),
+ * recent events on the right (.home-side). Narrower, they follow in that
+ * order. Each column stacks on its own, so a long strip never opens a gap
+ * on the other side. */
 
 .home-grid {
   display: grid;

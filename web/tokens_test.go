@@ -223,6 +223,7 @@ const (
 	ambientTint      = 0.26 // the Ambient light at its peak
 	ambientTintLight = 0.12 // the same in Daylight
 	scanlineTint     = 0.12 // Terminal's scanlines
+	partialDayTint   = 0.60 // Terminal's day bar for a day with an outage
 )
 
 // TestThemeContrastOnPaintedSurfaces checks text where the components lay
@@ -261,6 +262,11 @@ func TestThemeContrastOnPaintedSurfaces(t *testing.T) {
 		// Daylight's ink block: light text on the ink of --text.
 		check("--accent-contrast on an ink block (--text)", p["accent-contrast"], p["text"], 4.5)
 		if theme == "terminal" {
+			// A day with an outage is the problem colour, dimmed: a mark on
+			// the page, and plainly not a clean (--status-up) day.
+			partial := mix(t, p["status-down"], p["bg"], partialDayTint)
+			check("a partial day on the 90-day bars", partial, p["bg"], 3)
+			check("a partial day next to a clean day", p["status-up"], partial, 2)
 			for _, fg := range []string{"text", "text-muted"} {
 				check("--"+fg+" under a scanline", mix(t, p["bg"], p[fg], scanlineTint), mix(t, p["bg"], p["surface-1"], scanlineTint), 4.5)
 			}
@@ -285,6 +291,7 @@ func TestPaintedMixesMatchCSS(t *testing.T) {
 		"color-mix(in srgb, var(--ambient) 26%, transparent)",
 		"color-mix(in srgb, var(--ambient) 12%, transparent)",
 		"color-mix(in srgb, var(--bg) 12%, transparent)",
+		"[data-theme=\"terminal\"] .day-bars > [data-day=\"partial\"] {\n  background: color-mix(in srgb, var(--status-down) 60%, var(--bg));",
 		"[data-theme=\"terminal\"] .monitor-header::before {\n  display: none;",
 	} {
 		if !strings.Contains(css, want) {

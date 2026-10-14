@@ -115,7 +115,7 @@ Footer: "Powered by sinjal" is a small low-contrast footer, removed with the pag
 Built (M8-17, Clear):
 - The page opens with its hero: the overall status as one sentence. It is the overall state's words (the strings above, unchanged for `api.json` and the feed) and, during an outage, the public names of the services that are down ("Partial outage: Checkout is down."; three names, then "and n more").
 - The Ambient light of the app's heroes sits behind it: red for an outage, amber when degraded, the accent otherwise; a faint halo in Daylight, none in Terminal.
-- The newest published note of an ongoing incident is shown right under the sentence (service, time, text), so visitors read the explanation first. Every note also stays with its incident below.
+- The newest published note of an ongoing incident is shown right under the sentence (service, time, text), so visitors read the explanation first. The note box is as wide as the service list; its text keeps a readable measure. Every note also stays with its incident below.
 - Services draw the shared 90-day bars (`DayBars`, as on a monitor's Overview).
 - A page whose theme is unknown or empty renders in Daylight, the status page default (`templates.PublicDefaultTheme`), never Stark. New pages also start in Daylight (`statuspage.DefaultTheme`).
 
@@ -199,7 +199,7 @@ Implementation (M7-06, `internal/web/hosts.go`):
   - `GET|HEAD|POST /`: the page; POST is its password form, origin-checked
   - `GET|HEAD /api.json` and `/feed.xml` (M7-07)
   - `GET|HEAD /healthz`
-  - `/static/*` and `/uploads/{name}`
+  - `/static/*`, `/favicon.ico` and `/uploads/{name}`
 - Everything else is 404, `/readyz` included.
 
 On a mapped hostname the page's own access rules apply, with two differences (owner decisions, M7-06):

@@ -55,6 +55,7 @@ M8-01, M8-02, M8-17. Every rule above is in `css/tokens.css` and the theme-scope
 
 - **Terminal's short tag.** Where the tag is not the word itself (`[FLAP]`), it is a separate `aria-hidden` span next to the word. Terminal alone hides the word visually, so assistive technology still reads "Flapping".
 - **Terminal's status hero.** A box rule in the base amber for a calm state; an inverse block only for a problem.
+- **Terminal's day bars** (M8-15 follow-up). Colour only for problems: a day with an outage is `--status-down` at 60 % over the background, a day down throughout the full `--status-down`, so neither passes for a clean amber day. `web/tokens_test.go` keeps the dimmed mark at 3:1 on the background and 2:1 against a clean day.
 - **Terminal's box rules.** Double rules frame the panels: incident, maintenance and channel lists, status page monitors, the problem strip, form sections and the sign-in panel. Controls keep single rules.
 - **Public status page** (M8-17). It shares the hero's Ambient light and the day bars and, in Terminal, the double box rules on its service list, incidents and note. An unknown or empty page theme falls back to Daylight.
 

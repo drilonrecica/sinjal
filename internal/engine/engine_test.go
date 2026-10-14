@@ -820,3 +820,14 @@ func TestRecentChecks(t *testing.T) {
 		t.Fatalf("after delete: %+v", got)
 	}
 }
+
+// The beat bars and Live activity keep a numeric status code; anything
+// else (no status, a DNS rcode name) is 0.
+func TestRecentCheckStatus(t *testing.T) {
+	at := time.Unix(1_700_000_000, 0)
+	for status, want := range map[string]int16{"503": 503, "": 0, "NXDOMAIN": 0, "99999": 0} {
+		if got := recentCheck(at, time.Second, false, "status", status).Status; got != want {
+			t.Errorf("recentCheck(%q).Status = %d, want %d", status, got, want)
+		}
+	}
+}

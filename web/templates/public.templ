@@ -24,6 +24,7 @@ templ PublicLayout(page Page, accentCSS string, noIndex bool, refresh bool) {
 				<meta http-equiv="refresh" content={ strconv.Itoa(PublicRefreshSeconds) }/>
 			}
 			<title>{ page.Title }</title>
+			<link rel="icon" type="image/svg+xml" href={ assets.URL("img/favicon.svg") }/>
 			<link rel="preload" href={ assets.URL("fonts/inter-var.woff2") } as="font" type="font/woff2" crossorigin="anonymous"/>
 			<link rel="stylesheet" href={ assets.URL("css/tokens.css") }/>
 			<link rel="stylesheet" href={ assets.URL("css/base.css") }/>

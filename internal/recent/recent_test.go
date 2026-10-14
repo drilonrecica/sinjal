@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"unsafe"
 )
 
 func at(n int) Check { return Check{At: int64(n), MS: int32(n), OK: n%2 == 0} }
@@ -182,5 +183,13 @@ func TestFeed(t *testing.T) {
 		if e.MonitorID == "m1" {
 			t.Fatal("a dropped monitor is still in the feed")
 		}
+	}
+}
+
+// The status code sits in the padding after OK: a ring of Cap checks per
+// monitor costs no more memory than before it existed (docs/18).
+func TestCheckSize(t *testing.T) {
+	if got := unsafe.Sizeof(Check{}); got != 32 {
+		t.Fatalf("Check is %d bytes, want 32", got)
 	}
 }

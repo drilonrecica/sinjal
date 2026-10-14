@@ -323,7 +323,7 @@ func OverviewBody(v OverviewView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</dl><p><a href=\"/monitors\">All monitors</a></p></section></div><div class=\"home-side\"><section class=\"overview-incidents\" aria-labelledby=\"recent-title\"><h2 id=\"recent-title\">Recent incidents</h2>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</dl><p><a href=\"/monitors\">All monitors</a></p></section><section class=\"overview-incidents\" aria-labelledby=\"recent-title\"><h2 id=\"recent-title\">Recent incidents</h2>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -331,7 +331,7 @@ func OverviewBody(v OverviewView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<p><a href=\"/incidents\">All incidents</a></p></section><section class=\"overview-events\" aria-labelledby=\"events-title\"><h2 id=\"events-title\">Recent events</h2>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<p><a href=\"/incidents\">All incidents</a></p></section></div><div class=\"home-side\"><section class=\"overview-events\" aria-labelledby=\"events-title\"><h2 id=\"events-title\">Recent events</h2>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

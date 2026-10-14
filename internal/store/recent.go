@@ -12,6 +12,7 @@ type RecentCheck struct {
 	CheckedAt time.Time
 	Duration  time.Duration
 	Success   bool
+	Status    string // protocol status as stored ("503"); "" when there is none
 	Kind      string // failure kind; "" on success
 }
 
@@ -21,7 +22,7 @@ type RecentCheck struct {
 // 300 ms for 1,000 monitors × 120, nearly all of it the driver handing
 // rows over, which is why the engine seeds in the background.
 func RecentChecks(ctx context.Context, q *sql.DB, n int) (map[string][]RecentCheck, error) {
-	rows, err := q.QueryContext(ctx, `SELECT r.monitor_id, r.checked_at, r.duration_ms, r.success, COALESCE(r.error_kind, '')
+	rows, err := q.QueryContext(ctx, `SELECT r.monitor_id, r.checked_at, r.duration_ms, r.success, COALESCE(r.protocol_status, ''), COALESCE(r.error_kind, '')
 		FROM monitors m JOIN check_results r ON r.id IN (
 			SELECT id FROM check_results WHERE monitor_id = m.id ORDER BY checked_at DESC, id DESC LIMIT ?)
 `, n)
@@ -34,7 +35,7 @@ func RecentChecks(ctx context.Context, q *sql.DB, n int) (map[string][]RecentChe
 		var id, at string
 		var ms sql.NullFloat64
 		var c RecentCheck
-		if err := rows.Scan(&id, &at, &ms, &c.Success, &c.Kind); err != nil {
+		if err := rows.Scan(&id, &at, &ms, &c.Success, &c.Status, &c.Kind); err != nil {
 			return nil, err
 		}
 		c.CheckedAt, c.Duration = parseTime(at), msToDuration(ms.Float64)

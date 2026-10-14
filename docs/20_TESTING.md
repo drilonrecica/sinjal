@@ -303,6 +303,15 @@ Built (M8-12), in `tests/browser/browser_test.go`:
 
 The backup/restore confirmation test follows the backup UI (M9-01).
 
+### Screenshots
+
+`make screenshots` (M8-15) runs `TestScreenshots` (`tests/browser/screenshots_test.go`) and writes PNGs plus an `index.json` into `tests/browser/out/` (git-ignored). Without `SINJAL_SCREENSHOTS` the test skips, so `make test-browser` never runs it. It produces pictures for the visual sign-off and the README; it asserts nothing about them and fails only when a page breaks or writes an error to the browser console.
+
+- Demo data, made the way a user makes it: setup, nine monitors through the create form (HTTP, TCP, heartbeat; neutral names, local targets only), a public status page, a published note.
+- The past: with the server stopped, 90 days of history are written straight into SQLite (`monitors.created_at`, 7 days of `check_results`, five ended incidents with their events). The engine reads them back on restart, so beat bars, day bars and charts are full. The heartbeat monitor gets a week of nightly beats, so it is not overdue at the restart. `modernc.org/sqlite` is in the test module only.
+- The present: after the restart one target answers 503 (Search goes down live), the heartbeat gets a beat, and Staging API is paused.
+- Matrix: Stark with Ambient light on and off, Terminal and Daylight, each comfortable and compact, at 1440×900, 2560×1080 and 390×844; Home and the down monitor's detail, plus the list view on phones. Extras: the status page in its three themes (desktop, phone), the command palette, the phone menu open, sign-in. 65 shots in about 80 s. `prefers-reduced-motion` is emulated so no shot catches a transition.
+
 ## Benchmarks
 
 See `docs/18_PERFORMANCE.md`.

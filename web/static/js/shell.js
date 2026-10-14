@@ -12,8 +12,12 @@
  * again on monitor and incident events, at most once every 3 s.
  *
  * Menus: the top bar's menu is open by default (it is the navigation
- * without JavaScript) and closed here on phones; both menus close after a
- * navigation.
+ * without JavaScript) and closed here on phones, where it opens as a panel
+ * over the page; both menus close after a navigation, on Escape and on a
+ * click elsewhere.
+ *
+ * Tabs: on phones a row of tabs scrolls; its current tab is scrolled into
+ * view and its edge fades while more tabs are hidden.
  *
  * Navigation: links and forms are boosted; the server aims the answer at
  * #main (internal/web/boost.go). An answer without a #main (sign-in,
@@ -112,6 +116,54 @@
       d.open = false;
     });
   }
+
+  // A click outside a menu, or Escape, closes it (on phones the top bar's
+  // menu is a panel over the page).
+  document.addEventListener("click", function (e) {
+    if (!(e.target.closest && e.target.closest("[data-topbar-menu], .account-menu"))) {
+      closeMenus();
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") {
+      return;
+    }
+    // On larger screens the top bar's menu is the open nav itself.
+    var open = document.querySelector(".account-menu[open]") ||
+      (window.matchMedia("(max-width: 47.9375rem)").matches && document.querySelector("[data-topbar-menu][open]"));
+    if (open) {
+      closeMenus();
+      open.querySelector("summary").focus();
+    }
+  });
+
+  // --- Tabs on phones ---
+  // A row of tabs scrolls sideways on phones (components.css): it shows
+  // its current tab, and data-more fades its right edge while tabs are
+  // hidden past it.
+  function tabMore(ul) {
+    if (ul.scrollLeft + ul.clientWidth < ul.scrollWidth - 1) {
+      ul.setAttribute("data-more", "");
+    } else {
+      ul.removeAttribute("data-more");
+    }
+  }
+  function tabRows(root) {
+    var rows = root.matches && root.matches(".tabs ul") ? [root] : root.querySelectorAll(".tabs ul");
+    Array.prototype.forEach.call(rows, function (ul) {
+      var current = ul.querySelector('[aria-current="page"]');
+      if (current && ul.scrollWidth > ul.clientWidth) {
+        ul.scrollLeft = Math.max(0, current.offsetLeft - (ul.clientWidth - current.offsetWidth) / 2);
+      }
+      if (!ul.hasAttribute("data-tabs")) {
+        ul.setAttribute("data-tabs", "");
+        ul.addEventListener("scroll", function () { tabMore(ul); }, { passive: true });
+      }
+      tabMore(ul);
+    });
+  }
+  htmx.onLoad(tabRows);
+  window.addEventListener("resize", function () { tabRows(document); });
 
   // --- The current section in the top bar ---
   function markSection() {

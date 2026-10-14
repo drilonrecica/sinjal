@@ -129,7 +129,7 @@ Built: every shell page loads the same scripts (`ShellScripts`), deferred, in th
 - `htmx.min.js`, `htmx-ext-sse.js`: htmx and its SSE extension
 - `live.js`: routes stream events to `data-live*` elements (see "Live fragments")
 - `beats.js`: beat bar tooltip, keyboard movement and slide-in; fetches a list row's tips on the first hover
-- `shell.js`: marks the current section and row, list column keys, chips, Live activity loading, phone menu
+- `shell.js`: marks the current section and row, list column keys, chips, Live activity loading, the phone menu panel (closes on navigation, Escape, a click elsewhere), phone tab rows (current tab in view, `data-more` edge fade)
 - `palette.js`: the command palette
 - `shortcuts.js`: `/`, `g d`, `g m`, `g i`, `n`; off while typing, with a dialog open or with Ctrl/Cmd/Alt held
 - `uplot.min.js`, `chart.js`: reads `data-series`, `data-overlays` and `data-tz` of `[data-chart]`, draws overlays in uPlot hooks, redraws on resize and theme change, and sets up charts swapped into the pane (`htmx.onLoad`)

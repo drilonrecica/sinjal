@@ -76,6 +76,8 @@ Rules:
 
 Built (M8-01): `Mark()` and `Wordmark()` in `web/templates/icons.templ` inline the paths from the files above (`web/templates/brand.go`). `components.css` colours the ring and letters with `currentColor` and the pip with `var(--accent)`. The top bar shows the wordmark as the link to Home.
 
+Favicon (M8-15 follow-up): `web/static/img/favicon.svg` is `sinjal-mark.svg` as it is, with its light and dark colours. Both page layouts (app and status pages) link it with `<link rel="icon">`, and `GET /favicon.ico` redirects to it for clients that ask without reading the page.
+
 ## Status-page branding
 
 Default footer:

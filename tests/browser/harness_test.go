@@ -118,6 +118,7 @@ func (b *lockedBuffer) String() string {
 type server struct {
 	base string
 	logs *lockedBuffer
+	stop func() // ends the process; safe to call more than once
 }
 
 // start launches `sinjal serve` on a fresh data directory and a free
@@ -130,12 +131,18 @@ func start(t *testing.T) *server {
 	}
 	addr := ln.Addr().String()
 	ln.Close()
+	return startIn(t, filepath.Join(t.TempDir(), "data"), addr)
+}
 
+// startIn launches `sinjal serve` on dataDir at addr, so a test can stop
+// the server and start it again on the same data.
+func startIn(t *testing.T, dataDir, addr string) *server {
+	t.Helper()
 	logs := &lockedBuffer{}
 	cmd := exec.Command(binary(t), "serve")
 	cmd.Env = []string{
 		"PATH=" + os.Getenv("PATH"),
-		"SINJAL_DATA_DIR=" + filepath.Join(t.TempDir(), "data"),
+		"SINJAL_DATA_DIR=" + dataDir,
 		"SINJAL_LISTEN=" + addr,
 		"SINJAL_LOG_FORMAT=json",
 	}
@@ -145,12 +152,16 @@ func start(t *testing.T) *server {
 	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
-	t.Cleanup(func() {
-		cmd.Process.Kill()
-		<-done
-	})
+	var once sync.Once
+	stop := func() {
+		once.Do(func() {
+			cmd.Process.Kill()
+			<-done
+		})
+	}
+	t.Cleanup(stop)
 
-	s := &server{base: "http://" + addr, logs: logs}
+	s := &server{base: "http://" + addr, logs: logs, stop: stop}
 	deadline := time.Now().Add(startTimeout)
 	for {
 		select {

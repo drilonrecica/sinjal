@@ -449,13 +449,42 @@
     height: auto;
   }
   .topbar {
-    flex-wrap: wrap;
+    position: relative;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
   }
-  .topbar-menu {
-    order: 3;
-    flex-basis: 100%;
+  /* One row: wordmark, Menu, Commands, account. The open menu drops down
+   * under the bar, over the page; shell.js closes it on navigation,
+   * Escape and a click elsewhere. */
+  .topbar-menu[open] > .topnav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-1);
+  }
+  .palette-button,
+  .account-button {
+    padding: 0 var(--space-2);
+  }
+  /* Without JavaScript the menu is the navigation, open from the start:
+   * it takes its own row in the page instead. */
+  @media (scripting: none) {
+    .topbar {
+      flex-wrap: wrap;
+    }
+    .topbar-menu {
+      order: 3;
+      flex-basis: 100%;
+    }
+    .topbar-menu[open] > .topnav {
+      position: static;
+      padding: 0;
+      border: 0;
+    }
   }
   .topbar-menu-button {
     display: flex;

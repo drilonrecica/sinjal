@@ -11,6 +11,7 @@ import (
 	"errors"
 	"log/slog"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -91,7 +92,7 @@ func New(d *db.DB, key *vault.Key, workers int, userAgent string, loc *time.Loca
 	e.sch = scheduler.New(e.pool.Submit)
 	e.proc = results.New(d, logging.Sub(logger, "results"), loc, e.sch.Retry, updated, intent, e.incidentChanged)
 	e.proc.Observe(func(r results.Result) {
-		e.recent.Push(r.MonitorID, recentCheck(r.CheckedAt, r.Duration, r.Success, r.Kind))
+		e.recent.Push(r.MonitorID, recentCheck(r.CheckedAt, r.Duration, r.Success, r.Kind, r.Status))
 	})
 	return e
 }
@@ -104,8 +105,14 @@ func (e *Engine) Warning() string { return e.proc.Stats().Warning }
 // the beat bars. They come from memory: no page reads them from SQLite.
 func (e *Engine) Recent() *recent.Store { return e.recent }
 
-func recentCheck(at time.Time, d time.Duration, ok bool, kind string) recent.Check {
-	return recent.Check{At: at.Unix(), MS: int32(min(d.Milliseconds(), math.MaxInt32)), OK: ok, Kind: kind}
+// recentCheck is one result as the beat bars keep it. Only a numeric
+// status (an HTTP code) is kept; any other is 0.
+func recentCheck(at time.Time, d time.Duration, ok bool, kind, status string) recent.Check {
+	code, err := strconv.ParseInt(status, 10, 16)
+	if err != nil || code < 100 || code > 999 {
+		code = 0
+	}
+	return recent.Check{At: at.Unix(), MS: int32(min(d.Milliseconds(), math.MaxInt32)), OK: ok, Status: int16(code), Kind: kind}
 }
 
 // seedRecent fills the beat bars from the database. It runs beside the
@@ -124,7 +131,7 @@ func (e *Engine) seedRecent(ctx context.Context) {
 	for id, rcs := range stored {
 		cs = cs[:0]
 		for _, c := range rcs {
-			cs = append(cs, recentCheck(c.CheckedAt, c.Duration, c.Success, c.Kind))
+			cs = append(cs, recentCheck(c.CheckedAt, c.Duration, c.Success, c.Kind, c.Status))
 		}
 		e.recent.Seed(id, cs)
 	}

@@ -17,7 +17,7 @@ func TestRecentChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := InsertCheckResult(ctx, tx, CheckResult{MonitorID: b, CheckedAt: start.Add(time.Minute), Duration: time.Second, ErrorKind: "timeout"}); err != nil {
+	if err := InsertCheckResult(ctx, tx, CheckResult{MonitorID: b, CheckedAt: start.Add(time.Minute), Duration: time.Second, ProtocolStatus: "503", ErrorKind: "status"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -45,7 +45,7 @@ func TestRecentChecks(t *testing.T) {
 			t.Fatalf("a[%d] = %+v, want %+v", i, g, want[i])
 		}
 	}
-	if len(got[b]) != 2 || got[b][1].Kind != "timeout" || got[b][1].Success || !got[b][0].Success {
+	if len(got[b]) != 2 || got[b][1].Kind != "status" || got[b][1].Status != "503" || got[b][1].Success || !got[b][0].Success {
 		t.Fatalf("b: %+v", got[b])
 	}
 }

@@ -39,6 +39,7 @@ Built: the `Makefile` has these targets:
 | `test` | `go test ./...` |
 | `test-race` | `go test -race ./...` |
 | `test-browser` | the chromedp suite, see [Browser tests](#browser-tests) |
+| `screenshots` | every theme, density and screen size on demo data into `tests/browser/out/` (`20_TESTING.md` "Screenshots") |
 | `bench` | `go test -run='^$' -bench=. -benchmem ./...` |
 | `build` | `CGO_ENABLED=0 go build -trimpath` with `-s -w` and `-X main.version` from `git describe`, output `./sinjal` |
 | `reset-dev-db` | deletes `./.dev-data` |

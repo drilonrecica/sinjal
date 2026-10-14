@@ -6,6 +6,21 @@ Sinjal is a small, fast, self-hosted uptime monitor. It is one Go binary with on
 
 > **Status: pre-release.** Sinjal v1 is in development. There is no tagged release or container image yet. You can build and run it from source today.
 
+![Sinjal's Home in the Stark theme: "Search is down." above a Needs attention box, recent incidents and events, with the monitor list and its beat bars on the left](docs/screenshots/home-stark.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/monitor-terminal.png" alt="A monitor's detail page in the Terminal theme: amber on black, all monospace, the beat bar ending in red failures"></td>
+    <td width="50%"><img src="docs/screenshots/monitor-daylight.png" alt="The same monitor in the Daylight theme: black ink on white, with the latency chart of the last 24 hours"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/status-page.png" alt="A public status page: Partial outage: Search is down, a published note, and 90-day bars for each service"></td>
+    <td width="50%" align="center"><img src="docs/screenshots/phone-stark.png" alt="The monitor list on a phone, in Stark" width="60%"></td>
+  </tr>
+</table>
+
+<sub>Screenshots come from `make screenshots`, which runs Sinjal on demo data.</sub>
+
 ## Why Sinjal
 
 - **One process, one data directory.** SQLite only. No Redis, PostgreSQL, message broker, Node runtime or worker to run beside it.

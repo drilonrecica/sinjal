@@ -280,3 +280,31 @@ func TestStaticRoute(t *testing.T) {
 		t.Errorf("unhashed URL = %d, want 404", resp.StatusCode)
 	}
 }
+
+// Browsers find the icon through the pages' <link rel="icon">; a client
+// that asks for /favicon.ico anyway is sent to the same file.
+func TestFavicon(t *testing.T) {
+	logger, _ := quietLogger()
+	r := NewRouter(logger, nil)
+	RegisterStatic(r, assets.Default)
+	srv := newTestServer(t, r)
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+
+	resp, err := client.Get(srv + "/favicon.ico")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	want := assets.URL("img/favicon.svg")
+	if resp.StatusCode != http.StatusMovedPermanently || resp.Header.Get("Location") != want {
+		t.Fatalf("GET /favicon.ico = %d to %q, want 301 to %q", resp.StatusCode, resp.Header.Get("Location"), want)
+	}
+	resp, err = http.Get(srv + want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "image/svg+xml" {
+		t.Fatalf("GET %s = %d, %q", want, resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+}

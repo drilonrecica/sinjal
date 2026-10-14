@@ -10,6 +10,7 @@ This is a route ownership guide. It does not require every action to be exposed 
 GET  /healthz
 GET  /readyz
 GET  /static/*               # embedded assets under content-hashed names, cached immutably
+GET  /favicon.ico            # 301 to the hashed icon (/static/img/favicon.<hash>.svg); also on mapped status-page hosts
 GET  /login
 POST /login
 POST /login/totp             # second sign-in step for accounts with TOTP

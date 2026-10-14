@@ -22,10 +22,11 @@ type Entry struct {
 
 // Check is one check as a beat bar shows it.
 type Check struct {
-	At   int64  // when the check started, Unix seconds
-	MS   int32  // duration in milliseconds
-	OK   bool   // the check succeeded
-	Kind string // the stored failure kind; "" on success
+	At     int64  // when the check started, Unix seconds
+	MS     int32  // duration in milliseconds
+	OK     bool   // the check succeeded
+	Status int16  // protocol status code such as 503; 0 when there is none
+	Kind   string // the stored failure kind; "" on success
 }
 
 // ring holds up to Cap checks; next is where the next one goes.

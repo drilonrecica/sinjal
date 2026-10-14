@@ -189,6 +189,26 @@
   background: var(--accent);
 }
 
+/* Phones: the tabs stay one row and scroll sideways. While more tabs
+ * are hidden past the right edge (data-more, set by shell.js), that edge
+ * fades out. */
+@media (max-width: 47.9375rem) {
+  .tabs ul {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs ul::-webkit-scrollbar {
+    display: none;
+  }
+  .tabs ul[data-more] {
+    mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent);
+  }
+  .tab-link[aria-current="page"]::after {
+    bottom: 0; /* inside the scrolling row, which would clip it below */
+  }
+}
+
 /* Tags: small, quiet, never a status. */
 .tag {
   display: inline-block;
@@ -397,6 +417,13 @@
 .day-bars > [data-day="none"] { background: var(--surface-3); }
 
 /* ---- Terminal personality (docs/05 "Terminal") ---- */
+
+/* Colour only for problems: a day with an outage is the problem colour,
+ * dimmed, so it never passes for a clean amber day; a day down throughout
+ * keeps the full colour. */
+[data-theme="terminal"] .day-bars > [data-day="partial"] {
+  background: color-mix(in srgb, var(--status-down) 60%, var(--bg));
+}
 
 /* State as text: [UP] stays in the base colour; problems invert. */
 [data-theme="terminal"] .status {

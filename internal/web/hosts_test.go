@@ -57,8 +57,9 @@ func TestMappedHostServesNothingElse(t *testing.T) {
 	param := regexp.MustCompile(`\{[^}]+\}|\*`)
 	err := chi.Walk(e.h.(chi.Routes), func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		// /events would stream for the admin if it were served; the list
-		// below asks for it anonymously.
-		if route == "/" || route == "/healthz" || route == "/events" {
+		// below asks for it anonymously. /favicon.ico is served there too:
+		// a status page needs its icon.
+		if route == "/" || route == "/healthz" || route == "/events" || route == "/favicon.ico" {
 			return nil
 		}
 		path := param.ReplaceAllString(route, "x")

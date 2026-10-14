@@ -19,6 +19,7 @@ func TestBeatBar(t *testing.T) {
 		{At: now.Add(-time.Minute).Unix(), MS: 5000, Kind: httpcheck.KindTimeout},
 		{At: now.Add(-25 * time.Hour).Unix(), MS: 0, OK: true},
 		{At: now.Add(-26 * time.Hour).Unix(), MS: 40, Kind: "something new"},
+		{At: now.Add(-27 * time.Hour).Unix(), MS: 75, Kind: httpcheck.KindHTTPStatus, Status: 503},
 	}
 	b := beatBar("m1", checks, barKind{6, true}, newBeatClock(now, loc))
 
@@ -27,7 +28,8 @@ func TestBeatBar(t *testing.T) {
 		{Result: templates.BeatDown, Tip: "11:59:00 · 5.0 s · Down: Timeout"},
 		{Result: templates.BeatUp, Tip: "Tue 13 Oct, 11:00:00 · <1 ms · Up"},
 		{Result: templates.BeatDown, Tip: "Tue 13 Oct, 10:00:00 · 40 ms · Down"},
-		{}, {},
+		{Result: templates.BeatDown, Tip: "Tue 13 Oct, 09:00:00 · 75 ms · Down: HTTP status 503"},
+		{},
 	}
 	if len(b.Beats) != len(want) {
 		t.Fatalf("%d beats, want %d (padded)", len(b.Beats), len(want))
@@ -40,7 +42,7 @@ func TestBeatBar(t *testing.T) {
 	if b.Newest != checks[0].At || !b.Focusable || b.TipsHref != "" {
 		t.Fatalf("newest %d focusable %v tips %q", b.Newest, b.Focusable, b.TipsHref)
 	}
-	if want := "Last 4 checks: 2 up, 2 down. Latest: up at 11:59:30."; b.Label != want {
+	if want := "Last 5 checks: 2 up, 3 down. Latest: up at 11:59:30."; b.Label != want {
 		t.Fatalf("label %q, want %q", b.Label, want)
 	}
 }

@@ -18,6 +18,7 @@ var publicRoutes = map[string]bool{
 	"/api/v1/heartbeat":         true, // machine endpoint: the bearer token authenticates
 	"/api/v1/heartbeat/{token}": true, // machine endpoint: the path token authenticates
 	"/static/*":                 true,
+	"/favicon.ico":              true, // a redirect to the hashed icon in /static
 	"/uploads/{name}":           true, // status page logos: a public page shows them to everyone; only 128-bit logo names resolve
 	"/setup":                    true,
 	"/login":                    true,

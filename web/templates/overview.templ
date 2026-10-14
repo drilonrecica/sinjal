@@ -66,13 +66,13 @@ templ OverviewBody(v OverviewView) {
 						</dl>
 						<p><a href="/monitors">All monitors</a></p>
 					</section>
-				</div>
-				<div class="home-side">
 					<section class="overview-incidents" aria-labelledby="recent-title">
 						<h2 id="recent-title">Recent incidents</h2>
 						@IncidentRows(v.Incidents)
 						<p><a href="/incidents">All incidents</a></p>
 					</section>
+				</div>
+				<div class="home-side">
 					<section class="overview-events" aria-labelledby="events-title">
 						<h2 id="events-title">Recent events</h2>
 						@eventList(v.Events)
