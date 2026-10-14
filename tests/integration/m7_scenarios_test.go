@@ -75,7 +75,7 @@ func m7Seed(t *testing.T, dataDir string) (token string) {
 		{Slug: "internal", Title: "Internal page", Visibility: "authenticated"},
 		{Slug: "hidden", Title: "Hidden page", Visibility: "unlisted", TokenHash: tokenHash},
 	} {
-		p.Theme, p.IncidentDays, p.Monitors = "paper", 30, monitors
+		p.Theme, p.IncidentDays, p.Monitors = "daylight", 30, monitors
 		if _, err := store.CreateStatusPage(ctx, d, p, now); err != nil {
 			t.Fatal(err)
 		}

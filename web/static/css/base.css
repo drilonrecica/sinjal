@@ -1,10 +1,27 @@
 /* Reset, typography and spacing scale. Colours come from tokens.css only.
- * Self-hosted Inter / JetBrains Mono arrive with the design pass (M8-01);
- * until then the system stacks from docs/04_DESIGN_SYSTEM.md apply. */
+ * Fonts: self-hosted Inter and JetBrains Mono, variable, subset to Latin +
+ * Latin Extended-A (docs/04 "Typography", provenance in docs/40). The
+ * asset server rewrites the url()s below to the files' hashed names. */
+
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/inter-var.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../fonts/jetbrains-mono-var.woff2") format("woff2");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
   /* Spacing follows the density setting (comfortable 1, compact 0.8). */
   --space-1: calc(0.25rem * var(--space-density-factor));
@@ -14,11 +31,16 @@
   --space-5: calc(1.5rem * var(--space-density-factor));
   --space-6: calc(2rem * var(--space-density-factor));
 
-  --text-xs: 0.75rem;
-  --text-sm: 0.8125rem;
-  --text-base: 0.9375rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.375rem;
+  /* Type scale for Inter at a 14 px base: dense admin rows, no marketing
+   * sizes (docs/04 "Typography"). */
+  --text-xs: 0.75rem;     /* 12 px: labels, meta */
+  --text-sm: 0.8125rem;   /* 13 px: secondary text, controls */
+  --text-base: 0.875rem;  /* 14 px: body, rows */
+  --text-lg: 1.0625rem;   /* 17 px: section headings */
+  --text-xl: 1.375rem;    /* 22 px: page title */
+
+  /* Controls: compact with a mouse, touch-sized on touch screens. */
+  --control-h: 2.25rem;
 }
 
 *,
@@ -47,8 +69,14 @@ h1, h2, h3, h4, p, ul, ol, dl, figure, pre {
   margin: 0;
 }
 
-h1 { font-size: var(--text-xl); line-height: 1.25; font-weight: 650; }
-h2 { font-size: var(--text-lg); line-height: 1.3; font-weight: 600; }
+@media (pointer: coarse) {
+  :root {
+    --control-h: 2.75rem;
+  }
+}
+
+h1 { font-size: var(--text-xl); line-height: 1.25; font-weight: 600; letter-spacing: -0.015em; }
+h2 { font-size: var(--text-lg); line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; }
 h3 { font-size: var(--text-base); line-height: 1.4; font-weight: 600; }
 
 ul[role="list"], ol[role="list"] {
@@ -63,12 +91,39 @@ a {
 
 code, kbd, samp, pre {
   font-family: var(--font-mono);
-  font-size: 0.9em;
+  font-size: 0.875em; /* JetBrains Mono sets larger than Inter */
 }
 
 img, svg {
   display: block;
   max-width: 100%;
+}
+
+/* Inline Lucide icons (templates/icons.templ): text-sized, text-coloured. */
+.icon {
+  display: inline-block;
+  flex: none;
+  width: 1.125em;
+  height: 1.125em;
+  vertical-align: -0.2em;
+}
+
+/* Terminal sets the whole UI in mono (docs/05 "Terminal"). */
+[data-theme="terminal"] body {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* Motion (docs/04 "Motion"): durations and easing for state changes. */
+:root {
+  --motion-fast: 160ms;
+  --motion-settle: 420ms;
+  --ease-settle: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+/* Numbers that line up in columns: latency, uptime, counts. */
+.num {
+  font-variant-numeric: tabular-nums;
 }
 
 button, input, select, textarea {

@@ -347,7 +347,7 @@ func RangeSelector(v HistoryView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" required> <button class=\"detail-button\" type=\"submit\">Show</button> <span class=\"range-zone\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" required> <button class=\"button\" type=\"submit\">Show</button> <span class=\"range-zone\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

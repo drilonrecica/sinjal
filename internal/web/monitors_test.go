@@ -251,7 +251,7 @@ func TestMonitorListEmptyState(t *testing.T) {
 	e.addUser(t, "v1", "viewer", "viewer", "")
 
 	admin := e.getAs(t, "a1", "GET", "/monitors").Body.String()
-	for _, want := range []string{"No monitors yet", `<a class="action" href="/monitors/new">Create monitor</a>`} {
+	for _, want := range []string{"No monitors yet", `<a class="button button-primary" href="/monitors/new">Create monitor</a>`} {
 		if !strings.Contains(admin, want) {
 			t.Errorf("admin empty state lacks %q", want)
 		}

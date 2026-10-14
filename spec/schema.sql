@@ -15,11 +15,12 @@ CREATE TABLE users (
   totp_secret_enc BLOB,
   totp_last_step INTEGER, -- last accepted TOTP time step (replay prevention); NULL = none yet
   disabled INTEGER NOT NULL DEFAULT 0,
-  theme TEXT CHECK (theme IN ('carbon','paper','midnight','terminal')), -- NULL = instance default
   density TEXT NOT NULL DEFAULT 'comfortable' CHECK (density IN ('comfortable','compact')),
   sidebar_collapsed INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  theme TEXT CHECK (theme IN ('stark','terminal','daylight')), -- NULL = instance default; last since 009_themes
+  ambient_light INTEGER NOT NULL DEFAULT 1 CHECK (ambient_light IN (0,1))
 );
 
 CREATE TABLE sessions (
@@ -303,13 +304,13 @@ CREATE TABLE status_pages (
     CHECK (visibility IN ('public','authenticated','password','unlisted')),
   unlisted_token_hash BLOB,
   password_hash TEXT,
-  theme TEXT NOT NULL DEFAULT 'paper',
   accent TEXT,
   logo_path TEXT,
   incident_days INTEGER NOT NULL DEFAULT 30,
   show_powered_by INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  theme TEXT NOT NULL DEFAULT 'daylight' -- last since 009_themes
 );
 
 CREATE TABLE status_page_groups (

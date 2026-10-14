@@ -308,10 +308,10 @@ templ MonitorFormPage(page Page, f MonitorForm) {
 				}
 				<div class="form-actions">
 					if f.Editing() {
-						<button class="auth-submit" type="submit">Save changes</button>
+						<button class="button button-primary" type="submit">Save changes</button>
 						<a href={ templ.SafeURL("/monitors/" + f.ID) }>Cancel</a>
 					} else {
-						<button class="auth-submit" type="submit">Create monitor</button>
+						<button class="button button-primary" type="submit">Create monitor</button>
 						<a href="/monitors">Cancel</a>
 					}
 				</div>

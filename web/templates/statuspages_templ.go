@@ -45,12 +45,12 @@ func StatusPageList(page Page, v StatusPageListView) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"page-head\"><h1>Status Pages</h1><a class=\"action\" href=\"/status-pages/new\">New status page</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"page-head\"><h1>Status Pages</h1><a class=\"button button-primary\" href=\"/status-pages/new\">New status page</a></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(v.Rows) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<section class=\"empty-state\" aria-labelledby=\"sp-empty-title\"><h2 id=\"sp-empty-title\">No status pages</h2><p>A status page tells your users what is up. Choose the monitors it shows, under names that are safe to publish, and who may see it.</p><a class=\"action\" href=\"/status-pages/new\">New status page</a></section>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<section class=\"empty-state\" aria-labelledby=\"sp-empty-title\"><h2 id=\"sp-empty-title\">No status pages</h2><p>A status page tells your users what is up. Choose the monitors it shows, under names that are safe to publish, and who may see it.</p><a class=\"button button-primary\" href=\"/status-pages/new\">New status page</a></section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1389,7 +1389,7 @@ func StatusPageFormPage(page Page, f StatusPageForm) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "</fieldset><div class=\"form-actions\"><button class=\"auth-submit\" type=\"submit\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "</fieldset><div class=\"form-actions\"><button class=\"button button-primary\" type=\"submit\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1501,7 +1501,7 @@ func StatusPageFormPage(page Page, f StatusPageForm) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "<button class=\"detail-button\" type=\"submit\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "<button class=\"button\" type=\"submit\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1542,7 +1542,7 @@ func StatusPageFormPage(page Page, f StatusPageForm) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "<button class=\"detail-button\" type=\"submit\">Remove logo</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "<button class=\"button\" type=\"submit\">Remove logo</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1573,7 +1573,7 @@ func StatusPageFormPage(page Page, f StatusPageForm) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<p class=\"auth-hint\">Issuing a new address stops the old one working at once. You will be asked to confirm your password.</p><button class=\"detail-button\" type=\"submit\">Issue a new address</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<p class=\"auth-hint\">Issuing a new address stops the old one working at once. You will be asked to confirm your password.</p><button class=\"button\" type=\"submit\">Issue a new address</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1599,7 +1599,7 @@ func StatusPageFormPage(page Page, f StatusPageForm) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "<button class=\"detail-button detail-button-danger\" type=\"submit\">Delete this page</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "<button class=\"button button-danger\" type=\"submit\">Delete this page</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1694,14 +1694,14 @@ func StatusPageToken(page Page, t StatusPageTokenView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "</code> <button type=\"button\" class=\"token-copy\" data-copy=\"page-url\" hidden>Copy address</button></div><p class=\"auth-hint\">Anyone who has it can open the page. It is not linked from anywhere and search engines are told to ignore it.</p></section><div class=\"form-actions\"><a class=\"auth-submit\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "</code> <button type=\"button\" class=\"token-copy\" data-copy=\"page-url\" hidden>Copy address</button></div><p class=\"auth-hint\">Anyone who has it can open the page. It is not linked from anywhere and search engines are told to ignore it.</p></section><div class=\"form-actions\"><a class=\"button button-primary\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var80 templ.SafeURL
 			templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/status-pages/" + t.ID + "/edit"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/statuspages.templ`, Line: 276, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/statuspages.templ`, Line: 276, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
 			if templ_7745c5c3_Err != nil {
@@ -1789,14 +1789,14 @@ func StatusPageDeleteConfirm(page Page, v DeleteConfirmView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "<input type=\"hidden\" name=\"confirm\" value=\"1\"> <button class=\"detail-button detail-button-danger\" type=\"submit\">Delete page</button></form><a class=\"detail-button\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "<input type=\"hidden\" name=\"confirm\" value=\"1\"> <button class=\"button button-danger\" type=\"submit\">Delete page</button></form><a class=\"button\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var85 templ.SafeURL
 			templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/status-pages/" + v.ID + "/edit"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/statuspages.templ`, Line: 295, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/statuspages.templ`, Line: 295, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 			if templ_7745c5c3_Err != nil {

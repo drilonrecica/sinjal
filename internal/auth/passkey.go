@@ -169,8 +169,8 @@ var errNoPasskeyUser = errors.New("unknown or disabled account")
 func (p *Passkeys) loadUser(ctx context.Context, userID string) (*passkeyUser, error) {
 	u := &passkeyUser{}
 	var theme sql.NullString
-	err := p.db.Reader.QueryRowContext(ctx, `SELECT id, login, role, theme, density FROM users WHERE id = ? AND disabled = 0`, userID).
-		Scan(&u.user.ID, &u.user.Login, &u.user.Role, &theme, &u.user.Density)
+	err := p.db.Reader.QueryRowContext(ctx, `SELECT id, login, role, theme, density, ambient_light FROM users WHERE id = ? AND disabled = 0`, userID).
+		Scan(&u.user.ID, &u.user.Login, &u.user.Role, &theme, &u.user.Density, &u.user.AmbientLight)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errNoPasskeyUser
 	}

@@ -18,7 +18,10 @@ templ authFrame(page Page) {
 	@Layout(page.withAssets([]string{"css/auth.css"}, nil)) {
 		<main id="main" class="auth">
 			<div class="auth-panel">
-				<p class="auth-brand">Sinjal</p>
+				<p class="auth-brand">
+					@Wordmark()
+					<span class="visually-hidden">Sinjal</span>
+				</p>
 				{ children... }
 			</div>
 		</main>
@@ -45,7 +48,7 @@ templ Setup(page Page, f SetupForm, minPassword int) {
 			@field("confirm", "Confirm password", f.Errors) {
 				<input id="confirm" name="confirm" type="password" autocomplete="new-password" required { fieldAttrs("confirm", f.Errors)... }/>
 			}
-			<button class="auth-submit" type="submit">Create account</button>
+			<button class="button button-primary" type="submit">Create account</button>
 		</form>
 	}
 }

@@ -50,25 +50,25 @@ func stateLabel(state string) string {
 	return "Pending"
 }
 
-// stateGlyph differs in shape per state, so the icon reads without colour.
-func stateGlyph(state string) string {
+// stateIcon differs in shape per state, so the icon reads without colour.
+func stateIcon(state string) string {
 	switch state {
 	case StateUp:
-		return "●"
+		return "check"
 	case StateDown:
-		return "▼"
+		return "octagon-x"
 	case StatePaused:
-		return "❚❚"
+		return "pause"
 	case StateFlapping:
-		return "◆"
+		return "arrow-down-up"
 	}
-	return "○"
+	return "hourglass"
 }
 
 // StatusBadge is the status icon plus text.
 templ StatusBadge(state string) {
 	<span class="status" data-state={ state }>
-		<span class="status-glyph" aria-hidden="true">{ stateGlyph(state) }</span>
+		@Icon(stateIcon(state))
 		<span class="status-text">{ stateLabel(state) }</span>
 	</span>
 }

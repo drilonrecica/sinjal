@@ -163,7 +163,7 @@ func SettingsAuth(page Page, v SettingsAuthView) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<button class=\"settings-button settings-button-danger\" type=\"submit\">Turn off</button></form><p class=\"auth-hint\">To move to a new phone, turn it off and set it up again.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<button class=\"button button-danger\" type=\"submit\">Turn off</button></form><p class=\"auth-hint\">To move to a new phone, turn it off and set it up again.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -248,14 +248,14 @@ func SettingsAuth(page Page, v SettingsAuthView) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<button class=\"settings-button settings-button-danger\" type=\"submit\" aria-label=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<button class=\"button button-danger\" type=\"submit\" aria-label=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue("Remove passkey " + k.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/settings_auth.templ`, Line: 69, Col: 117}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/settings_auth.templ`, Line: 69, Col: 99}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 					if templ_7745c5c3_Err != nil {
@@ -308,7 +308,7 @@ func SettingsAuth(page Page, v SettingsAuthView) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = passkeyButton("create", "/settings/authentication/passkeys/begin", "/settings/authentication/passkeys/finish", "", "settings-button", "Add a passkey").Render(templ.WithChildren(ctx, templ_7745c5c3_Var13), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = passkeyButton("create", "/settings/authentication/passkeys/begin", "/settings/authentication/passkeys/finish", "", "button", "Add a passkey").Render(templ.WithChildren(ctx, templ_7745c5c3_Var13), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -395,14 +395,14 @@ func SettingsAuth(page Page, v SettingsAuthView) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<button class=\"settings-button\" type=\"submit\" aria-label=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<button class=\"button\" type=\"submit\" aria-label=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var17 string
 						templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue("Enable " + u.Login)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/settings_auth.templ`, Line: 108, Col: 87}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/settings_auth.templ`, Line: 108, Col: 78}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 						if templ_7745c5c3_Err != nil {
@@ -434,14 +434,14 @@ func SettingsAuth(page Page, v SettingsAuthView) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<button class=\"settings-button settings-button-danger\" type=\"submit\" aria-label=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<button class=\"button button-danger\" type=\"submit\" aria-label=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var19 string
 						templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue("Disable " + u.Login)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/settings_auth.templ`, Line: 113, Col: 111}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/settings_auth.templ`, Line: 113, Col: 93}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 						if templ_7745c5c3_Err != nil {
@@ -599,7 +599,7 @@ func SettingsAuth(page Page, v SettingsAuthView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<button class=\"auth-submit\" type=\"submit\">Add viewer</button></form></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<button class=\"button button-primary\" type=\"submit\">Add viewer</button></form></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -739,7 +739,7 @@ func TOTPSetup(page Page, v TOTPSetupView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<button class=\"auth-submit\" type=\"submit\">Turn on</button></form></li></ol><p><a href=\"/settings/authentication\">Cancel</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<button class=\"button button-primary\" type=\"submit\">Turn on</button></form></li></ol><p><a href=\"/settings/authentication\">Cancel</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

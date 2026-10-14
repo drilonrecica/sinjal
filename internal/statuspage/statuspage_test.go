@@ -107,12 +107,12 @@ func TestCheckAccent(t *testing.T) {
 		accent, theme string
 		ok            bool
 	}{
-		{"#3e67a8", "paper", true},   // the paper theme's own accent
-		{"#7da2ff", "carbon", true},  // the carbon theme's own accent
-		{"#f5f2eb", "paper", false},  // the page colour itself
-		{"#ffff00", "paper", false},  // yellow on cream
-		{"#202020", "carbon", false}, // near-black on graphite
-		{"#7da2ff", "paper", false},  // a dark-theme accent on a light page
+		{"#0a0a0a", "daylight", true},  // the daylight theme's own accent
+		{"#3d93ff", "stark", true},     // the stark theme's own accent
+		{"#ffffff", "daylight", false}, // the page colour itself
+		{"#ffff00", "daylight", false}, // yellow on white
+		{"#202020", "stark", false},    // near-black on black
+		{"#7da2ff", "daylight", false}, // a dark-theme accent on a light page
 	}
 	for _, c := range cases {
 		if msg := CheckAccent(c.accent, c.theme); (msg == "") != c.ok {

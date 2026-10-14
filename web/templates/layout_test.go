@@ -56,12 +56,12 @@ func TestLayoutThemeAndDensityAttributes(t *testing.T) {
 		theme, density                     string
 		wantTheme, wantDensity, wantScheme string
 	}{
-		{"", "", "carbon", "comfortable", "dark"},
-		{"paper", "compact", "paper", "compact", "light"},
-		{"midnight", "comfortable", "midnight", "comfortable", "dark"},
+		{"", "", "stark", "comfortable", "dark"},
+		{"daylight", "compact", "daylight", "compact", "light"},
+		{"carbon", "comfortable", "stark", "comfortable", "dark"}, // a removed theme falls back
 		{"terminal", "compact", "terminal", "compact", "dark"},
-		{"neon", "huge", "carbon", "comfortable", "dark"},
-		{`paper" onload="alert(1)`, `x"><script>`, "carbon", "comfortable", "dark"},
+		{"neon", "huge", "stark", "comfortable", "dark"},
+		{`daylight" onload="alert(1)`, `x"><script>`, "stark", "comfortable", "dark"},
 	}
 	for _, tt := range tests {
 		out := renderWith(t, Layout(NewPage("T", tt.theme, tt.density)), templ.NopComponent)
@@ -77,6 +77,17 @@ func TestLayoutThemeAndDensityAttributes(t *testing.T) {
 		if strings.Contains(out, "onload") || strings.Contains(out, "<script>") {
 			t.Errorf("theme=%q density=%q: attribute injection reached the output:\n%s", tt.theme, tt.density, out)
 		}
+	}
+}
+
+func TestLayoutAmbientAttribute(t *testing.T) {
+	page := NewPage("T", "", "")
+	if out := renderWith(t, Layout(page), templ.NopComponent); !strings.Contains(out, `data-ambient="on"`) {
+		t.Error("the Ambient light must be on by default")
+	}
+	page.AmbientOff = true
+	if out := renderWith(t, Layout(page), templ.NopComponent); !strings.Contains(out, `data-ambient="off"`) {
+		t.Error("AmbientOff must render data-ambient=\"off\"")
 	}
 }
 

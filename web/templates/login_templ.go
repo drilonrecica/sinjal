@@ -133,12 +133,12 @@ func Login(page Page, f LoginForm) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "></div><button class=\"auth-submit\" type=\"submit\">Sign in</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "></div><button class=\"button button-primary\" type=\"submit\">Sign in</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if f.Passkey {
-				templ_7745c5c3_Err = passkeyButton("get", "/login/passkey/begin", "/login/passkey/finish", f.Next, "auth-secondary", "Sign in with a passkey").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = passkeyButton("get", "/login/passkey/begin", "/login/passkey/finish", f.Next, "button", "Sign in with a passkey").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -258,7 +258,7 @@ func LoginTOTP(page Page, f LoginTOTPForm) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<button class=\"auth-submit\" type=\"submit\">Sign in</button></form><p class=\"auth-hint\"><a href=\"/login\">Start over</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<button class=\"button button-primary\" type=\"submit\">Sign in</button></form><p class=\"auth-hint\"><a href=\"/login\">Start over</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

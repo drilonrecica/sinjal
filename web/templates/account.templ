@@ -25,7 +25,7 @@ templ AccountPassword(page Page, f PasswordForm, minPassword int) {
 				@field("confirm", "Confirm new password", f.Errors) {
 					<input id="confirm" name="confirm" type="password" autocomplete="new-password" required { fieldAttrs("confirm", f.Errors)... }/>
 				}
-				<button class="auth-submit" type="submit">Change password</button>
+				<button class="button button-primary" type="submit">Change password</button>
 			</form>
 		</section>
 		<section class="settings-section" aria-labelledby="sessions-heading">
@@ -33,7 +33,7 @@ templ AccountPassword(page Page, f PasswordForm, minPassword int) {
 			<p>Signed in somewhere you no longer use? This signs out every other browser and device. You stay signed in here.</p>
 			<form method="post" action="/account/sessions/sign-out-others">
 				@CSRFField(page)
-				<button class="settings-button settings-button-danger" type="submit">Sign out other sessions</button>
+				<button class="button button-danger" type="submit">Sign out other sessions</button>
 			</form>
 		</section>
 	}

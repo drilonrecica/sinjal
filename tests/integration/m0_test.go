@@ -341,7 +341,7 @@ func TestMilestone0(t *testing.T) {
 		}
 		for _, want := range []string{
 			"<title>Overview — Sinjal</title>", `<main id="main"`, `<nav class="nav" aria-label="Primary">`,
-			`<a class="skip-link" href="#main">`, `data-theme="carbon"`, `data-density="comfortable"`,
+			`<a class="skip-link" href="#main">`, `data-theme="stark"`, `data-density="comfortable"`,
 			`<h1>Overview</h1>`,
 		} {
 			if !strings.Contains(page, want) {
@@ -365,8 +365,8 @@ func TestMilestone0(t *testing.T) {
 	t.Run("assets are hashed, immutable and gzip", func(t *testing.T) {
 		_, b := body(t, http.DefaultClient, s.base+"/settings/general", signedIn)
 		urls := regexp.MustCompile(`(?:href|src)="(/static/[^"]+)"`).FindAllStringSubmatch(string(b), -1)
-		if len(urls) != 4 {
-			t.Fatalf("page links %d static assets, want 4 (tokens, base, shell css + htmx)", len(urls))
+		if len(urls) != 6 {
+			t.Fatalf("page links %d static assets, want 6 (tokens, base, components, shell css, htmx, the preloaded Inter)", len(urls))
 		}
 		raw := &http.Client{Transport: &http.Transport{DisableCompression: true}}
 		for _, m := range urls {
@@ -379,8 +379,11 @@ func TestMilestone0(t *testing.T) {
 			if cc := plainResp.Header.Get("Cache-Control"); !strings.Contains(cc, "immutable") {
 				t.Errorf("%s Cache-Control = %q", m[1], cc)
 			}
-			if !regexp.MustCompile(`\.[0-9a-f]{16}\.(css|js)$`).MatchString(m[1]) {
+			if !regexp.MustCompile(`\.[0-9a-f]{16}\.(css|js|woff2)$`).MatchString(m[1]) {
 				t.Errorf("%s is not content-hashed", m[1])
+			}
+			if strings.HasSuffix(m[1], ".woff2") {
+				continue // already compressed: served as is
 			}
 			gzResp, gz := body(t, raw, url, map[string]string{"Accept-Encoding": "gzip"})
 			if gzResp.Header.Get("Content-Encoding") != "gzip" {

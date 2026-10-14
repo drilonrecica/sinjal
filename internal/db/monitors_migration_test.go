@@ -249,6 +249,7 @@ func assertMatchesSpec(t *testing.T, e env, tables, indexes []string) {
 		s = strings.Join(strings.Fields(s), " ")
 		s = strings.ReplaceAll(s, "( ", "(")
 		s = strings.ReplaceAll(s, " )", ")")
+		s = strings.ReplaceAll(s, " ,", ",") // ALTER TABLE ADD COLUMN appends after a newline
 		return strings.TrimSuffix(strings.TrimSpace(s), ";")
 	}
 	for _, table := range tables {

@@ -8,7 +8,10 @@ templ Shell(page Page, active string) {
 		<div class="shell">
 			<div class="sidebar">
 				<header class="brand">
-					<a class="brand-link" href="/">Sinjal</a>
+					<a class="brand-link" href="/">
+						@Wordmark()
+						<span class="visually-hidden">Sinjal</span>
+					</a>
 				</header>
 				<nav class="nav" aria-label="Primary">
 					<ul role="list">

@@ -26,7 +26,7 @@ templ OverviewBody(v OverviewView) {
 				<h2 id="overview-empty-title">No monitors yet</h2>
 				if v.Admin {
 					<p>Add a website or service to start watching it.</p>
-					<a class="action" href="/monitors/new">Create monitor</a>
+					<a class="button button-primary" href="/monitors/new">Create monitor</a>
 				} else {
 					<p>An admin has not added any monitors yet.</p>
 				}
@@ -38,7 +38,7 @@ templ OverviewBody(v OverviewView) {
 					<ul role="list">
 						for _, p := range v.Problems {
 							<li class="problem" data-state={ p.State }>
-								<span class="problem-glyph" aria-hidden="true">{ problemGlyph(p.State) }</span>
+								<span class="problem-glyph">@Icon(problemIcon(p.State))</span>
 								<a href={ templ.SafeURL(p.Href) }>{ p.Text }</a>
 							</li>
 						}
@@ -69,12 +69,10 @@ templ OverviewBody(v OverviewView) {
 	</div>
 }
 
-func problemGlyph(state string) string {
+func problemIcon(state string) string {
 	switch state {
-	case StateDown:
-		return "▼"
-	case StateFlapping:
-		return "◆"
+	case StateDown, StateFlapping:
+		return stateIcon(state)
 	}
-	return "!"
+	return "triangle-alert"
 }

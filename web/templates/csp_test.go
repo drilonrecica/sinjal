@@ -104,7 +104,7 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 			{ID: "s2", Title: "Partners", Slug: "partners", Visibility: "unlisted", Monitors: 1}}}),
 		"statusPagesNone":  StatusPageList(page, StatusPageListView{}),
 		"statusPageForm":   StatusPageFormPage(page, testStatusPageForm),
-		"statusPageNew":    StatusPageFormPage(page, StatusPageForm{Visibility: "public", Theme: "paper", IncidentDays: "30", ShowPoweredBy: true, Origin: "https://x"}),
+		"statusPageNew":    StatusPageFormPage(page, StatusPageForm{Visibility: "public", Theme: "daylight", IncidentDays: "30", ShowPoweredBy: true, Origin: "https://x"}),
 		"statusPageToken":  StatusPageToken(page, StatusPageTokenView{ID: "s1", Title: "Main", URL: "https://x/s/abc", Regenerated: true}),
 		"statusPageDelete": StatusPageDeleteConfirm(page, DeleteConfirmView{ID: "s1", Name: "Main"}),
 		"totpSetup":        TOTPSetup(page, TOTPSetupView{Secret: "AAAA BBBB", URI: "otpauth://totp/x", QR: "data:image/png;base64,AAAA", Pending: "p", Error: "e"}),
@@ -127,9 +127,9 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 		Presets: []RangeOption{{Label: "1 hour", Href: "/monitors/m1?tab=history&range=1h", Current: true}, {Label: "24 hours", Href: "/monitors/m1?tab=history&range=24h"}}}}
 	withData.Monitor.Sparkline = Sparkline{Points: "0,1 100,2", Failures: []float64{50}, Label: "l"}
 	pages["detail-history-data"] = MonitorDetail(page, withData)
-	pages["public"] = PublicStatusPage(testPublicPage, "paper")
-	pages["publicPassword"] = PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "carbon")
-	pages["publicMessage"] = PublicMessagePage("P", "m", "midnight")
+	pages["public"] = PublicStatusPage(testPublicPage, "daylight")
+	pages["publicPassword"] = PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "stark")
+	pages["publicMessage"] = PublicMessagePage("P", "m", "terminal")
 	pages["publicEmpty"] = PublicStatusPage(PublicPage{Title: "Empty", Overall: OverallNone, Uptime: "—", IncidentDays: 1}, "terminal")
 	for name, c := range pages {
 		var buf bytes.Buffer

@@ -197,10 +197,10 @@ func (a *Authenticator) rehash(ctx context.Context, userID, password, old string
 func (a *Authenticator) lookup(ctx context.Context, where string, arg string) (credentials, bool, error) {
 	var c credentials
 	var hash, theme sql.NullString
-	err := a.db.Reader.QueryRowContext(ctx, `SELECT u.id, u.login, u.role, u.theme, u.density, u.password_hash, u.disabled,
+	err := a.db.Reader.QueryRowContext(ctx, `SELECT u.id, u.login, u.role, u.theme, u.density, u.ambient_light, u.password_hash, u.disabled,
 			u.totp_secret_enc IS NOT NULL
 		FROM users u WHERE `+where, arg).
-		Scan(&c.user.ID, &c.user.Login, &c.user.Role, &theme, &c.user.Density, &hash, &c.disabled, &c.totp)
+		Scan(&c.user.ID, &c.user.Login, &c.user.Role, &theme, &c.user.Density, &c.user.AmbientLight, &hash, &c.disabled, &c.totp)
 	if errors.Is(err, sql.ErrNoRows) {
 		return credentials{}, false, nil
 	}

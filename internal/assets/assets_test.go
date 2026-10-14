@@ -204,3 +204,46 @@ func TestEmbeddedAssets(t *testing.T) {
 		t.Errorf("Content-Type = %q", rec.Header().Get("Content-Type"))
 	}
 }
+
+func TestCSSURLsPointAtHashedAssets(t *testing.T) {
+	fsys := fstest.MapFS{
+		"fonts/ui.woff2": {Data: []byte("font v1")},
+		"css/base.css":   {Data: []byte(`@font-face { src: url("../fonts/ui.woff2") format("woff2"); } a { background: url(data:image/gif;base64,R0lGOD); }`)},
+	}
+	r := mustNew(t, fsys)
+	font := strings.TrimPrefix(r.URL("fonts/ui.woff2"), Prefix+"fonts/")
+	css := do(r.Handler(), "GET", r.URL("css/base.css"), nil).Body.String()
+	if !strings.Contains(css, `url("../fonts/`+font+`")`) {
+		t.Errorf("font reference not rewritten to %q:\n%s", font, css)
+	}
+	if !strings.Contains(css, "url(data:image/gif;base64,R0lGOD)") {
+		t.Errorf("data: URL was touched:\n%s", css)
+	}
+
+	// A changed font changes the stylesheet's URL as well.
+	before := r.URL("css/base.css")
+	fsys["fonts/ui.woff2"] = &fstest.MapFile{Data: []byte("font v2")}
+	if after := mustNew(t, fsys).URL("css/base.css"); after == before {
+		t.Error("stylesheet URL did not change with the font it references")
+	}
+}
+
+func TestCSSURLToMissingAssetRejected(t *testing.T) {
+	_, err := New(fstest.MapFS{"css/base.css": {Data: []byte(`a { src: url(../fonts/gone.woff2); }`)}})
+	if err == nil || !strings.Contains(err.Error(), "gone.woff2") {
+		t.Errorf("err = %v, want an error naming the missing asset", err)
+	}
+}
+
+func TestEmbeddedFontsWithinBudget(t *testing.T) {
+	// docs/18: self-hosted fonts ≤150 KB of woff2 in total.
+	total := 0
+	for name, hashed := range Default.byName {
+		if strings.HasSuffix(name, ".woff2") {
+			total += len(Default.byHash[hashed].body)
+		}
+	}
+	if total == 0 || total > 150<<10 {
+		t.Errorf("embedded woff2 total = %d bytes, want 1..%d", total, 150<<10)
+	}
+}

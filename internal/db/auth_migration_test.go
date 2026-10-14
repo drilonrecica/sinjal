@@ -79,8 +79,8 @@ func TestAuthTableColumns(t *testing.T) {
 	e := migratedEnv(t)
 	// name:notnull[=default]
 	want := map[string]string{
-		"users": "id:0 login:1 display_name:0 role:1 password_hash:0 totp_secret_enc:0 totp_last_step:0 disabled:1=0 theme:0 " +
-			"density:1='comfortable' sidebar_collapsed:1=0 created_at:1 updated_at:1",
+		"users": "id:0 login:1 display_name:0 role:1 password_hash:0 totp_secret_enc:0 totp_last_step:0 disabled:1=0 " +
+			"density:1='comfortable' sidebar_collapsed:1=0 created_at:1 updated_at:1 theme:0 ambient_light:1=1",
 		"sessions":     "id:0 token_hash:1 user_id:1 created_at:1 expires_at:1 last_seen_at:1 reauthenticated_at:0 user_agent:0 ip_hint:0",
 		"passkeys":     "id:0 user_id:1 credential_id:1 public_key:1 sign_count:1=0 transports_json:0 backup_eligible:1=0 label:0 created_at:1 last_used_at:0",
 		"audit_events": "id:0 user_id:0 event_type:1 object_type:0 object_id:0 metadata_json:0 created_at:1",
@@ -117,21 +117,23 @@ func TestUserConstraintsAndDefaults(t *testing.T) {
 	e := migratedEnv(t)
 	e.addUser(t, "u1", "admin")
 
-	var disabled, collapsed int
+	var disabled, collapsed, ambient int
 	var density string
 	var theme, password sql.NullString
-	err := e.db.Writer.QueryRow(`SELECT disabled, density, sidebar_collapsed, theme, password_hash FROM users WHERE id='u1'`).
-		Scan(&disabled, &density, &collapsed, &theme, &password)
+	err := e.db.Writer.QueryRow(`SELECT disabled, density, sidebar_collapsed, theme, password_hash, ambient_light FROM users WHERE id='u1'`).
+		Scan(&disabled, &density, &collapsed, &theme, &password, &ambient)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if disabled != 0 || density != "comfortable" || collapsed != 0 || theme.Valid || password.Valid {
-		t.Errorf("defaults = disabled %d density %q collapsed %d theme %v password %v", disabled, density, collapsed, theme, password)
+	if disabled != 0 || density != "comfortable" || collapsed != 0 || theme.Valid || password.Valid || ambient != 1 {
+		t.Errorf("defaults = disabled %d density %q collapsed %d theme %v password %v ambient %d", disabled, density, collapsed, theme, password, ambient)
 	}
 
 	bad := map[string]string{
 		"unknown role":    `INSERT INTO users (id, login, role, created_at, updated_at) VALUES ('u2','b','owner','x','x')`,
 		"unknown theme":   `INSERT INTO users (id, login, role, theme, created_at, updated_at) VALUES ('u3','c','admin','neon','x','x')`,
+		"old theme":       `INSERT INTO users (id, login, role, theme, created_at, updated_at) VALUES ('u7','e','admin','carbon','x','x')`,
+		"ambient not 0/1": `INSERT INTO users (id, login, role, ambient_light, created_at, updated_at) VALUES ('u8','f','admin',2,'x','x')`,
 		"unknown density": `INSERT INTO users (id, login, role, density, created_at, updated_at) VALUES ('u4','d','admin','huge','x','x')`,
 		"duplicate login": `INSERT INTO users (id, login, role, created_at, updated_at) VALUES ('u5','admin','viewer','x','x')`,
 		"missing login":   `INSERT INTO users (id, role, created_at, updated_at) VALUES ('u6','viewer','x','x')`,
@@ -141,7 +143,7 @@ func TestUserConstraintsAndDefaults(t *testing.T) {
 			t.Errorf("%s was accepted", name)
 		}
 	}
-	for _, theme := range []string{"carbon", "paper", "midnight", "terminal"} {
+	for _, theme := range []string{"stark", "terminal", "daylight"} {
 		e.mustExec(t, `INSERT INTO users (id, login, role, theme, created_at, updated_at) VALUES (?, ?, 'viewer', ?, 'x', 'x')`, "t-"+theme, "t-"+theme, theme)
 	}
 }
@@ -286,6 +288,7 @@ func TestAuthMigrationMatchesSpecSchema(t *testing.T) {
 		s = strings.Join(strings.Fields(s), " ")
 		s = strings.ReplaceAll(s, "( ", "(")
 		s = strings.ReplaceAll(s, " )", ")")
+		s = strings.ReplaceAll(s, " ,", ",") // ALTER TABLE ADD COLUMN appends after a newline
 		return strings.TrimSuffix(strings.TrimSpace(s), ";")
 	}
 

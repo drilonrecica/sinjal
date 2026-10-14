@@ -45,7 +45,7 @@ templ SettingsAuth(page Page, v SettingsAuthView) {
 				<p><strong>On.</strong> Signing in with your password also asks for a 6-digit code from your authenticator app.</p>
 				<form method="post" action="/settings/authentication/totp/disable">
 					@CSRFField(page)
-					<button class="settings-button settings-button-danger" type="submit">Turn off</button>
+					<button class="button button-danger" type="submit">Turn off</button>
 				</form>
 				<p class="auth-hint">To move to a new phone, turn it off and set it up again.</p>
 			} else {
@@ -66,7 +66,7 @@ templ SettingsAuth(page Page, v SettingsAuthView) {
 							<span class="passkey-meta">Added { k.Added } · { k.LastUsed }</span>
 							<form method="post" action={ templ.SafeURL("/settings/authentication/passkeys/" + k.ID + "/delete") }>
 								@CSRFField(page)
-								<button class="settings-button settings-button-danger" type="submit" aria-label={ "Remove passkey " + k.Label }>Remove</button>
+								<button class="button button-danger" type="submit" aria-label={ "Remove passkey " + k.Label }>Remove</button>
 							</form>
 						</li>
 					}
@@ -75,7 +75,7 @@ templ SettingsAuth(page Page, v SettingsAuthView) {
 			if v.PasskeysUnavailable != "" {
 				<p class="auth-hint">Passkeys cannot be added on this server. { v.PasskeysUnavailable }</p>
 			} else {
-				@passkeyButton("create", "/settings/authentication/passkeys/begin", "/settings/authentication/passkeys/finish", "", "settings-button", "Add a passkey") {
+				@passkeyButton("create", "/settings/authentication/passkeys/begin", "/settings/authentication/passkeys/finish", "", "button", "Add a passkey") {
 					<div class="auth-field">
 						<label for="passkey-label">Name for the new passkey</label>
 						<input id="passkey-label" type="text" maxlength="64" autocomplete="off" aria-describedby="passkey-label-hint" data-passkey-label/>
@@ -105,12 +105,12 @@ templ SettingsAuth(page Page, v SettingsAuthView) {
 							if u.Disabled {
 								<form method="post" action={ templ.SafeURL("/settings/authentication/viewers/" + u.ID + "/enable") }>
 									@CSRFField(page)
-									<button class="settings-button" type="submit" aria-label={ "Enable " + u.Login }>Enable</button>
+									<button class="button" type="submit" aria-label={ "Enable " + u.Login }>Enable</button>
 								</form>
 							} else {
 								<form method="post" action={ templ.SafeURL("/settings/authentication/viewers/" + u.ID + "/disable") }>
 									@CSRFField(page)
-									<button class="settings-button settings-button-danger" type="submit" aria-label={ "Disable " + u.Login }>Disable</button>
+									<button class="button button-danger" type="submit" aria-label={ "Disable " + u.Login }>Disable</button>
 								</form>
 							}
 						</li>
@@ -130,7 +130,7 @@ templ SettingsAuth(page Page, v SettingsAuthView) {
 				@field("confirm", "Confirm password", v.ViewerForm.Errors) {
 					<input id="confirm" name="confirm" type="password" autocomplete="new-password" required { fieldAttrs("confirm", v.ViewerForm.Errors)... }/>
 				}
-				<button class="auth-submit" type="submit">Add viewer</button>
+				<button class="button button-primary" type="submit">Add viewer</button>
 			</form>
 		</section>
 	}
@@ -160,7 +160,7 @@ templ TOTPSetup(page Page, v TOTPSetupView) {
 					@CSRFField(page)
 					<input type="hidden" name="pending" value={ v.Pending }/>
 					@codeField("6-digit code", true, v.Error != "")
-					<button class="auth-submit" type="submit">Turn on</button>
+					<button class="button button-primary" type="submit">Turn on</button>
 				</form>
 			</li>
 		</ol>

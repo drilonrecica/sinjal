@@ -20,80 +20,16 @@
 }
 
 .auth-brand {
-  font-weight: 650;
-  color: var(--text-muted);
+  color: var(--text);
 }
 
-.auth-lead,
-.auth-hint {
+.auth-lead {
   color: var(--text-muted);
-}
-
-.auth-hint,
-.auth-error {
-  font-size: var(--text-sm);
 }
 
 .auth-form {
   display: grid;
   gap: var(--space-4);
-}
-
-.auth-field {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.auth-field label {
-  font-weight: 600;
-}
-
-.auth-field input {
-  min-height: 2.75rem; /* touch target */
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-1);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-}
-
-.auth-field input:focus-visible {
-  border-color: var(--accent);
-}
-
-/* An invalid field is marked by its border and by the message under it. */
-.auth-field input[aria-invalid="true"] {
-  border-color: var(--status-down);
-}
-
-.auth-error {
-  color: var(--status-down);
-}
-
-.auth-alert {
-  padding: var(--space-3);
-  border: 1px solid var(--status-down);
-  border-radius: var(--radius-md);
-}
-
-.auth-notice {
-  padding: var(--space-3);
-  border: 1px solid var(--status-up);
-  border-radius: var(--radius-md);
-}
-
-.auth-submit {
-  min-height: 2.75rem;
-  padding: var(--space-2) var(--space-4);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  border: 0;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.auth-submit:hover {
-  filter: brightness(1.08);
 }
 
 /* The settings pages place these forms in the main column, not a card. */
@@ -107,16 +43,3 @@
   gap: var(--space-3);
 }
 
-.auth-secondary {
-  min-height: 2.75rem;
-  padding: var(--space-2) var(--space-4);
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.auth-secondary:hover {
-  background: var(--surface-2);
-}

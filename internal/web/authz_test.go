@@ -160,13 +160,13 @@ func TestRequireAuth(t *testing.T) {
 
 	// Both roles can read; the page uses the user's theme preference.
 	e.addUser(t, "v1", "viewer", "viewer", "")
-	if _, err := e.db.Writer.Exec(`UPDATE users SET theme = 'paper', density = 'compact' WHERE id = 'v1'`); err != nil {
+	if _, err := e.db.Writer.Exec(`UPDATE users SET theme = 'daylight', density = 'compact', ambient_light = 0 WHERE id = 'v1'`); err != nil {
 		t.Fatal(err)
 	}
 	cookie, _ := e.signIn(t, "v1")
 	rec = e.serve(withCookie(req("GET", "/monitors", nil), cookie))
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `data-theme="paper" data-density="compact"`) {
-		t.Errorf("viewer page = %d, theme not applied", rec.Code)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `data-theme="daylight" data-density="compact" data-ambient="off"`) {
+		t.Errorf("viewer page = %d, theme, density or Ambient light not applied", rec.Code)
 	}
 }
 

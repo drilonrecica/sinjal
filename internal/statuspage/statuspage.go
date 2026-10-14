@@ -28,10 +28,10 @@ const (
 var Visibilities = []string{Public, Authenticated, Password, Unlisted}
 
 // Themes are the built-in themes a page may use (docs/05_THEMES.md).
-var Themes = []string{"carbon", "paper", "midnight", "terminal"}
+var Themes = []string{"stark", "terminal", "daylight"}
 
 // DefaultTheme is the theme of a new page.
-const DefaultTheme = "paper"
+const DefaultTheme = "daylight"
 
 // Bounds of the page fields.
 const (

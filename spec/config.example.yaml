@@ -7,7 +7,7 @@ instance:
   timezone: Europe/Belgrade
   default_interval: 30s
   default_timeout: 5s
-  theme: carbon
+  theme: stark
   density: comfortable
 
 notification_profiles:
@@ -86,7 +86,7 @@ status_pages:
   - title: Example Status
     slug: example
     visibility: public
-    theme: paper
+    theme: daylight
     show_powered_by: true
     incident_days: 30
     groups:

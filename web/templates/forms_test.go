@@ -20,7 +20,7 @@ func renderString(t *testing.T, c templ.Component) string {
 
 // testStatusPageForm is an unlisted page being edited, with an error on
 // every kind of field, a group and two monitors.
-var testStatusPageForm = StatusPageForm{ID: "s1", Title: "Main", Slug: "main", Visibility: "unlisted", Theme: "paper", Accent: "#3e67a8",
+var testStatusPageForm = StatusPageForm{ID: "s1", Title: "Main", Slug: "main", Visibility: "unlisted", Theme: "daylight", Accent: "#3e67a8",
 	IncidentDays: "30", HasPassword: true, HasToken: true, Logo: "0123456789abcdef0123456789abcdef.png", Groups: "Web", GroupNames: []string{"Web"}, Hosts: "status.example.com", Origin: "https://x",
 	Monitors: []StatusPageMonitorRow{{ID: "m1", Name: "API", Show: true, DisplayName: "Our API", Group: "Web", Order: "1", ShowLatency: true}, {ID: "m2", Name: "Site"}},
 	Errors: map[string]string{"form": "f", "title": "x", "slug": "x", "visibility": "x", "password": "x", "accent": "x", "incident_days": "x",
@@ -49,7 +49,7 @@ func TestEveryInputHasALabel(t *testing.T) {
 		"monitor":      renderString(t, MonitorFormPage(signedIn, testMonitorForm)),
 		"profile":      renderString(t, ProfileFormPage(signedIn, testProfileForm)),
 		"statusPage":   renderString(t, StatusPageFormPage(signedIn, testStatusPageForm)),
-		"pagePassword": renderString(t, PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "paper")),
+		"pagePassword": renderString(t, PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "daylight")),
 		"channel":      renderString(t, ChannelFormPage(signedIn, ChannelForm{ID: "c1", Type: "smtp", Values: map[string]string{}, SecretSet: map[string]bool{"password": true}})),
 	}
 	for name, html := range views {

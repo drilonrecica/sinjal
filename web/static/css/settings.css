@@ -31,7 +31,7 @@
 /* The current page is marked by weight and a bar, not by colour alone. */
 .settings-nav-link[aria-current="page"] {
   color: var(--text);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .settings-nav-link[aria-current="page"]::after {
@@ -63,27 +63,6 @@
 
 .settings-steps .auth-form {
   max-width: 16rem;
-}
-
-.settings-button {
-  min-height: 2.75rem; /* touch target */
-  padding: var(--space-2) var(--space-4);
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.settings-button:hover {
-  background: var(--surface-2);
-}
-
-/* Actions that remove access sit apart in the danger colour, always with a
- * text label (docs/04_DESIGN_SYSTEM.md "Forms"). */
-.settings-button-danger {
-  border-color: var(--status-down);
-  color: var(--status-down);
 }
 
 /* Black on white in every theme: phone cameras need the contrast. */

@@ -37,11 +37,11 @@
       viewmodels/
 
   web/
-    templates/
+    templates/      # icons are inline SVG in templates/icons.go (M8-01), not files
     static/
       css/
       js/
-      icons/
+      fonts/        # self-hosted woff2 + their OFL texts
 
   docs/
   spec/

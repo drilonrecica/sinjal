@@ -2209,7 +2209,7 @@ func MonitorFormPage(page Page, f MonitorForm) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if f.Editing() {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 210, "<button class=\"auth-submit\" type=\"submit\">Save changes</button> <a href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 210, "<button class=\"button button-primary\" type=\"submit\">Save changes</button> <a href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2227,7 +2227,7 @@ func MonitorFormPage(page Page, f MonitorForm) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "<button class=\"auth-submit\" type=\"submit\">Create monitor</button> <a href=\"/monitors\">Cancel</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "<button class=\"button button-primary\" type=\"submit\">Create monitor</button> <a href=\"/monitors\">Cancel</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

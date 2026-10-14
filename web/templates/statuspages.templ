@@ -8,13 +8,13 @@ templ StatusPageList(page Page, v StatusPageListView) {
 	@Shell(page.withAssets([]string{"css/monitors.css", "css/maintenance.css", "css/statuspages.css"}, nil), "status-pages") {
 		<div class="page-head">
 			<h1>Status Pages</h1>
-			<a class="action" href="/status-pages/new">New status page</a>
+			<a class="button button-primary" href="/status-pages/new">New status page</a>
 		</div>
 		if len(v.Rows) == 0 {
 			<section class="empty-state" aria-labelledby="sp-empty-title">
 				<h2 id="sp-empty-title">No status pages</h2>
 				<p>A status page tells your users what is up. Choose the monitors it shows, under names that are safe to publish, and who may see it.</p>
-				<a class="action" href="/status-pages/new">New status page</a>
+				<a class="button button-primary" href="/status-pages/new">New status page</a>
 			</section>
 		} else {
 			<ul class="maint-list sp-list" role="list">
@@ -194,7 +194,7 @@ templ StatusPageFormPage(page Page, f StatusPageForm) {
 					}
 				</fieldset>
 				<div class="form-actions">
-					<button class="auth-submit" type="submit">
+					<button class="button button-primary" type="submit">
 						if f.Editing() {
 							Save changes
 						} else {
@@ -218,7 +218,7 @@ templ StatusPageFormPage(page Page, f StatusPageForm) {
 							<input id="logo" name="logo" type="file" accept="image/png,image/jpeg" required { fieldAttrs("logo", f.Errors, "logo-hint")... }/>
 							<p id="logo-hint" class="auth-hint">PNG or JPEG, at most 512 KB and 1024 × 1024 pixels. It uploads on its own; unsaved changes above are not kept.</p>
 						}
-						<button class="detail-button" type="submit">
+						<button class="button" type="submit">
 							if f.Logo != "" {
 								Replace logo
 							} else {
@@ -229,7 +229,7 @@ templ StatusPageFormPage(page Page, f StatusPageForm) {
 					if f.Logo != "" {
 						<form method="post" action={ templ.SafeURL("/status-pages/" + f.ID + "/logo/delete") }>
 							@CSRFField(page)
-							<button class="detail-button" type="submit">Remove logo</button>
+							<button class="button" type="submit">Remove logo</button>
 						</form>
 					}
 				</section>
@@ -237,12 +237,12 @@ templ StatusPageFormPage(page Page, f StatusPageForm) {
 					<form class="maint-delete" method="post" action={ templ.SafeURL("/status-pages/" + f.ID + "/token") }>
 						@CSRFField(page)
 						<p class="auth-hint">Issuing a new address stops the old one working at once. You will be asked to confirm your password.</p>
-						<button class="detail-button" type="submit">Issue a new address</button>
+						<button class="button" type="submit">Issue a new address</button>
 					</form>
 				}
 				<form class="maint-delete" method="post" action={ templ.SafeURL("/status-pages/" + f.ID + "/delete") }>
 					@CSRFField(page)
-					<button class="detail-button detail-button-danger" type="submit">Delete this page</button>
+					<button class="button button-danger" type="submit">Delete this page</button>
 				</form>
 			}
 		</div>
@@ -273,7 +273,7 @@ templ StatusPageToken(page Page, t StatusPageTokenView) {
 				<p class="auth-hint">Anyone who has it can open the page. It is not linked from anywhere and search engines are told to ignore it.</p>
 			</section>
 			<div class="form-actions">
-				<a class="auth-submit" href={ templ.SafeURL("/status-pages/" + t.ID + "/edit") }>Back to the page</a>
+				<a class="button button-primary" href={ templ.SafeURL("/status-pages/" + t.ID + "/edit") }>Back to the page</a>
 			</div>
 		</div>
 	}
@@ -290,9 +290,9 @@ templ StatusPageDeleteConfirm(page Page, v DeleteConfirmView) {
 				<form method="post" action={ templ.SafeURL("/status-pages/" + v.ID + "/delete") }>
 					@CSRFField(page)
 					<input type="hidden" name="confirm" value="1"/>
-					<button class="detail-button detail-button-danger" type="submit">Delete page</button>
+					<button class="button button-danger" type="submit">Delete page</button>
 				</form>
-				<a class="detail-button" href={ templ.SafeURL("/status-pages/" + v.ID + "/edit") }>Cancel</a>
+				<a class="button" href={ templ.SafeURL("/status-pages/" + v.ID + "/edit") }>Cancel</a>
 			</div>
 		</div>
 	}

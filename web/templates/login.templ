@@ -20,10 +20,10 @@ templ Login(page Page, f LoginForm) {
 				<label for="password">Password</label>
 				<input id="password" name="password" type="password" autocomplete="current-password" required autofocus?={ f.Login != "" } { formErrorAttrs(f.Error != "")... }/>
 			</div>
-			<button class="auth-submit" type="submit">Sign in</button>
+			<button class="button button-primary" type="submit">Sign in</button>
 		</form>
 		if f.Passkey {
-			@passkeyButton("get", "/login/passkey/begin", "/login/passkey/finish", f.Next, "auth-secondary", "Sign in with a passkey")
+			@passkeyButton("get", "/login/passkey/begin", "/login/passkey/finish", f.Next, "button", "Sign in with a passkey")
 		}
 	}
 }
@@ -43,7 +43,7 @@ templ LoginTOTP(page Page, f LoginTOTPForm) {
 				<input type="hidden" name="next" value={ f.Next }/>
 			}
 			@codeField("Authentication code", true, f.Error != "")
-			<button class="auth-submit" type="submit">Sign in</button>
+			<button class="button button-primary" type="submit">Sign in</button>
 		</form>
 		<p class="auth-hint"><a href="/login">Start over</a></p>
 	}

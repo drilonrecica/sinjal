@@ -45,6 +45,9 @@ type User struct {
 	Role    string // "admin" or "viewer"
 	Theme   string // "" = instance default
 	Density string
+	// AmbientLight is the Ambient light preference (docs/04): the radial
+	// light behind a status hero.
+	AmbientLight bool
 }
 
 // Sessions stores sessions in the database. Lookups always read the
@@ -153,11 +156,11 @@ func (s *Sessions) Lookup(ctx context.Context, token string, now time.Time) (Ses
 	var created, expires, lastSeen string
 	var reauth, theme sql.NullString
 	err := s.db.Reader.QueryRowContext(ctx, `SELECT s.id, s.user_id, s.created_at, s.expires_at, s.last_seen_at,
-			s.reauthenticated_at, u.login, u.role, u.theme, u.density
+			s.reauthenticated_at, u.login, u.role, u.theme, u.density, u.ambient_light
 		FROM sessions s JOIN users u ON u.id = s.user_id
 		WHERE s.token_hash = ? AND s.expires_at > ? AND u.disabled = 0`,
 		hash, formatTime(now)).
-		Scan(&sess.ID, &sess.UserID, &created, &expires, &lastSeen, &reauth, &u.Login, &u.Role, &theme, &u.Density)
+		Scan(&sess.ID, &sess.UserID, &created, &expires, &lastSeen, &reauth, &u.Login, &u.Role, &theme, &u.Density, &u.AmbientLight)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Session{}, User{}, ErrNoSession
 	}

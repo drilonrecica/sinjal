@@ -14,7 +14,7 @@ templ MonitorList(page Page, v MonitorListView) {
 		<div class="page-head">
 			<h1>Monitors</h1>
 			if v.Admin && len(v.Monitors) > 0 {
-				<a class="action" href="/monitors/new">Create monitor</a>
+				<a class="button button-primary" href="/monitors/new">Create monitor</a>
 			}
 		</div>
 		if len(v.Monitors) == 0 {
@@ -22,7 +22,7 @@ templ MonitorList(page Page, v MonitorListView) {
 				<h2 id="empty-title">No monitors yet</h2>
 				if v.Admin {
 					<p>Add a website or service to start watching it.</p>
-					<a class="action" href="/monitors/new">Create monitor</a>
+					<a class="button button-primary" href="/monitors/new">Create monitor</a>
 				} else {
 					<p>An admin has not added any monitors yet.</p>
 				}

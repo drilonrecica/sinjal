@@ -60,11 +60,11 @@ func TestStatusBadgeHasTextForEveryState(t *testing.T) {
 			t.Errorf("%q: no visible text %q in %s", state, label, html)
 		}
 		if !strings.Contains(html, `aria-hidden="true"`) {
-			t.Errorf("%q: glyph is not hidden from screen readers", state)
+			t.Errorf("%q: icon is not hidden from screen readers", state)
 		}
-		glyphs[stateGlyph(state)] = true
+		glyphs[stateIcon(state)] = true
 	}
-	if len(glyphs) != 5 { // pending shares its glyph with the unknown state
+	if len(glyphs) != 5 { // pending shares its icon with the unknown state
 		t.Errorf("states do not each have their own glyph: %v", glyphs)
 	}
 }

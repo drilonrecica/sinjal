@@ -10,7 +10,7 @@ templ NotificationsPage(page Page, v ChannelListView) {
 		<div class="page-head">
 			<h1>Notifications</h1>
 			if v.Admin {
-				<a class="action" href="/notifications/channels/new">Add channel</a>
+				<a class="button button-primary" href="/notifications/channels/new">Add channel</a>
 			}
 		</div>
 		<div hx-ext="sse" sse-connect="/events" hx-trigger="sse:notification.channel_updated">
@@ -20,7 +20,7 @@ templ NotificationsPage(page Page, v ChannelListView) {
 			<div class="section-head">
 				<h2 id="profiles-title">Profiles</h2>
 				if v.Admin && len(v.Rows) > 0 {
-					<a class="action" href="/notifications/profiles/new">Add profile</a>
+					<a class="button button-primary" href="/notifications/profiles/new">Add profile</a>
 				}
 			</div>
 			if len(v.Profiles) == 0 {
@@ -30,7 +30,7 @@ templ NotificationsPage(page Page, v ChannelListView) {
 						if len(v.Rows) == 0 {
 							<p class="auth-hint">Add a channel first: a profile routes to channels.</p>
 						} else {
-							<a class="action" href="/notifications/profiles/new">Add profile</a>
+							<a class="button button-primary" href="/notifications/profiles/new">Add profile</a>
 						}
 					}
 				</div>
@@ -72,7 +72,7 @@ templ ChannelSection(v ChannelListView) {
 			<div class="empty-state">
 				<p>No channels yet. A channel is where Sinjal sends alerts: email, Telegram, Discord or a webhook.</p>
 				if v.Admin {
-					<a class="action" href="/notifications/channels/new">Add channel</a>
+					<a class="button button-primary" href="/notifications/channels/new">Add channel</a>
 				}
 			</div>
 		} else {
@@ -162,7 +162,7 @@ templ ChannelFormPage(page Page, f ChannelForm) {
 					}
 				</fieldset>
 				<div class="form-actions">
-					<button class="auth-submit" type="submit">
+					<button class="button button-primary" type="submit">
 						if f.Editing() {
 							Save changes
 						} else {
@@ -185,12 +185,12 @@ templ ChannelFormPage(page Page, f ChannelForm) {
 					}
 					<form method="post" action={ templ.SafeURL("/notifications/channels/" + f.ID + "/test") }>
 						@CSRFField(page)
-						<button class="detail-button" type="submit">Send test notification</button>
+						<button class="button" type="submit">Send test notification</button>
 					</form>
 				</section>
 				<form class="chan-delete" method="post" action={ templ.SafeURL("/notifications/channels/" + f.ID + "/delete") }>
 					@CSRFField(page)
-					<button class="detail-button detail-button-danger" type="submit">Delete this channel</button>
+					<button class="button button-danger" type="submit">Delete this channel</button>
 				</form>
 			}
 		</div>
@@ -235,9 +235,9 @@ templ ChannelDeleteConfirm(page Page, v DeleteConfirmView) {
 				<form method="post" action={ templ.SafeURL("/notifications/channels/" + v.ID + "/delete") }>
 					@CSRFField(page)
 					<input type="hidden" name="confirm" value="1"/>
-					<button class="detail-button detail-button-danger" type="submit">Delete channel</button>
+					<button class="button button-danger" type="submit">Delete channel</button>
 				</form>
-				<a class="detail-button" href="/notifications">Cancel</a>
+				<a class="button" href="/notifications">Cancel</a>
 			</div>
 		</div>
 	}
@@ -351,7 +351,7 @@ templ ProfileFormPage(page Page, f ProfileForm) {
 					}
 				</fieldset>
 				<div class="form-actions">
-					<button class="auth-submit" type="submit">
+					<button class="button button-primary" type="submit">
 						if f.Editing() {
 							Save changes
 						} else {
@@ -367,12 +367,12 @@ templ ProfileFormPage(page Page, f ProfileForm) {
 					<p>Sends a [TEST] DOWN to the channels this profile routes critical notifications to, and a [TEST] RECOVERY to its info channels, as the profile is saved now. Nothing is recorded: no incident, no delivery history, no change to channel health.</p>
 					<form method="post" action={ templ.SafeURL("/notifications/profiles/" + f.ID + "/simulate") }>
 						@CSRFField(page)
-						<button class="detail-button" type="submit">Simulate incident</button>
+						<button class="button" type="submit">Simulate incident</button>
 					</form>
 				</section>
 				<form class="chan-delete" method="post" action={ templ.SafeURL("/notifications/profiles/" + f.ID + "/delete") }>
 					@CSRFField(page)
-					<button class="detail-button detail-button-danger" type="submit">Delete this profile</button>
+					<button class="button button-danger" type="submit">Delete this profile</button>
 				</form>
 			}
 		</div>
@@ -394,9 +394,9 @@ templ ProfileDeleteConfirm(page Page, v DeleteConfirmView, monitors int) {
 				<form method="post" action={ templ.SafeURL("/notifications/profiles/" + v.ID + "/delete") }>
 					@CSRFField(page)
 					<input type="hidden" name="confirm" value="1"/>
-					<button class="detail-button detail-button-danger" type="submit">Delete profile</button>
+					<button class="button button-danger" type="submit">Delete profile</button>
 				</form>
-				<a class="detail-button" href="/notifications">Cancel</a>
+				<a class="button" href="/notifications">Cancel</a>
 			</div>
 		</div>
 	}
@@ -433,7 +433,7 @@ templ SimulationPage(page Page, v SimulationView) {
 				</ul>
 			}
 			<div class="detail-actions">
-				<a class="detail-button" href={ templ.SafeURL("/notifications/profiles/" + v.ProfileID + "/edit") }>Back to the profile</a>
+				<a class="button" href={ templ.SafeURL("/notifications/profiles/" + v.ProfileID + "/edit") }>Back to the profile</a>
 			</div>
 		</div>
 	}

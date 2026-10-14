@@ -26,7 +26,7 @@
 .form-advanced summary {
   padding: 0;
   font-size: 1rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* A legend sits on the border; the padding above keeps it clear. */
@@ -52,24 +52,10 @@
   gap: var(--space-4);
 }
 
-.monitor-form .auth-field select,
-.monitor-form .auth-field textarea {
-  min-height: 2.75rem; /* touch target */
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-1);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-}
-
 .monitor-form textarea {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   resize: vertical;
-}
-
-.monitor-form .auth-field select:focus-visible,
-.monitor-form .auth-field textarea:focus-visible {
-  border-color: var(--accent);
 }
 
 .monitor-form [aria-invalid="true"] {
@@ -194,7 +180,7 @@
 .type-switch a[aria-current="page"] {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .type-fixed {

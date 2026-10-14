@@ -23,7 +23,7 @@ func (e *appEnv) addPage(t *testing.T, in store.StatusPageInput) string {
 		in.Visibility = "public"
 	}
 	if in.Theme == "" {
-		in.Theme = "paper"
+		in.Theme = "daylight"
 	}
 	if in.IncidentDays == 0 {
 		in.IncidentDays = 30
@@ -88,7 +88,7 @@ func TestPublicPageRenders(t *testing.T) {
 		t.Fatalf("GET /status/main = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"Acme status", "Everything we run", `data-theme="paper"`, "Partial outage", "Web",
+	for _, want := range []string{"Acme status", "Everything we run", `data-theme="daylight"`, "Partial outage", "Web",
 		"We are restoring the database.", "Ongoing", "87 ms", "Powered by", "uptime over 90 days"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
@@ -132,11 +132,11 @@ func TestPublicPageOptions(t *testing.T) {
 	e := newAppEnv(t)
 	m := e.addMonitor(t, "x", "https://x.example.com/")
 	e.exec(t, `UPDATE monitors SET current_state = 'up'`)
-	e.addPage(t, store.StatusPageInput{Slug: "plain", Title: "Plain", Theme: "midnight",
+	e.addPage(t, store.StatusPageInput{Slug: "plain", Title: "Plain", Theme: "terminal",
 		Monitors: []store.StatusPageMonitorInput{{MonitorID: m, DisplayName: "Thing"}}})
 	rec := e.serve(req("GET", "/status/plain", nil))
 	body := rec.Body.String()
-	if rec.Code != 200 || !strings.Contains(body, `data-theme="midnight"`) || !strings.Contains(body, "All systems operational") {
+	if rec.Code != 200 || !strings.Contains(body, `data-theme="terminal"`) || !strings.Contains(body, "All systems operational") {
 		t.Fatalf("page = %d\n%s", rec.Code, body)
 	}
 	if strings.Contains(body, "Powered by") || strings.Contains(body, "<style") || strings.Contains(body, "<script") {

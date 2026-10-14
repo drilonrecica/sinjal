@@ -40,9 +40,11 @@ templ IncidentRows(v IncidentListView) {
 						<div class="incident-main">
 							<span class="incident-status">
 								if in.Active {
-									<span aria-hidden="true">▼</span> Active
+									@Icon("octagon-x")
+									Active
 								} else {
-									<span aria-hidden="true">●</span> Ended
+									@Icon("check")
+									Ended
 								}
 							</span>
 							if v.ShowMonitor {
@@ -119,7 +121,7 @@ templ IncidentDetail(page Page, v IncidentDetailView) {
 					if v.Error != "" {
 						<p class="auth-error" role="alert">{ v.Error }</p>
 					}
-					<button class="detail-button" type="submit">Add note</button>
+					<button class="button" type="submit">Add note</button>
 				</form>
 			}
 		</div>
@@ -131,7 +133,8 @@ templ IncidentTimeline(v IncidentDetailView) {
 	<div data-live-incidents hx-get={ "/fragments/incidents/" + v.Incident.ID } hx-trigger="refresh" hx-swap="outerHTML">
 		<h1 class="incident-title">
 			if v.Incident.Active {
-				<span aria-hidden="true">▼</span> Active:
+				@Icon("octagon-x")
+				Active:
 			} else {
 				Ended:
 			}

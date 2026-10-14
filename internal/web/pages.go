@@ -10,14 +10,16 @@ import (
 	"github.com/drilonrecica/sinjal/web/templates"
 )
 
-// pageFor builds the Page for a request: the signed-in user's theme and
-// density, and the CSRF token for forms.
+// pageFor builds the Page for a request: the signed-in user's theme,
+// density and Ambient light, and the CSRF token for forms.
 func pageFor(r *http.Request, title string) templates.Page {
 	var theme, density string
+	ambient := true
 	if cs, ok := SessionFromContext(r.Context()); ok {
-		theme, density = cs.User.Theme, cs.User.Density
+		theme, density, ambient = cs.User.Theme, cs.User.Density, cs.User.AmbientLight
 	}
 	page := templates.NewPage(title, theme, density)
+	page.AmbientOff = !ambient
 	page.Admin = isAdmin(r)
 	page.CSRFToken = CSRFToken(r)
 	return page

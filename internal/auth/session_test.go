@@ -34,7 +34,7 @@ func newSessionEnv(t *testing.T) sessionEnv {
 func (e sessionEnv) addUser(t *testing.T, id, login, role string) {
 	t.Helper()
 	if _, err := e.db.Writer.Exec(`INSERT INTO users (id, login, role, password_hash, theme, created_at, updated_at)
-		VALUES (?, ?, ?, 'x', 'paper', 'now', 'now')`, id, login, role); err != nil {
+		VALUES (?, ?, ?, 'x', 'daylight', 'now', 'now')`, id, login, role); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -84,7 +84,7 @@ func TestSessionCreateAndLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ID != sess.ID || u.ID != e.uid || u.Login != "admin" || u.Role != "admin" || u.Theme != "paper" || u.Density != "comfortable" {
+	if got.ID != sess.ID || u.ID != e.uid || u.Login != "admin" || u.Role != "admin" || u.Theme != "daylight" || u.Density != "comfortable" {
 		t.Errorf("Lookup = %+v %+v", got, u)
 	}
 

@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -56,43 +57,89 @@ var contentTypes = map[string]struct {
 	".ico":   {"image/x-icon", false},
 }
 
-// New reads every file in fsys and builds a Registry.
+// New reads every file in fsys and builds a Registry. Stylesheets are
+// added last: a relative url() in one (a font, an image) is rewritten to the
+// referenced asset's hashed name first, so the stylesheet's own hash changes
+// whenever something it references does.
 func New(fsys fs.FS) (*Registry, error) {
 	r := &Registry{byName: map[string]string{}, byHash: map[string]*asset{}}
+	var sheets []string
 	err := fs.WalkDir(fsys, ".", func(name string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		ext := path.Ext(name)
-		ct, ok := contentTypes[ext]
-		if !ok {
-			return fmt.Errorf("asset %q: unsupported file type %q", name, ext)
+		if _, ok := contentTypes[path.Ext(name)]; !ok {
+			return fmt.Errorf("asset %q: unsupported file type %q", name, path.Ext(name))
+		}
+		if path.Ext(name) == ".css" {
+			sheets = append(sheets, name)
+			return nil
 		}
 		body, err := fs.ReadFile(fsys, name)
 		if err != nil {
 			return err
 		}
-		sum := sha256.Sum256(body)
-		full := hex.EncodeToString(sum[:])
-		hashed := strings.TrimSuffix(name, ext) + "." + full[:16] + ext
-
-		a := &asset{
-			body:        body,
-			contentType: ct.mime,
-			etag:        `"` + full + `"`,
-			gzipETag:    `"` + full + `-gzip"`,
-		}
-		if ct.compressible {
-			a.gzipped = compress(body)
-		}
-		r.byName[name] = hashed
-		r.byHash[hashed] = a
+		r.add(name, body)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
+	for _, name := range sheets {
+		body, err := fs.ReadFile(fsys, name)
+		if err != nil {
+			return nil, err
+		}
+		if body, err = r.rewriteURLs(name, body); err != nil {
+			return nil, err
+		}
+		r.add(name, body)
+	}
 	return r, nil
+}
+
+// add stores one file under its content-hashed name.
+func (r *Registry) add(name string, body []byte) {
+	ext := path.Ext(name)
+	sum := sha256.Sum256(body)
+	full := hex.EncodeToString(sum[:])
+	hashed := strings.TrimSuffix(name, ext) + "." + full[:16] + ext
+	a := &asset{
+		body:        body,
+		contentType: contentTypes[ext].mime,
+		etag:        `"` + full + `"`,
+		gzipETag:    `"` + full + `-gzip"`,
+	}
+	if contentTypes[ext].compressible {
+		a.gzipped = compress(body)
+	}
+	r.byName[name] = hashed
+	r.byHash[hashed] = a
+}
+
+// cssURL matches url(...) with an optional quote. Only relative references
+// are rewritten; data:, absolute and fragment URLs are left alone.
+var cssURL = regexp.MustCompile(`url\(\s*(["']?)([^"')]+)(["']?)\s*\)`)
+
+// rewriteURLs points every relative url() in the stylesheet name at the
+// hashed asset it references. A reference to a missing asset is an error,
+// like an unknown name passed to URL.
+func (r *Registry) rewriteURLs(name string, body []byte) ([]byte, error) {
+	var missing error
+	out := cssURL.ReplaceAllFunc(body, func(m []byte) []byte {
+		sub := cssURL.FindSubmatch(m)
+		ref := string(sub[2])
+		if strings.Contains(ref, ":") || strings.HasPrefix(ref, "/") || strings.HasPrefix(ref, "#") {
+			return m
+		}
+		hashed, ok := r.byName[path.Join(path.Dir(name), ref)]
+		if !ok {
+			missing = fmt.Errorf("asset %q: url(%s) references a missing asset", name, ref)
+			return m
+		}
+		return []byte("url(" + string(sub[1]) + path.Join(path.Dir(ref), path.Base(hashed)) + string(sub[3]) + ")")
+	})
+	return out, missing
 }
 
 // compress returns the gzip form of body, or nil when it is not smaller.

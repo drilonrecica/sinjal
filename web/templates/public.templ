@@ -12,7 +12,7 @@ import (
 // (a plain meta refresh: the page has no script and never opens /events).
 templ PublicLayout(page Page, accentCSS string, noIndex bool, refresh bool) {
 	<!DOCTYPE html>
-	<html lang="en" data-theme={ page.Theme } data-density={ page.Density }>
+	<html lang="en" data-theme={ page.Theme } data-density={ page.Density } data-ambient={ page.Ambient() }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -24,8 +24,10 @@ templ PublicLayout(page Page, accentCSS string, noIndex bool, refresh bool) {
 				<meta http-equiv="refresh" content={ strconv.Itoa(PublicRefreshSeconds) }/>
 			}
 			<title>{ page.Title }</title>
+			<link rel="preload" href={ assets.URL("fonts/inter-var.woff2") } as="font" type="font/woff2" crossorigin="anonymous"/>
 			<link rel="stylesheet" href={ assets.URL("css/tokens.css") }/>
 			<link rel="stylesheet" href={ assets.URL("css/base.css") }/>
+			<link rel="stylesheet" href={ assets.URL("css/components.css") }/>
 			for _, name := range page.Styles {
 				<link rel="stylesheet" href={ assets.URL(name) }/>
 			}
@@ -47,7 +49,7 @@ templ PublicStatusPage(v PublicPage, theme string) {
 			@publicHeader(v)
 			<main>
 				<section class={ "public-overall", "public-overall-" + v.Overall } aria-labelledby="overall">
-					<h2 id="overall"><span class="public-glyph" aria-hidden="true">{ overallGlyph(v.Overall) }</span> { v.OverallText }</h2>
+					<h2 id="overall"><span class="public-glyph">@Icon(overallIcon(v.Overall))</span> { v.OverallText }</h2>
 					<p class="public-overall-meta">
 						<span>{ v.Uptime } uptime over 90 days</span>
 						<span>Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time></span>
@@ -97,7 +99,7 @@ templ publicRow(row PublicRow) {
 		<div class="public-service-head">
 			<span class="public-service-name">{ row.Name }</span>
 			<span class="public-service-state">
-				<span class="public-glyph" aria-hidden="true">{ publicStateGlyph(row.State) }</span>
+				<span class="public-glyph">@Icon(publicStateIcon(row.State))</span>
 				{ publicStateLabel(row.State) }
 			</span>
 		</div>

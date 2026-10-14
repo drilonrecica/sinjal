@@ -96,7 +96,7 @@ func BenchmarkStatusPage(b *testing.B) {
 		b.Fatal(err)
 	}
 	id, err := store.CreateStatusPage(b.Context(), e.db, store.StatusPageInput{Slug: "bench", Title: "Bench", Visibility: "public",
-		Theme: "paper", IncidentDays: 30, Monitors: mons}, now)
+		Theme: "daylight", IncidentDays: 30, Monitors: mons}, now)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func BenchmarkStatusPage(b *testing.B) {
 func BenchmarkHostRouter(b *testing.B) {
 	e := newAppEnv(b)
 	if _, err := store.CreateStatusPage(b.Context(), e.db, store.StatusPageInput{Slug: "p", Title: "P", Visibility: "public",
-		Theme: "paper", IncidentDays: 30, Hosts: []string{"status.example.com"}}, time.Now()); err != nil {
+		Theme: "daylight", IncidentDays: 30, Hosts: []string{"status.example.com"}}, time.Now()); err != nil {
 		b.Fatal(err)
 	}
 	next := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})

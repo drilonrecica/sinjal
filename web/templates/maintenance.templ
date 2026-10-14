@@ -10,7 +10,7 @@ templ MaintenanceList(page Page, v MaintenanceListView) {
 		<div class="page-head">
 			<h1>Maintenance</h1>
 			if v.Admin {
-				<a class="action" href="/maintenance/new">Schedule maintenance</a>
+				<a class="button button-primary" href="/maintenance/new">Schedule maintenance</a>
 			}
 		</div>
 		<p class="maint-zone">Times are in { v.Zone }.</p>
@@ -29,7 +29,7 @@ templ MaintenanceSections(v MaintenanceListView) {
 				<h2 id="maint-empty-title">No maintenance scheduled</h2>
 				<p>During a maintenance window checks keep running, outages are still recorded, and notifications can be held back.</p>
 				if v.Admin {
-					<a class="action" href="/maintenance/new">Schedule maintenance</a>
+					<a class="button button-primary" href="/maintenance/new">Schedule maintenance</a>
 				}
 			</section>
 		} else {
@@ -185,7 +185,7 @@ templ MaintenanceFormPage(page Page, f MaintenanceForm) {
 					</fieldset>
 				</fieldset>
 				<div class="form-actions">
-					<button class="auth-submit" type="submit">
+					<button class="button button-primary" type="submit">
 						if f.Editing() {
 							Save changes
 						} else {
@@ -198,7 +198,7 @@ templ MaintenanceFormPage(page Page, f MaintenanceForm) {
 			if f.Editing() {
 				<form class="maint-delete" method="post" action={ templ.SafeURL("/maintenance/" + f.ID + "/delete") }>
 					@CSRFField(page)
-					<button class="detail-button detail-button-danger" type="submit">Delete this window</button>
+					<button class="button button-danger" type="submit">Delete this window</button>
 				</form>
 			}
 		</div>
@@ -223,9 +223,9 @@ templ MaintenanceDeleteConfirm(page Page, v DeleteConfirmView) {
 				<form method="post" action={ templ.SafeURL("/maintenance/" + v.ID + "/delete") }>
 					@CSRFField(page)
 					<input type="hidden" name="confirm" value="1"/>
-					<button class="detail-button detail-button-danger" type="submit">Delete window</button>
+					<button class="button button-danger" type="submit">Delete window</button>
 				</form>
-				<a class="detail-button" href="/maintenance">Cancel</a>
+				<a class="button" href="/maintenance">Cancel</a>
 			</div>
 		</div>
 	}

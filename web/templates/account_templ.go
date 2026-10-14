@@ -160,7 +160,7 @@ func AccountPassword(page Page, f PasswordForm, minPassword int) templ.Component
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<button class=\"auth-submit\" type=\"submit\">Change password</button></form></section><section class=\"settings-section\" aria-labelledby=\"sessions-heading\"><h2 id=\"sessions-heading\">Sessions</h2><p>Signed in somewhere you no longer use? This signs out every other browser and device. You stay signed in here.</p><form method=\"post\" action=\"/account/sessions/sign-out-others\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<button class=\"button button-primary\" type=\"submit\">Change password</button></form></section><section class=\"settings-section\" aria-labelledby=\"sessions-heading\"><h2 id=\"sessions-heading\">Sessions</h2><p>Signed in somewhere you no longer use? This signs out every other browser and device. You stay signed in here.</p><form method=\"post\" action=\"/account/sessions/sign-out-others\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -168,7 +168,7 @@ func AccountPassword(page Page, f PasswordForm, minPassword int) templ.Component
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<button class=\"settings-button settings-button-danger\" type=\"submit\">Sign out other sessions</button></form></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<button class=\"button button-danger\" type=\"submit\">Sign out other sessions</button></form></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

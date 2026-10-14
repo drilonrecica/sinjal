@@ -38,7 +38,7 @@ templ HeartbeatTokenPage(page Page, t HeartbeatToken) {
 				<pre class="token-example"><code>curl -fsS -m 10 -X POST -H "Authorization: Bearer { t.Token }" { t.BearerURL }</code></pre>
 			</section>
 			<div class="form-actions">
-				<a class="auth-submit" href={ templ.SafeURL("/monitors/" + t.MonitorID) }>Go to the monitor</a>
+				<a class="button button-primary" href={ templ.SafeURL("/monitors/" + t.MonitorID) }>Go to the monitor</a>
 			</div>
 		</div>
 	}

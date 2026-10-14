@@ -7,12 +7,12 @@ import (
 
 // Built-in themes and densities (docs/05_THEMES.md, 04_DESIGN_SYSTEM.md).
 const (
-	DefaultTheme   = "carbon"
+	DefaultTheme   = "stark"
 	DefaultDensity = "comfortable"
 )
 
 var (
-	themes    = map[string]bool{"carbon": true, "paper": true, "midnight": true, "terminal": true}
+	themes    = map[string]bool{"stark": true, "terminal": true, "daylight": true}
 	densities = map[string]bool{"comfortable": true, "compact": true}
 )
 
@@ -28,6 +28,9 @@ type Page struct {
 	Scripts   []string
 	CSRFToken string
 	Admin     bool // the signed-in user is an admin (settings navigation)
+	// AmbientOff switches the Ambient light off (docs/04); the zero value
+	// keeps it on, the default.
+	AmbientOff bool
 }
 
 // NewPage builds a Page. Unknown theme or density values fall back to the
@@ -43,10 +46,18 @@ func NewPage(title, theme, density string) Page {
 	return Page{Title: title, Theme: theme, Density: density}
 }
 
+// Ambient is the data-ambient attribute of <html>: "on" or "off".
+func (p Page) Ambient() string {
+	if p.AmbientOff {
+		return "off"
+	}
+	return "on"
+}
+
 // ColorScheme is the browser color-scheme hint matching the theme, so the
 // canvas has the right colour before the stylesheet loads.
 func (p Page) ColorScheme() string {
-	if p.Theme == "paper" {
+	if p.Theme == "daylight" {
 		return "light"
 	}
 	return "dark"

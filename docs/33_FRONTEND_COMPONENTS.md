@@ -127,6 +127,8 @@ Use for:
 
 Use custom CSS/token system.
 
+Built (M8-01): `css/tokens.css` (the three themes, `05_THEMES.md`), `css/base.css` (fonts, type and spacing scale, focus, icons, motion durations, Terminal's mono body), `css/components.css` (loaded on every page, admin and public): the logo; `.button` with `-primary`, `-danger`, `-quiet`; the status badge `.status[data-state]` and, on a monitor header, the filled status block with the Ambient light (`[data-ambient="on"] .monitor-header::before`); form fields (`.auth-field`, `.auth-hint`, `.auth-error`); notices (`.auth-notice`, `role="status"`) and alerts (`.auth-alert`, `role="alert"`); link tabs (`.tabs`, `.tab-link[aria-current]`); `.tag`; the toast look (`.toast-region`, `.toast`, behaviour with M8-10); the Terminal and Daylight personalities. Feature stylesheets lay these out and do not restyle them. Templates: `Icon(name)`, `Mark()` and `Wordmark()` in `web/templates/icons.templ`, `StatusBadge` in `monitor_row.templ`.
+
 A utility CSS build step may be used only if it does not force a stock visual language or production runtime. The preferred direction is authored CSS with tokens/components.
 
 ## Static assets
@@ -136,4 +138,5 @@ Files under `web/static/` are embedded in the binary (`web.Static`) and served b
 - templates get URLs from `assets.URL("css/base.css")`; an unknown name panics, so every template is rendered in tests
 - hashed URLs are cached `public, max-age=31536000, immutable`; the unhashed name is not served (404)
 - CSS, JS, SVG, JSON and text are gzip-compressed once at startup and served to clients that accept gzip (distinct ETag per representation, `Vary: Accept-Encoding`)
-- vendored third-party files start with a comment recording upstream URL, exact version and licence (`40_DEPENDENCIES.md`)
+- vendored third-party files start with a comment recording upstream URL, exact version and licence (`40_DEPENDENCIES.md`); fonts, which cannot, are recorded in `40` and ship their OFL text beside them
+- a relative `url(...)` in a stylesheet is rewritten to the referenced asset's hashed name at startup (fonts in `base.css`), so a stylesheet's own hash changes with what it references; a reference to a missing asset fails startup

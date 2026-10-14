@@ -45,8 +45,8 @@ func TestStatusPageSlugVisibilityAndDefaults(t *testing.T) {
 	if err := e.db.Writer.QueryRow(`SELECT theme, incident_days, show_powered_by FROM status_pages WHERE id='ppublic'`).Scan(&theme, &days, &powered); err != nil {
 		t.Fatal(err)
 	}
-	if theme != "paper" || days != 30 || powered != 1 {
-		t.Errorf("defaults = %q, %d, %d; want paper, 30, 1", theme, days, powered)
+	if theme != "daylight" || days != 30 || powered != 1 {
+		t.Errorf("defaults = %q, %d, %d; want daylight, 30, 1", theme, days, powered)
 	}
 	if err := e.exec(t, `INSERT INTO status_pages (id, slug, title, created_at, updated_at) VALUES ('z', 'z', 'Z', '', '')`); err == nil {
 		t.Error("visibility must be required: a page has no default exposure")

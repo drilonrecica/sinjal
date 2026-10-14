@@ -1,0 +1,38 @@
+package templates
+
+// Icon is one inline Lucide icon (iconShapes), sized and coloured by CSS
+// (.icon: 1em, currentColor). It is decorative: the text next to it carries
+// the meaning. An unknown name panics; tests render every icon in use.
+templ Icon(name string) {
+	<svg class={ "icon", "icon-" + name } viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+		@templ.Raw(iconShape(name))
+	</svg>
+}
+
+func iconShape(name string) string {
+	s, ok := iconShapes[name]
+	if !ok {
+		panic("templates: unknown icon " + name)
+	}
+	return s
+}
+
+// Mark is the open ring with its accent pip, alone: favicon-sized uses and
+// the collapsed sidebar. Decorative; the link around it names it.
+templ Mark() {
+	<svg class="logo logo-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+		<path class="logo-ring" d={ markRing } stroke-width="7" stroke-linecap="round" fill="none"></path>
+		<circle class="logo-pip" cx="46.14" cy="17.86" r="4.5"></circle>
+	</svg>
+}
+
+// Wordmark is the mark plus the outlined lowercase "sinjal".
+templ Wordmark() {
+	<svg class="logo logo-wordmark" viewBox="0 0 111.8 36" aria-hidden="true" focusable="false">
+		<g transform="scale(0.5625)">
+			<path class="logo-ring" d={ markRing } stroke-width="7" stroke-linecap="round" fill="none"></path>
+			<circle class="logo-pip" cx="46.14" cy="17.86" r="4.5"></circle>
+		</g>
+		<path class="logo-letters" transform={ wordmarkOrigin } d={ wordmarkLetters }></path>
+	</svg>
+}

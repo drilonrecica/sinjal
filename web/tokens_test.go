@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-var themeNames = []string{"carbon", "paper", "midnight", "terminal"}
+var themeNames = []string{"stark", "terminal", "daylight"}
 
 // docs/05_THEMES.md "Token model". --space-density-factor is global, not per theme.
 var colorTokens = []string{
@@ -17,6 +17,7 @@ var colorTokens = []string{
 	"text", "text-muted", "text-subtle", "accent", "accent-contrast",
 	"status-up", "status-warning", "status-down", "status-paused", "status-pending", "status-flapping",
 	"chart-grid", "chart-line", "chart-outage", "chart-maintenance",
+	"on-status", "beat-up", "beat-down", "beat-none", "ambient-up", "ambient-down", "ambient-flapping",
 }
 var otherTokens = []string{"shadow-1", "shadow-2", "radius-sm", "radius-md", "radius-lg"}
 
@@ -77,8 +78,8 @@ func TestEveryThemeDefinesEveryToken(t *testing.T) {
 			t.Errorf("theme %q has no color-scheme (got %q)", theme, cs)
 		}
 	}
-	if tokens[":root"] == nil || tokens[":root"]["bg"] != tokens["theme:carbon"]["bg"] {
-		t.Error(":root must carry the Carbon defaults so pages without data-theme render")
+	if tokens[":root"] == nil || tokens[":root"]["bg"] != tokens["theme:stark"]["bg"] {
+		t.Error(":root must carry the Stark defaults so pages without data-theme render")
 	}
 }
 
@@ -159,6 +160,14 @@ func TestThemeContrast(t *testing.T) {
 		check("chart-line", "surface-1", 3)
 		check("chart-outage", "surface-1", 3)
 		check("chart-maintenance", "surface-1", 3)
+		// Text on a filled status block, and beat-bar marks.
+		for _, st := range []string{"up", "down", "flapping", "warning", "paused", "pending"} {
+			check("on-status", "status-"+st, 4.5)
+		}
+		for _, b := range []string{"beat-up", "beat-down"} {
+			check(b, "surface-1", 3)
+			check(b, "surface-2", 3)
+		}
 		// Decorative separators only need to be visible, not strong.
 		check("border", "bg", 1.15)
 		check("chart-grid", "surface-1", 1.05)

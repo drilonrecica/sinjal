@@ -95,8 +95,25 @@ Each asset is vendored into `web/static/` with a header comment recording upstre
 | htmx 2.x | partial page interactions (`AGENTS.md` §3) | mandated by the architecture | ~17 KB | Zero-Clause BSD (0BSD) | **approved**; vendored as **2.0.11** in `web/static/js/htmx.min.js` |
 | htmx SSE extension | live status updates over SSE (`32_SSE_EVENTS.md`) | integrates SSE with htmx swaps | ~3 KB | Zero-Clause BSD (0BSD) | **approved**; vendored as **htmx-ext-sse 2.2.4** in `web/static/js/htmx-ext-sse.js` (unminified upstream file, ~2.5 KB gzip) |
 | uPlot | latency/availability charts | tiny, canvas-based, fast with large series | ~20 KB JS + ~1 KB CSS | MIT | **approved**; vendored as **1.6.32** in `web/static/js/uplot.min.js` (upstream `uPlot.iife.min.js`, 22.3 KB gzip) and `web/static/css/uplot.min.css` (1 KB gzip) |
-| Lucide icons (subset) | UI icons | consistent icon set | only icons used, inlined as SVG | ISC | **approved**, used icons only, no icon font |
-| Inter (variable, subset) | primary UI typeface (`04_DESIGN_SYSTEM.md`) | system stacks render differently per OS | part of ≤150 KB font budget | OFL-1.1 | **approved**; ship OFL text with the files |
-| JetBrains Mono (variable, subset) | technical/mono text, Terminal theme | not installed on most systems | part of ≤150 KB font budget | OFL-1.1 | **approved**; ship OFL text with the files |
+| Lucide icons (subset) | UI icons | consistent icon set | only icons used, inlined as SVG | ISC (Feather-derived icons MIT) | **approved**, used icons only, no icon font; shapes from **lucide-static 1.49.0** in `web/templates/icons.go`, licence text in `web/templates/LICENSE-lucide.txt`; a test fails on an icon nothing uses |
+| Inter (variable, subset) | primary UI typeface (`04_DESIGN_SYSTEM.md`) | system stacks render differently per OS | part of ≤150 KB font budget (29.9 KB) | OFL-1.1 | **approved**; **Inter 4.1** as `web/static/fonts/inter-var.woff2`, OFL text in `OFL-inter.txt` |
+| JetBrains Mono (variable, subset) | technical/mono text, Terminal theme | not installed on most systems | part of ≤150 KB font budget (15.5 KB) | OFL-1.1 | **approved**; **JetBrains Mono 2.304** as `web/static/fonts/jetbrains-mono-var.woff2`, OFL text in `OFL-jetbrains-mono.txt` |
+
+Font provenance (M8-01). A woff2 file cannot carry a header comment, so the record is here:
+
+- Inter 4.1: `https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip` (sha256 `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`), file `InterVariable.ttf` (sha256 `4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf`).
+- JetBrains Mono 2.304: `https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip` (sha256 `6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf`), file `fonts/variable/JetBrainsMono[wght].ttf` (sha256 `662a196d58f1183bf2d77428b6d5283fe3f45161ab021bea4036bc98e5cac016`).
+- Converted once with fontTools 4.66 (a one-off, not a project dev tool; owner decision 2026-10-14):
+
+```sh
+U="U+0000-00FF,U+0100-017F,U+2013-2014,U+2018-201D,U+2022,U+2026,U+2190-2193,U+2212,U+20AC,U+00A0,U+2009,U+202F"
+python3 -m fontTools.varLib.instancer InterVariable.ttf wght=400:700 opsz=drop -o inter-pinned.ttf
+python3 -m fontTools.varLib.instancer 'JetBrainsMono[wght].ttf' wght=400:600 -o jbm-pinned.ttf
+python3 -m fontTools.subset inter-pinned.ttf --unicodes="$U" --layout-features='kern,liga,calt,tnum,ccmp,locl,mark,mkmk' \
+  --flavor=woff2 --no-hinting --desubroutinize --output-file=inter-var.woff2
+# no calt/liga: code ligatures would change how URLs and hosts read
+python3 -m fontTools.subset jbm-pinned.ttf --unicodes="$U" --layout-features='kern,ccmp,locl,mark,mkmk' \
+  --flavor=woff2 --no-hinting --desubroutinize --output-file=jetbrains-mono-var.woff2
+```
 
 No frontend framework, CSS framework runtime or component kit is approved (`AGENTS.md` §2, §4).

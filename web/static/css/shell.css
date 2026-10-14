@@ -36,10 +36,7 @@
   display: inline-block;
   padding: var(--space-1) var(--space-2);
   color: var(--text);
-  font-size: var(--text-lg);
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  text-decoration: none;
+  border-radius: var(--radius-sm);
 }
 
 .nav ul {
@@ -67,7 +64,7 @@
 .nav-link[aria-current="page"] {
   background: var(--surface-2);
   color: var(--text);
-  font-weight: 650;
+  font-weight: 600;
 }
 .nav-link[aria-current="page"]::before {
   content: "";

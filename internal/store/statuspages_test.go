@@ -9,7 +9,7 @@ import (
 )
 
 func pageInput(slug string) StatusPageInput {
-	return StatusPageInput{Slug: slug, Title: "Status " + slug, Visibility: "public", Theme: "paper", IncidentDays: 30, ShowPoweredBy: true}
+	return StatusPageInput{Slug: slug, Title: "Status " + slug, Visibility: "public", Theme: "daylight", IncidentDays: 30, ShowPoweredBy: true}
 }
 
 func TestStatusPageCreateAndRead(t *testing.T) {
@@ -35,7 +35,7 @@ func TestStatusPageCreateAndRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.Slug != "main" || got.Title != "Status main" || got.Description != "All our things" || got.Accent != "#3e67a8" ||
-		got.Visibility != "public" || got.Theme != "paper" || got.IncidentDays != 30 || !got.ShowPoweredBy ||
+		got.Visibility != "public" || got.Theme != "daylight" || got.IncidentDays != 30 || !got.ShowPoweredBy ||
 		got.HasToken || got.HasPassword || got.LogoPath != "" || !got.CreatedAt.Equal(now) || !got.UpdatedAt.Equal(now) {
 		t.Errorf("page = %+v", got.StatusPage)
 	}

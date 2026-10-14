@@ -11,10 +11,9 @@ import (
 // Surface colours of the page behind the accent, by theme: --bg and
 // --surface-1 of web/static/css/tokens.css (a test keeps them in step).
 var surfaces = map[string][2]string{
-	"carbon":   {"#15171a", "#1b1e22"},
-	"paper":    {"#f5f2eb", "#fffdf8"},
-	"midnight": {"#0b1020", "#11182b"},
-	"terminal": {"#10120f", "#151815"},
+	"stark":    {"#000000", "#0a0a0a"},
+	"terminal": {"#0d0903", "#120d05"},
+	"daylight": {"#ffffff", "#ffffff"},
 }
 
 // MinAccentContrast is the WCAG contrast the accent needs against the

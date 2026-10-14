@@ -55,7 +55,7 @@ func MonitorList(page Page, v MonitorListView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if v.Admin && len(v.Monitors) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<a class=\"action\" href=\"/monitors/new\">Create monitor</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<a class=\"button button-primary\" href=\"/monitors/new\">Create monitor</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -70,7 +70,7 @@ func MonitorList(page Page, v MonitorListView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				if v.Admin {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<p>Add a website or service to start watching it.</p><a class=\"action\" href=\"/monitors/new\">Create monitor</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<p>Add a website or service to start watching it.</p><a class=\"button button-primary\" href=\"/monitors/new\">Create monitor</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

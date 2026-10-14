@@ -84,7 +84,7 @@ func (h *StatusPages) list(w http.ResponseWriter, r *http.Request) {
 	render(w, r, h.log, http.StatusOK, templates.StatusPageList(pageFor(r, "Status Pages — Sinjal"), v))
 }
 
-// newForm serves GET /status-pages/new: public, the paper theme, 30 days of
+// newForm serves GET /status-pages/new: public, the daylight theme, 30 days of
 // incidents, nothing shown yet.
 func (h *StatusPages) newForm(w http.ResponseWriter, r *http.Request) {
 	h.renderForm(w, r, http.StatusOK, templates.StatusPageForm{Visibility: statuspage.Public, Theme: statuspage.DefaultTheme,

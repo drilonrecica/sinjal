@@ -132,12 +132,12 @@ func publicStateLabel(state string) string {
 	return "Checking"
 }
 
-// publicStateGlyph differs in shape per state, so it reads without colour.
-func publicStateGlyph(state string) string {
+// publicStateIcon differs in shape per state, so it reads without colour.
+func publicStateIcon(state string) string {
 	if state == StateMaintenance {
-		return "■"
+		return "wrench"
 	}
-	return stateGlyph(state)
+	return stateIcon(state)
 }
 
 // publicPage is the Page of a public status page: its own theme, never
@@ -155,18 +155,18 @@ func groupLabel(g PublicGroup) string {
 	return g.Name
 }
 
-func overallGlyph(overall string) string {
+func overallIcon(overall string) string {
 	switch overall {
 	case OverallUp:
-		return "●"
+		return "check"
 	case OverallMajor, OverallPartial:
-		return "▼"
+		return "octagon-x"
 	case OverallMaintenance:
-		return "■"
+		return "wrench"
 	case OverallDegraded:
-		return "▲"
+		return "triangle-alert"
 	}
-	return "○"
+	return "circle-dashed"
 }
 
 func pluralDays(n int) string {

@@ -119,13 +119,13 @@ func TestShellLoadsHashedAssets(t *testing.T) {
 			js++
 		}
 	}
-	if css != 3 || js != 1 {
-		t.Errorf("assets linked: %d css, %d js; want 3 (tokens, base, shell) and 1 (htmx)", css, js)
+	if css != 4 || js != 1 {
+		t.Errorf("assets linked: %d css, %d js; want 4 (tokens, base, components, shell) and 1 (htmx)", css, js)
 	}
 	if !regexp.MustCompile(`<script src="/static/js/htmx\.min\.[0-9a-f]{16}\.js" defer>`).MatchString(body) {
 		t.Error("htmx must load with defer from its hashed URL")
 	}
-	if !strings.Contains(body, `data-theme="carbon"`) || !strings.Contains(body, `data-density="comfortable"`) {
+	if !strings.Contains(body, `data-theme="stark"`) || !strings.Contains(body, `data-density="comfortable"`) {
 		t.Error("html element must carry the default theme and density")
 	}
 }

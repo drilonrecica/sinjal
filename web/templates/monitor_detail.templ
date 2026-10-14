@@ -14,21 +14,21 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 			}
 			if v.Admin {
 				<div class="detail-actions">
-					<a class="detail-button" href={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/edit") }>Edit</a>
+					<a class="button" href={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/edit") }>Edit</a>
 					if v.Paused {
 						<form method="post" action={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/resume") }>
 							@CSRFField(page)
-							<button class="detail-button" type="submit">Resume</button>
+							<button class="button" type="submit">Resume</button>
 						</form>
 					} else {
 						<form method="post" action={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/pause") }>
 							@CSRFField(page)
-							<button class="detail-button" type="submit">Pause</button>
+							<button class="button" type="submit">Pause</button>
 						</form>
 					}
 					<form method="post" action={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/delete") }>
 						@CSRFField(page)
-						<button class="detail-button detail-button-danger" type="submit">Delete…</button>
+						<button class="button button-danger" type="submit">Delete…</button>
 					</form>
 				</div>
 			}
@@ -64,7 +64,7 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 						if v.Admin && v.Monitor.Type == "heartbeat" {
 							<form class="token-regenerate" method="post" action={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/heartbeat/token") }>
 								@CSRFField(page)
-								<button class="detail-button" type="submit" aria-describedby="regenerate-hint">Regenerate push URL</button>
+								<button class="button" type="submit" aria-describedby="regenerate-hint">Regenerate push URL</button>
 								<p id="regenerate-hint" class="detail-hint">The push URL is only shown when it is issued. A new one replaces it at once: update the job that sends beats. You may be asked to confirm your identity first.</p>
 							</form>
 						}
@@ -143,9 +143,9 @@ templ MonitorDeleteConfirm(page Page, v DeleteConfirmView) {
 				<form method="post" action={ templ.SafeURL("/monitors/" + v.ID + "/delete") }>
 					@CSRFField(page)
 					<input type="hidden" name="confirm" value="1"/>
-					<button class="detail-button detail-button-danger" type="submit">Delete monitor</button>
+					<button class="button button-danger" type="submit">Delete monitor</button>
 				</form>
-				<a class="detail-button" href={ templ.SafeURL("/monitors/" + v.ID) }>Cancel</a>
+				<a class="button" href={ templ.SafeURL("/monitors/" + v.ID) }>Cancel</a>
 			</div>
 		</div>
 	}

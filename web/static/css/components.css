@@ -1,0 +1,339 @@
+/* Shared components (docs/33_FRONTEND_COMPONENTS.md): buttons, the status
+ * badge, form fields, notices, tabs, tags, toasts and the logo. Feature
+ * stylesheets lay these out; they do not restyle them. Colours, radii and
+ * shadows come from tokens.css only. */
+
+/* Logo: no colours of its own. Ring and letters follow the text, the pip is
+ * the accent and never a status colour (docs/02 "Logo"). */
+.logo { display: block; flex: none; }
+.logo-ring { stroke: currentColor; }
+.logo-letters { fill: currentColor; }
+.logo-pip { fill: var(--accent); }
+.logo-mark { width: 1.5rem; height: 1.5rem; }
+.logo-wordmark { width: auto; height: 1.75rem; }
+
+/* Buttons. Primary is the one main action of a view; danger is apart in
+ * colour and always labelled in text. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.button:hover {
+  background: var(--surface-2);
+}
+.button-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+.button-primary:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+.button-danger {
+  border-color: var(--status-down);
+  color: var(--status-down);
+}
+.button-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+.button-quiet:hover {
+  color: var(--text);
+}
+.button:disabled,
+.button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Status badge: icon + text, the icon in the state's colour on a faint
+ * tint of it. The text stays in the text colour, so it reads in every
+ * theme; colour only reinforces the shape and the word. */
+.status {
+  --state: var(--status-pending);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375em;
+  padding: 0.125rem 0.5rem 0.125rem 0.375rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--state) 14%, transparent);
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.status .icon {
+  width: 1.1em;
+  height: 1.1em;
+  color: var(--state);
+}
+.status[data-state="up"] { --state: var(--status-up); }
+.status[data-state="down"] { --state: var(--status-down); }
+.status[data-state="paused"] { --state: var(--status-paused); }
+.status[data-state="flapping"] { --state: var(--status-flapping); }
+
+/* Form fields. Labels always visible; the hint and the error sit under the
+ * field; an invalid field is marked by its border and its message. */
+.auth-field {
+  display: grid;
+  gap: var(--space-1);
+}
+.auth-field label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.auth-field input,
+.auth-field select,
+.auth-field textarea {
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+.auth-field textarea {
+  padding-block: var(--space-2);
+  line-height: 1.5;
+}
+.auth-field input:focus-visible,
+.auth-field select:focus-visible,
+.auth-field textarea:focus-visible {
+  border-color: var(--accent);
+}
+.auth-field input[aria-invalid="true"],
+.auth-field select[aria-invalid="true"],
+.auth-field textarea[aria-invalid="true"] {
+  border-color: var(--status-down);
+}
+.auth-hint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.auth-error {
+  color: var(--status-down);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+/* Notices (role="status") and alerts (role="alert"): a bar in the
+ * meaning's colour on a faint tint; the text carries the message. */
+.auth-notice,
+.auth-alert {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-up);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--status-up) 8%, var(--surface-1));
+  font-size: var(--text-sm);
+}
+.auth-alert {
+  border-left-color: var(--status-down);
+  background: color-mix(in srgb, var(--status-down) 8%, var(--surface-1));
+}
+
+/* Link tabs: the current one is marked by weight and a bar, not by colour
+ * alone. */
+.tabs ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+.tab-link {
+  position: relative;
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.tab-link:hover {
+  color: var(--text);
+}
+.tab-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+}
+.tab-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset: auto var(--space-2) -1px var(--space-2);
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+}
+
+/* Tags: small, quiet, never a status. */
+.tag {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+/* Toasts: the look only. The live region, dismissal and wiring arrive with
+ * M8-10. Overlays are the one place --shadow-2 is used. */
+.toast-region {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 20;
+  display: grid;
+  gap: var(--space-2);
+  width: min(22rem, calc(100vw - 2 * var(--space-4)));
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--status-up);
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-2);
+  font-size: var(--text-sm);
+}
+.toast[data-kind="error"] {
+  border-left-color: var(--status-down);
+}
+.toast-body {
+  flex: 1;
+  min-width: 0;
+}
+.toast .button-quiet {
+  min-height: auto;
+  padding: 0;
+}
+
+/* ---- Status hero: the filled status block and the Ambient light ---- */
+
+/* On a monitor's header the badge becomes a filled block: the state's
+ * colour with on-status text (contrast tested in tokens_test.go). */
+.monitor-header .status {
+  padding: 0.375rem 0.75rem 0.375rem 0.625rem;
+  border-radius: var(--radius-md);
+  background: var(--state);
+  color: var(--on-status);
+  font-size: var(--text-sm);
+}
+.monitor-header .status .icon {
+  color: inherit;
+}
+
+/* Ambient light (docs/04): one soft radial light behind the status hero,
+ * coloured by state, off with data-ambient="off". It stays inside the
+ * content's padding, so it never widens the page. */
+.monitor-header {
+  --ambient: var(--ambient-up);
+  position: relative;
+  isolation: isolate;
+}
+.monitor-header[data-state="down"] { --ambient: var(--ambient-down); }
+.monitor-header[data-state="flapping"] { --ambient: var(--ambient-flapping); }
+[data-ambient="on"] .monitor-header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) auto;
+  height: 24rem;
+  /* Centred and sized inside its box, so it fades out before every edge. */
+  background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 26%, transparent), transparent);
+  pointer-events: none;
+}
+[data-theme="daylight"][data-ambient="on"] .monitor-header::before {
+  background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 12%, transparent), transparent);
+}
+
+/* ---- Terminal personality (docs/05 "Terminal") ---- */
+
+/* State as text: [UP] stays in the base colour; problems invert. */
+[data-theme="terminal"] .status {
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-transform: uppercase;
+}
+[data-theme="terminal"] .status-text::before { content: "["; }
+[data-theme="terminal"] .status-text::after { content: "]"; }
+[data-theme="terminal"] .status[data-state="down"],
+[data-theme="terminal"] .status[data-state="flapping"],
+[data-theme="terminal"] .monitor-header .status {
+  background: var(--state);
+  color: var(--on-status);
+}
+[data-theme="terminal"] .status[data-state="down"] .icon,
+[data-theme="terminal"] .status[data-state="flapping"] .icon {
+  color: inherit;
+}
+[data-theme="terminal"] .monitor-header::before {
+  display: none;
+}
+
+/* Box rules and a block cursor after the page title. */
+[data-theme="terminal"] .monitor-list,
+[data-theme="terminal"] .auth-panel,
+[data-theme="terminal"] .form-section {
+  border-style: double;
+  border-width: 3px;
+}
+[data-theme="terminal"] h1::after {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.95em;
+  margin-left: 0.25em;
+  vertical-align: -0.1em;
+  background: var(--accent);
+}
+
+/* Faint static scanlines; none for anyone who asked for less motion. */
+[data-theme="terminal"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: repeating-linear-gradient(to bottom, transparent 0 3px, color-mix(in srgb, var(--bg) 12%, transparent) 3px 4px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="terminal"] body::after {
+    display: none;
+  }
+}
+
+/* ---- Daylight personality (docs/05 "Daylight") ---- */
+
+/* Ink blocks: the status hero is near-black with a stripe in the state's
+ * colour, so it reads as strongly as Stark's filled block on white. */
+[data-theme="daylight"] .monitor-header .status {
+  border-left: 4px solid var(--state);
+  background: var(--text);
+  color: var(--accent-contrast);
+}

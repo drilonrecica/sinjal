@@ -16,7 +16,7 @@ import (
 
 // pageForm is a valid form for a public page; monitors are added with show.
 func pageForm(title, slug string) url.Values {
-	return url.Values{"title": {title}, "slug": {slug}, "visibility": {"public"}, "theme": {"paper"}, "incident_days": {"30"}, "show_powered_by": {"1"}}
+	return url.Values{"title": {title}, "slug": {slug}, "visibility": {"public"}, "theme": {"daylight"}, "incident_days": {"30"}, "show_powered_by": {"1"}}
 }
 
 // show adds a monitor to the form under a public name.
@@ -132,7 +132,7 @@ func TestStatusPageCreateEditDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	if p.Title != "Acme status" || p.Description != "How Acme is doing" || p.Accent != "#3e67a8" || p.Visibility != "public" ||
-		p.Theme != "paper" || p.IncidentDays != 14 || p.ShowPoweredBy || p.HasPassword || p.HasToken {
+		p.Theme != "daylight" || p.IncidentDays != 14 || p.ShowPoweredBy || p.HasPassword || p.HasToken {
 		t.Errorf("page = %+v", p.StatusPage)
 	}
 	if len(p.Groups) != 2 || p.Groups[0].Name != "Web" || p.Groups[1].Name != "Data" {
@@ -166,7 +166,7 @@ func TestStatusPageCreateEditDelete(t *testing.T) {
 
 	// Edit: rename, drop one monitor and a group, change the theme.
 	g := pageForm("Acme", "acme")
-	g.Set("theme", "carbon")
+	g.Set("theme", "stark")
 	g.Set("accent", "")
 	g.Set("groups", "Web")
 	show(g, site, "Website", "Web", "0")
@@ -174,7 +174,7 @@ func TestStatusPageCreateEditDelete(t *testing.T) {
 		t.Fatalf("update = %d\n%s", rec.Code, rec.Body)
 	}
 	p, _ = store.GetStatusPage(t.Context(), e.db.Reader, id)
-	if p.Title != "Acme" || p.Theme != "carbon" || p.Accent != "" || len(p.Groups) != 1 || len(p.Monitors) != 1 || len(p.Hosts) != 0 || !p.ShowPoweredBy || p.IncidentDays != 30 {
+	if p.Title != "Acme" || p.Theme != "stark" || p.Accent != "" || len(p.Groups) != 1 || len(p.Monitors) != 1 || len(p.Hosts) != 0 || !p.ShowPoweredBy || p.IncidentDays != 30 {
 		t.Errorf("after edit = %+v groups=%v monitors=%v hosts=%v", p.StatusPage, p.Groups, p.Monitors, p.Hosts)
 	}
 	if n := e.count(t, `SELECT COUNT(*) FROM audit_events WHERE event_type = 'status_page.updated' AND object_id = ?`, id); n != 1 {
@@ -230,7 +230,7 @@ func TestStatusPageValidation(t *testing.T) {
 		{"bad theme", func(f url.Values) { f.Set("theme", "neon") }, "theme", "Choose a theme"},
 		{"accent not a colour", func(f url.Values) { f.Set("accent", "blue") }, "accent", "#rrggbb"},
 		{"accent unreadable", func(f url.Values) { f.Set("accent", "#f6f3ec") }, "accent", "Too little contrast"},
-		{"accent unreadable on the chosen theme", func(f url.Values) { f.Set("accent", "#7da2ff") }, "accent", "paper theme"},
+		{"accent unreadable on the chosen theme", func(f url.Values) { f.Set("accent", "#7da2ff") }, "accent", "daylight theme"},
 		{"days", func(f url.Values) { f.Set("incident_days", "0") }, "incident_days", "1 to 365"},
 		{"password page without a password", func(f url.Values) { f.Set("visibility", "password") }, "password", "Enter a password"},
 		{"short password", func(f url.Values) { f.Set("visibility", "password"); f.Set("password", "short") }, "password", "at least 8"},

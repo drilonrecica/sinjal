@@ -152,12 +152,12 @@ func Reauth(page Page, f ReauthForm) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<button class=\"auth-submit\" type=\"submit\">Continue</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<button class=\"button button-primary\" type=\"submit\">Continue</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if f.Passkey {
-				templ_7745c5c3_Err = passkeyButton("get", "/reauth/passkey/begin", "/reauth/passkey/finish", f.Next, "auth-secondary", "Use a passkey instead").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = passkeyButton("get", "/reauth/passkey/begin", "/reauth/passkey/finish", f.Next, "button", "Use a passkey instead").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

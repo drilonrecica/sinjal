@@ -26,10 +26,10 @@ templ Reauth(page Page, f ReauthForm) {
 			if f.TOTP {
 				@codeField("Authentication code", false, f.Error != "")
 			}
-			<button class="auth-submit" type="submit">Continue</button>
+			<button class="button button-primary" type="submit">Continue</button>
 		</form>
 		if f.Passkey {
-			@passkeyButton("get", "/reauth/passkey/begin", "/reauth/passkey/finish", f.Next, "auth-secondary", "Use a passkey instead")
+			@passkeyButton("get", "/reauth/passkey/begin", "/reauth/passkey/finish", f.Next, "button", "Use a passkey instead")
 		}
 	}
 }
