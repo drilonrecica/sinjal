@@ -25,7 +25,8 @@ func renderToString(t *testing.T, c templ.Component) string {
 }
 
 // A column row: one link with the state (the word for assistive
-// technology), name, uptime and beat bar; it refreshes itself.
+// technology), name, uptime (saying what the figure is) and beat bar, read
+// in that order; it refreshes itself.
 func TestColumnRow(t *testing.T) {
 	m := testMonitor
 	m.Uptime = "99.50%"
@@ -34,7 +35,7 @@ func TestColumnRow(t *testing.T) {
 		`id="col-m1"`, `data-live`, `data-monitor-id="m1"`, `data-state="up"`,
 		`hx-get="/fragments/monitors/m1/row"`, `hx-trigger="refresh"`, `hx-swap="outerHTML"`,
 		`<a class="column-link" href="/monitors/m1">`, `<span class="visually-hidden">Up:</span>`,
-		`<span class="column-name">API</span>`, `>99.50%</span>`, `class="beat-bar"`,
+		`<span class="column-name">API</span>`, `>99.50% <span class="visually-hidden">uptime, last 24 hours</span></span>`, `class="beat-bar"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("column row lacks %q:\n%s", want, html)

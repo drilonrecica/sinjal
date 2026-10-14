@@ -36,6 +36,8 @@ type OverviewView struct {
 	// MoreProblems is how many more there are than are listed.
 	MoreProblems int
 	Counts       []Count
-	Incidents    IncidentListView // the latest, active first
-	Events       []RecentEvent    // the latest incident timeline entries, newest first
+	// Maintenance is the windows in effect and those beginning soon.
+	Maintenance []MaintenanceNote
+	Incidents   IncidentListView // the latest, active first
+	Events      []RecentEvent    // the latest incident timeline entries, newest first
 }

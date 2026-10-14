@@ -490,7 +490,23 @@
     min-height: 2.75rem;
   }
   .content {
+    --hero-bleed: var(--space-4);
     padding: var(--space-4);
+  }
+  /* The row reads state, name, uptime, beats, in that order on screen too:
+   * a long name wraps to a second line instead of losing its end. */
+  .column-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .column-link {
+    align-items: start;
+  }
+  .column-uptime {
+    padding-top: 0.125rem;
   }
   .app:has(#main[data-view="detail"]) .monitor-column,
   .app:has(#main[data-view="list"]) #main {
@@ -565,4 +581,45 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---- Touch: targets of at least 44 px (docs/04 "Spacing", docs/22) ----
+ * Controls follow --control-h already; these are the smaller ones, and the
+ * links that stand on their own line rather than inside a sentence. */
+@media (pointer: coarse) {
+  .chip,
+  .tab-link,
+  .range-link,
+  .crumb a,
+  .overview-counts > p > a,
+  .overview-incidents > p > a,
+  .tab-note > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+  .brand-link,
+  .account-panel a {
+    min-height: 2.75rem;
+  }
+  .account-panel a {
+    display: flex;
+    align-items: center;
+  }
+  .column-search,
+  .column-panel select,
+  .column-panel input[type="text"],
+  .range-custom input {
+    min-height: var(--control-h);
+  }
+  /* Inside a line of text: taller by padding, so the sentence and a
+   * summary's disclosure marker stay as they are. */
+  .event-list a,
+  .incident-main a,
+  .maintenance-note a {
+    padding-block: var(--space-1);
+  }
+  .column-more > summary {
+    padding-block: var(--space-3);
+  }
 }

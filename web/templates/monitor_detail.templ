@@ -10,6 +10,7 @@ templ MonitorDetail(page Page, v MonitorDetailView) {
 		<div class="monitor-detail">
 			<p class="crumb"><a href="/monitors">Monitors</a></p>
 			@MonitorHeader(v.Monitor)
+			@MaintenanceNotes(v.Maintenance)
 			if v.Admin {
 				<div class="detail-actions">
 					<a class="button" href={ templ.SafeURL("/monitors/" + v.Monitor.ID + "/edit") }>Edit</a>

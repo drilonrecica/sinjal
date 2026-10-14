@@ -228,3 +228,33 @@ templ MaintenanceDeleteConfirm(page Page, v DeleteConfirmView) {
 		</div>
 	}
 }
+
+// MaintenanceNotes announces the windows in effect and those beginning
+// soon, on Home and a monitor page, so nobody chases an outage that was
+// planned (docs/03 "Mobile"). Nothing when there are none.
+templ MaintenanceNotes(notes []MaintenanceNote) {
+	if len(notes) > 0 {
+		<section class="maintenance-notes" aria-labelledby="maintenance-notes-title">
+			<h2 id="maintenance-notes-title">Maintenance</h2>
+			<ul role="list">
+				for _, n := range notes {
+					<li class="maintenance-note" data-active?={ n.Active }>
+						<span class="maintenance-note-glyph">@Icon("wrench")</span>
+						<span class="maintenance-note-text">
+							<a href="/maintenance">{ n.Name }</a>
+							if n.Active {
+								in effect
+							} else {
+								scheduled
+							}
+							<time datetime={ n.WhenAt }>{ n.When }</time>
+							if n.Scope != "" {
+								<span class="maintenance-note-scope">{ n.Scope }</span>
+							}
+						</span>
+					</li>
+				}
+			</ul>
+		</section>
+	}
+}

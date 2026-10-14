@@ -49,6 +49,12 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 		v.Tab = templates.DetailTabs[0].Key
 	}
 	now := h.now()
+	windows, err := store.MonitorWindows(ctx, q, id)
+	if err != nil {
+		h.fail(w, r, "loading a monitor's maintenance", err)
+		return
+	}
+	v.Maintenance = maintenanceNotes(windows, nil, now, h.loc)
 	switch v.Tab {
 	case "overview":
 		var hb *store.HeartbeatConfig

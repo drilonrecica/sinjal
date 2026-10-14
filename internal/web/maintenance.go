@@ -142,6 +142,44 @@ func (h *Maintenance) listView(r *http.Request) (templates.MaintenanceListView, 
 	return v, nil
 }
 
+// maintenanceSoon is how far ahead Home and a monitor page announce a
+// window.
+const maintenanceSoon = 24 * time.Hour
+
+// maintenanceNotes are the windows in effect at now and those beginning
+// within maintenanceSoon, by start. names (monitor id to name) fills in the
+// scope; nil leaves it out.
+func maintenanceNotes(windows []maintenance.Window, names map[string]string, now time.Time, loc *time.Location) []templates.MaintenanceNote {
+	type note struct {
+		templates.MaintenanceNote
+		from time.Time
+	}
+	var notes []note
+	for _, mw := range windows {
+		next, ok := mw.Next(now, loc)
+		if !ok || next.From.Sub(now) > maintenanceSoon {
+			continue
+		}
+		n := note{templates.MaintenanceNote{Name: mw.Name}, next.From}
+		if n.Active = !next.From.After(now); n.Active {
+			n.When, n.WhenAt = "until "+clockText(next.To, now, loc), rfc3339(next.To)
+		} else {
+			n.When, n.WhenAt = "from "+clockText(next.From, now, loc), rfc3339(next.From)
+		}
+		if names != nil {
+			n.Scope = scopeText(mw.Scope, names)
+		}
+		notes = append(notes, n)
+	}
+	// Those in effect began by now, the others after it: by start puts them first.
+	slices.SortStableFunc(notes, func(a, b note) int { return a.from.Compare(b.from) })
+	out := make([]templates.MaintenanceNote, len(notes))
+	for i, n := range notes {
+		out[i] = n.MaintenanceNote
+	}
+	return out
+}
+
 func rfc3339(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 // clock is a moment in the instance time zone: the time alone today, the

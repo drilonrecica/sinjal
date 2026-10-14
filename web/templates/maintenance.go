@@ -28,6 +28,16 @@ type MaintenanceRow struct {
 	ExcludeUptime bool
 }
 
+// MaintenanceNote is a window in effect or about to begin, as Home and a
+// monitor page announce it (docs/03 "Mobile": maintenance awareness).
+type MaintenanceNote struct {
+	Name   string
+	Active bool   // in effect now; otherwise it begins soon
+	When   string // "until 22:00 UTC" or "from 22:00 UTC"
+	WhenAt string // RFC 3339 of that moment
+	Scope  string // "All monitors", or the monitors and tags; "" on a monitor page
+}
+
 // MaintenanceForm is the state of the create/edit maintenance page. Values
 // are kept as typed so a rejected one is shown back as entered.
 type MaintenanceForm struct {

@@ -116,7 +116,16 @@ func (h *Overview) view(r *http.Request) (templates.OverviewView, error) {
 	if err != nil {
 		return v, err
 	}
+	windows, err := store.ListMaintenance(ctx, h.db.Reader)
+	if err != nil {
+		return v, err
+	}
 	v.Monitors = len(monitors)
+	names := make(map[string]string, len(monitors))
+	for _, m := range monitors {
+		names[m.ID] = m.Name
+	}
+	v.Maintenance = maintenanceNotes(windows, names, now, h.loc)
 	v.Sentence, v.SentenceState = statusSentence(monitors)
 	v.Problems, v.MoreProblems, v.Counts = summarize(monitors, channels, h.warning(), v.Admin, now)
 	if v.Incidents, err = incidentListView(ctx, h.db.Reader, h.loc, now, "", overviewIncidents); err != nil {

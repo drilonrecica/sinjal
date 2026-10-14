@@ -250,8 +250,8 @@
 
 /* Ambient light (docs/04): one soft radial light behind the status hero
  * (a monitor's header, Home's sentence), coloured by state, off with
- * data-ambient="off". It stays inside the content's padding, so it never
- * widens the page. */
+ * data-ambient="off". It stays inside the content's padding (--hero-bleed,
+ * set where the padding is narrower), so it never widens the page. */
 .public-hero,
 .home-hero,
 .monitor-header {
@@ -271,7 +271,7 @@
   content: "";
   position: absolute;
   z-index: -1;
-  inset: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) auto;
+  inset: calc(-1 * var(--hero-bleed, var(--space-5))) calc(-1 * var(--hero-bleed, var(--space-5))) auto;
   height: 24rem;
   /* Centred and sized inside its box, so it fades out before every edge. */
   background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 26%, transparent), transparent);

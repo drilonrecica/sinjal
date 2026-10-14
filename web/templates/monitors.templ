@@ -53,7 +53,7 @@ templ ColumnRow(m MonitorView) {
 				<span class="visually-hidden">{ stateLabel(m.State) }:</span>
 			</span>
 			<span class="column-name">{ m.Name }</span>
-			<span class="column-uptime" title="Uptime, last 24 hours">{ m.Uptime }</span>
+			<span class="column-uptime" title="Uptime, last 24 hours">{ m.Uptime } <span class="visually-hidden">uptime, last 24 hours</span></span>
 			@BeatBar(m.Beats)
 		</a>
 	</li>

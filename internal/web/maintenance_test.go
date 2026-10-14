@@ -4,12 +4,14 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/maintenance"
 	"github.com/drilonrecica/sinjal/internal/store"
+	"github.com/drilonrecica/sinjal/web/templates"
 )
 
 // windowForm is a valid form for a one-time window of one hour starting
@@ -223,5 +225,64 @@ func TestDurationText(t *testing.T) {
 		if got := durationText(d); got != want {
 			t.Errorf("%v = %q, want %q", d, got, want)
 		}
+	}
+}
+
+// Home and a monitor page announce the windows in effect and those that
+// begin within a day: in effect first, then by start, nothing further out
+// or over (docs/03 "Mobile": maintenance awareness).
+func TestMaintenanceNotes(t *testing.T) {
+	now := time.Date(2026, 10, 14, 20, 30, 0, 0, time.UTC)
+	windows := []maintenance.Window{
+		{Name: "far", Start: now.Add(48 * time.Hour), Duration: time.Hour, Recurrence: maintenance.None},
+		{Name: "nightly", Start: time.Date(2026, 10, 1, 2, 0, 0, 0, time.UTC), Duration: time.Hour, Recurrence: maintenance.Daily},
+		{Name: "over", Start: now.Add(-3 * time.Hour), Duration: time.Hour, Recurrence: maintenance.None},
+		{Name: "soon", Start: now.Add(3 * time.Hour), Duration: time.Hour, Recurrence: maintenance.None, Scope: maintenance.Scope{Monitors: []string{"m1"}}},
+		{Name: "running", Start: now.Add(-10 * time.Minute), Duration: time.Hour, Recurrence: maintenance.None, Scope: maintenance.Scope{Tags: []string{"db"}}},
+	}
+	got := maintenanceNotes(windows, map[string]string{"m1": "API"}, now, time.UTC)
+	want := []templates.MaintenanceNote{
+		{Name: "running", Active: true, When: "until 21:20 UTC", WhenAt: "2026-10-14T21:20:00Z", Scope: "tag db"},
+		{Name: "soon", When: "from 23:30 UTC", WhenAt: "2026-10-14T23:30:00Z", Scope: "API"},
+		{Name: "nightly", When: "from Thu 15 Oct, 02:00 UTC", WhenAt: "2026-10-15T02:00:00Z", Scope: "All monitors"},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("notes\n got %+v\nwant %+v", got, want)
+	}
+	if got := maintenanceNotes(windows[4:], nil, now, time.UTC); len(got) != 1 || got[0].Scope != "" {
+		t.Fatalf("without names: %+v", got)
+	}
+}
+
+func TestMaintenanceOnHomeAndMonitorPage(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	api := e.addMonitor(t, "API", "https://api.example.com", "prod")
+	docs := e.addMonitor(t, "Docs", "https://docs.example.com")
+	if body := e.getAs(t, "v1", "GET", "/").Body.String(); strings.Contains(body, "maintenance-notes") {
+		t.Fatal("Home announces maintenance without any")
+	}
+	now := time.Now()
+	add := func(name string, start time.Time, scope maintenance.Scope) {
+		if _, err := store.CreateMaintenance(t.Context(), e.db, maintenance.Window{Name: name, Start: start, Duration: time.Hour, Recurrence: maintenance.None, Scope: scope}, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("Database upgrade", now.Add(-10*time.Minute), maintenance.Scope{Tags: []string{"prod"}})
+	add("Docs move", now.Add(2*time.Hour), maintenance.Scope{Monitors: []string{docs}})
+
+	home := e.getAs(t, "v1", "GET", "/").Body.String()
+	for _, want := range []string{`<h2 id="maintenance-notes-title">Maintenance</h2>`, `<li class="maintenance-note" data-active>`,
+		`<a href="/maintenance">Database upgrade</a>`, "in effect", "tag prod", `<a href="/maintenance">Docs move</a>`, "scheduled"} {
+		if !strings.Contains(home, want) {
+			t.Errorf("Home lacks %q", want)
+		}
+	}
+	if !strings.Contains(e.getAs(t, "v1", "GET", "/fragments/overview").Body.String(), "Database upgrade") {
+		t.Error("Home's live fragment drops the notes")
+	}
+	page := e.getAs(t, "v1", "GET", "/monitors/"+api+"?tab=history").Body.String()
+	if !strings.Contains(page, `<a href="/maintenance">Database upgrade</a>`) || strings.Contains(page, "Docs move") || strings.Contains(page, "tag prod") {
+		t.Errorf("monitor page notes: want only its own window, without a scope")
 	}
 }

@@ -4,11 +4,14 @@ package templates
 // Everything is preformatted by the web package, which also decides what a
 // viewer may see: Config and Failures are already reduced for viewers.
 type MonitorDetailView struct {
-	Monitor  MonitorView
-	Admin    bool
-	Paused   bool
-	Tab      string // one of the DetailTabs keys
-	Overview []Fact
+	Monitor MonitorView
+	Admin   bool
+	Paused  bool
+	Tab     string // one of the DetailTabs keys
+	// Maintenance is the windows covering the monitor that are in effect
+	// or begin soon, on every tab.
+	Maintenance []MaintenanceNote
+	Overview    []Fact
 	// Strip is the Overview's last 90 days, the status page's strip.
 	Strip    StripView
 	Config   []ConfigGroup

@@ -202,3 +202,10 @@ Optimize for:
 - maintenance awareness
 
 Complex configuration remains functional but is secondary.
+
+Built (M8-09): the phone views are the shell's (see "Phones" above) with
+- **rows** read in the order they show: state, name, uptime ("99.50% uptime, last 24 hours" to assistive technology), beats; a long name wraps to two lines instead of losing its end
+- **detail, incidents, graphs:** the pane at full width; the Ambient light stays inside the narrower padding, so no page scrolls sideways
+- **pause/resume** on the monitor page (and the command palette); **channel health** in Home's problem strip
+- **maintenance awareness:** Home and every tab of a monitor page list the windows in effect ("until …") and those beginning within 24 hours ("from …"), linking to Maintenance; Home with each window's scope, a monitor page only the windows covering it. Viewers see them too.
+- **touch targets:** with a coarse pointer, controls are 44 px (`--control-h`) and so are chips, tabs, range links, the wordmark, the account menu's links and the links that stand on their own line; links inside a line of text get padding instead

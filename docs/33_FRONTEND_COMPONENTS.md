@@ -51,6 +51,7 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 ## Maintenance components
 
 - maintenance list: sections In effect now / Upcoming / Past, one compact row per window (name, schedule, when, scope, effect)
+- maintenance notes (`MaintenanceNotes`): on Home and a monitor page, the windows in effect and those beginning within 24 hours, each a wrench, the name linking to Maintenance, "in effect until …" / "scheduled from …" and, on Home, the scope; nothing when there are none
 - maintenance form: when (name, start, duration, repeats with weekdays), effect (hold back notifications, exclude from adjusted uptime), monitors (all, or chosen monitors and tags); delete on the edit page
 
 ## Notification components
