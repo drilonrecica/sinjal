@@ -157,3 +157,41 @@ func AddIncidentNote(ctx context.Context, d *db.DB, id, message string, publishe
 	})
 	return monitorID, err
 }
+
+// RecentEvent is a timeline entry of any incident, for Home. The message
+// is left out: it can name internal hosts, and the entry links to the
+// incident, whose page shows it.
+type RecentEvent struct {
+	IncidentID  string
+	MonitorID   string
+	MonitorName string
+	Type        string
+	At          time.Time
+}
+
+// recentEventsSQL walks incident_events backwards by its primary key, so
+// the newest entries come without a sort.
+const recentEventsSQL = `SELECT e.incident_id, i.monitor_id, m.name, e.event_type, e.created_at
+	FROM incident_events e JOIN incidents i ON i.id = e.incident_id JOIN monitors m ON m.id = i.monitor_id
+	ORDER BY e.id DESC LIMIT ?`
+
+// RecentIncidentEvents returns the newest limit timeline entries of all
+// incidents, newest first.
+func RecentIncidentEvents(ctx context.Context, q querier, limit int) ([]RecentEvent, error) {
+	rows, err := q.QueryContext(ctx, recentEventsSQL, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []RecentEvent
+	for rows.Next() {
+		var e RecentEvent
+		var at string
+		if err := rows.Scan(&e.IncidentID, &e.MonitorID, &e.MonitorName, &e.Type, &at); err != nil {
+			return nil, err
+		}
+		e.At = parseTime(at)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}

@@ -141,3 +141,26 @@ func TestStatusBadgeTerminalTag(t *testing.T) {
 		}
 	}
 }
+
+// The problem strip is as loud as its worst line: red only for an outage
+// or results not being saved, the warning colour otherwise.
+func TestProblemStripSeverity(t *testing.T) {
+	for _, tt := range []struct {
+		states []string
+		want   string
+	}{
+		{[]string{"channel", "tls"}, "warning"},
+		{[]string{StateFlapping}, "warning"},
+		{[]string{"tls", StateDown}, "down"},
+		{[]string{"system"}, "down"},
+	} {
+		var ps []Problem
+		for _, s := range tt.states {
+			ps = append(ps, Problem{State: s, Text: s})
+		}
+		html := renderToString(t, OverviewBody(OverviewView{Monitors: 1, Problems: ps}))
+		if !strings.Contains(html, `<section class="problem-strip" data-severity="`+tt.want+`"`) {
+			t.Errorf("%v: not %s:\n%s", tt.states, tt.want, html)
+		}
+	}
+}

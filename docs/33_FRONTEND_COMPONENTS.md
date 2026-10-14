@@ -30,7 +30,10 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 
 ## Overview components
 
-- problem strip (`OverviewBody`): a bordered list, glyph and text per problem (never colour alone), only when there are problems
+- Home hero (`.home-hero`): the status sentence (`statusSentence`, `internal/web/overview.go`) with the Ambient light of `.monitor-header`, keyed on `data-state`
+- problem strip (`OverviewBody`): a bordered list, glyph and text per problem (never colour alone), only when there are problems; `data-severity` (down or warning) sets its border
+- recent events: `RecentEvent` lines from `store.RecentIncidentEvents`, labels from the incident timeline's `eventLabels`
+- layout: `.home-grid` with `.home-main` and `.home-side`, two columns from 1600 px, each stacking on its own
 - state counts: the figures row of the monitor pages
 - recent incidents: `IncidentRows`, the incident list without its own refresh, inside the page body that refreshes as a whole
 

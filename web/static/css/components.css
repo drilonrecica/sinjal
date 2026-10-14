@@ -248,16 +248,21 @@
   color: inherit;
 }
 
-/* Ambient light (docs/04): one soft radial light behind the status hero,
- * coloured by state, off with data-ambient="off". It stays inside the
- * content's padding, so it never widens the page. */
+/* Ambient light (docs/04): one soft radial light behind the status hero
+ * (a monitor's header, Home's sentence), coloured by state, off with
+ * data-ambient="off". It stays inside the content's padding, so it never
+ * widens the page. */
+.home-hero,
 .monitor-header {
   --ambient: var(--ambient-up);
   position: relative;
   isolation: isolate;
 }
+.home-hero[data-state="down"],
 .monitor-header[data-state="down"] { --ambient: var(--ambient-down); }
+.home-hero[data-state="flapping"],
 .monitor-header[data-state="flapping"] { --ambient: var(--ambient-flapping); }
+[data-ambient="on"] .home-hero::before,
 [data-ambient="on"] .monitor-header::before {
   content: "";
   position: absolute;
@@ -268,6 +273,7 @@
   background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 26%, transparent), transparent);
   pointer-events: none;
 }
+[data-theme="daylight"][data-ambient="on"] .home-hero::before,
 [data-theme="daylight"][data-ambient="on"] .monitor-header::before {
   background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 12%, transparent), transparent);
 }
@@ -395,6 +401,7 @@
 [data-theme="terminal"] .status[data-state="flapping"] .icon {
   color: inherit;
 }
+[data-theme="terminal"] .home-hero::before,
 [data-theme="terminal"] .monitor-header::before {
   display: none;
 }

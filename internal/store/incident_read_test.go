@@ -172,3 +172,35 @@ func TestIncidentFlappingMarker(t *testing.T) {
 		t.Fatalf("flapping = %v", got)
 	}
 }
+
+// Home's recent events: timeline entries of every incident, newest first,
+// with their monitor's name.
+func TestRecentIncidentEvents(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	a, b := create(t, d, sample("api")), create(t, d, sample("db"))
+	ia := seedIncident(t, d.Writer, a, now, now.Add(time.Hour), false) // detected, declared down, recovered
+	ib := seedIncident(t, d.Writer, b, now.Add(2*time.Hour), time.Time{}, false)
+
+	got, err := RecentIncidentEvents(ctx, d.Reader, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, e := range got {
+		lines = append(lines, e.MonitorName+" "+e.Type+" "+e.IncidentID[:4]+" "+e.MonitorID[:4]+" "+e.At.UTC().Format("15:04"))
+	}
+	want := []string{
+		"db " + incident.EventDeclaredDown + " " + ib[:4] + " " + b[:4] + " " + now.Add(2*time.Hour+time.Minute).UTC().Format("15:04"),
+		"db " + incident.EventDetected + " " + ib[:4] + " " + b[:4] + " " + now.Add(2*time.Hour).UTC().Format("15:04"),
+		"api " + incident.EventRecovered + " " + ia[:4] + " " + a[:4] + " " + now.Add(time.Hour).UTC().Format("15:04"),
+		"api " + incident.EventDeclaredDown + " " + ia[:4] + " " + a[:4] + " " + now.Add(time.Minute).UTC().Format("15:04"),
+	}
+	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
+	}
+	plan := queryPlan(t, d.Reader, recentEventsSQL, 10)
+	if strings.Contains(plan, "TEMP B-TREE") {
+		t.Errorf("recent events sort: %s", plan)
+	}
+}

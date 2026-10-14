@@ -96,6 +96,10 @@ func New(d *db.DB, key *vault.Key, workers int, userAgent string, loc *time.Loca
 	return e
 }
 
+// Warning is the result processor's system warning ("" when results are
+// being saved): Home shows it first in its problem strip (docs/03).
+func (e *Engine) Warning() string { return e.proc.Stats().Warning }
+
 // Recent returns every monitor's last checks, newest first on reading, for
 // the beat bars. They come from memory: no page reads them from SQLite.
 func (e *Engine) Recent() *recent.Store { return e.recent }

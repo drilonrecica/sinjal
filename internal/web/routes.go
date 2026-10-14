@@ -55,7 +55,7 @@ func Routes(r chi.Router, app App) {
 	account := NewAccount(app.DB, app.Sessions, app.Logger)
 	maint := NewMaintenance(app.DB, app.Events, app.Timezone, app.Logger)
 	notifications := NewNotifications(app.DB, app.Vault, app.Events, app.Timezone, app.Logger)
-	overview := NewOverview(app.DB, app.Timezone, app.Logger)
+	overview := NewOverview(app.DB, app.Timezone, app.Engine.Warning, app.Logger)
 	incidents := NewIncidents(app.DB, app.Events, app.Timezone, app.Logger)
 	statusPages := NewStatusPages(app.DB, app.BaseURL, app.Uploads, app.Logger)
 	public := NewPublic(app.DB, app.BaseURL, app.Vault.Derive(PageKeyLabel), app.Timezone, app.Logger)

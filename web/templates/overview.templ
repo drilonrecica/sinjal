@@ -2,14 +2,12 @@ package templates
 
 import "strconv"
 
-// OverviewPage is the first page: problems when there are any, the state
-// of the monitors in numbers, and the latest incidents. A healthy system
-// shows no strip and stays calm (docs/03).
+// OverviewPage is Home: one sentence of status, problems when there are
+// any, the state of the monitors in numbers, and the latest incidents and
+// incident events. A healthy system shows no strip and stays calm (docs/03).
 templ OverviewPage(page Page, v OverviewView) {
 	@Shell(page.withAssets([]string{"css/monitors.css", "css/incidents.css", "css/overview.css"}, LiveScripts), "overview") {
-		<div class="page-head">
-			<h1>Overview</h1>
-		</div>
+		<h1 class="visually-hidden">Overview</h1>
 		@Live() {
 			@OverviewBody(v)
 		}
@@ -32,41 +30,81 @@ templ OverviewBody(v OverviewView) {
 				}
 			</section>
 		} else {
-			if len(v.Problems) > 0 {
-				<section class="problem-strip" aria-labelledby="problems-title">
-					<h2 id="problems-title">Needs attention</h2>
-					<ul role="list">
-						for _, p := range v.Problems {
-							<li class="problem" data-state={ p.State }>
-								<span class="problem-glyph">@Icon(problemIcon(p.State))</span>
-								<a href={ templ.SafeURL(p.Href) }>{ p.Text }</a>
-							</li>
+			<div class="home-grid">
+				<div class="home-main">
+					<section class="home-hero" data-state={ v.SentenceState } aria-labelledby="home-sentence">
+						<p class="home-sentence" id="home-sentence">{ v.Sentence }</p>
+					</section>
+					if len(v.Problems) > 0 {
+						<section class="problem-strip" data-severity={ stripSeverity(v.Problems) } aria-labelledby="problems-title">
+							<h2 id="problems-title">Needs attention</h2>
+							<ul role="list">
+								for _, p := range v.Problems {
+									<li class="problem" data-state={ p.State }>
+										<span class="problem-glyph">@Icon(problemIcon(p.State))</span>
+										if p.Href != "" {
+											<a href={ templ.SafeURL(p.Href) }>{ p.Text }</a>
+										} else {
+											<span class="problem-text">{ p.Text }</span>
+										}
+									</li>
+								}
+							</ul>
+							if v.MoreProblems > 0 {
+								<p class="problem-more">and { strconv.Itoa(v.MoreProblems) } more on <a href="/monitors">Monitors</a></p>
+							}
+						</section>
+					}
+					<section class="overview-counts" aria-labelledby="counts-title">
+						<h2 id="counts-title" class="visually-hidden">Monitors by state</h2>
+						<dl class="monitor-facts">
+							for _, c := range v.Counts {
+								<div data-state={ c.State }>
+									<dt>{ c.Label }</dt>
+									<dd>{ strconv.Itoa(c.Value) }</dd>
+								</div>
+							}
+						</dl>
+						<p><a href="/monitors">All monitors</a></p>
+					</section>
+				</div>
+				<div class="home-side">
+					<section class="overview-incidents" aria-labelledby="recent-title">
+						<h2 id="recent-title">Recent incidents</h2>
+						@IncidentRows(v.Incidents)
+						<p><a href="/incidents">All incidents</a></p>
+					</section>
+					<section class="overview-events" aria-labelledby="events-title">
+						<h2 id="events-title">Recent events</h2>
+						if len(v.Events) == 0 {
+							<p class="events-empty">Nothing has happened yet.</p>
+						} else {
+							<ol class="event-list" role="list">
+								for _, e := range v.Events {
+									<li>
+										<a class="event-monitor" href={ templ.SafeURL(e.MonitorHref) }>{ e.Monitor }</a>
+										<a class="event-label" href={ templ.SafeURL(e.IncidentHref) }>{ e.Label }</a>
+										<time datetime={ e.At }>{ e.Time }</time>
+									</li>
+								}
+							</ol>
 						}
-					</ul>
-					if v.MoreProblems > 0 {
-						<p class="problem-more">and { strconv.Itoa(v.MoreProblems) } more on <a href="/monitors">Monitors</a></p>
-					}
-				</section>
-			}
-			<section class="overview-counts" aria-labelledby="counts-title">
-				<h2 id="counts-title" class="visually-hidden">Monitors by state</h2>
-				<dl class="monitor-facts">
-					for _, c := range v.Counts {
-						<div data-state={ c.State }>
-							<dt>{ c.Label }</dt>
-							<dd>{ strconv.Itoa(c.Value) }</dd>
-						</div>
-					}
-				</dl>
-				<p><a href="/monitors">All monitors</a></p>
-			</section>
-			<section class="overview-incidents" aria-labelledby="recent-title">
-				<h2 id="recent-title">Recent incidents</h2>
-				@IncidentRows(v.Incidents)
-				<p><a href="/incidents">All incidents</a></p>
-			</section>
+					</section>
+				</div>
+			</div>
 		}
 	</div>
+}
+
+// stripSeverity is the strip's colour: down when a monitor is down or
+// results are not being saved, warning for everything else.
+func stripSeverity(ps []Problem) string {
+	for _, p := range ps {
+		if p.State == StateDown || p.State == "system" {
+			return "down"
+		}
+	}
+	return "warning"
 }
 
 func problemIcon(state string) string {
