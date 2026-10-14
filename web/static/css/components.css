@@ -363,11 +363,31 @@
   background: transparent;
   text-transform: uppercase;
 }
-[data-theme="terminal"] .status-text::before { content: "["; }
-[data-theme="terminal"] .status-text::after { content: "]"; }
-[data-theme="terminal"] .status[data-state="down"],
-[data-theme="terminal"] .status[data-state="flapping"],
+[data-theme="terminal"] .status-text::before,
+[data-theme="terminal"] .status-tag::before { content: "["; }
+[data-theme="terminal"] .status-text::after,
+[data-theme="terminal"] .status-tag::after { content: "]"; }
+/* A short tag ([FLAP]) replaces the word on screen; the word stays for
+ * assistive technology (the .visually-hidden pattern of base.css). */
+.status-tag { display: none; }
+[data-theme="terminal"] .status-tag { display: inline; }
+[data-theme="terminal"] .status-text:has(+ .status-tag) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+/* The hero keeps its block as a box rule in the base amber; only a
+ * problem fills it (the two rules below, later and as specific). */
 [data-theme="terminal"] .monitor-header .status {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--state);
+}
+[data-theme="terminal"] .status[data-state="down"],
+[data-theme="terminal"] .status[data-state="flapping"] {
   background: var(--state);
   color: var(--on-status);
 }
@@ -382,6 +402,11 @@
 
 /* Box rules and a block cursor after the page title. */
 [data-theme="terminal"] .monitor-list,
+[data-theme="terminal"] .incident-list,
+[data-theme="terminal"] .maint-list,
+[data-theme="terminal"] .chan-list,
+[data-theme="terminal"] .sp-monitor,
+[data-theme="terminal"] .problem-strip,
 [data-theme="terminal"] .auth-panel,
 [data-theme="terminal"] .form-section {
   border-style: double;

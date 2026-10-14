@@ -27,13 +27,15 @@ Use polite live regions only for important user-facing status changes.
 
 ## Themes
 
-All four themes must pass contrast checks for:
+All three themes (Stark, Terminal, Daylight) must pass contrast checks for:
 - body text
 - muted text used for essential information
 - status labels
 - links
 - form controls
 - focus rings
+
+`web/tokens_test.go` checks the tokens and, since M8-02, what the components paint over them: text on a status badge's tint, on a notice's tint, inside the Ambient light at its strongest, on Daylight's ink block and under Terminal's scanlines, and beat marks on the page background. `TestPaintedMixesMatchCSS` fails when `components.css` changes one of those tints without the test.
 
 ## Tables/rows
 

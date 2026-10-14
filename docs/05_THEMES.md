@@ -49,6 +49,8 @@ Personality: crisp, bright, editorial contrast.
 
 The default for public status pages: a page's visitors are not its operators.
 
+Built (M8-01, M8-02): every rule above is in `tokens.css` and the theme-scoped sections of `components.css`. Terminal's short tag where it is not the word itself (`[FLAP]`) is a separate `aria-hidden` span next to the word, which is visually hidden in Terminal only, so assistive technology still reads "Flapping". The status hero in Terminal is a box rule in the base amber for a calm state and an inverse block only for a problem. Double box rules frame every panel (monitor, incident, maintenance and channel lists, status page monitors, the problem strip, forms, the sign-in panel); controls keep single rules. The public status page's own personality details arrive with its redesign (M8-17).
+
 ## Token model
 
 At minimum:

@@ -189,3 +189,106 @@ func TestBaseCSSUsesOnlyTokensForColour(t *testing.T) {
 		}
 	}
 }
+
+// mix is color-mix(in srgb, a p, b) for opaque colours: what a browser
+// paints for a tint of a over b.
+func mix(t *testing.T, a, b string, p float64) string {
+	t.Helper()
+	luminance(t, a) // validates the format
+	luminance(t, b)
+	ch := func(s string, i int) float64 {
+		v, _ := strconv.ParseUint(s[i:i+2], 16, 8)
+		return float64(v)
+	}
+	out := "#"
+	for _, i := range []int{1, 3, 5} {
+		out += hex2(math.Round(ch(a, i)*p + ch(b, i)*(1-p)))
+	}
+	return out
+}
+
+func hex2(v float64) string {
+	s := strconv.FormatUint(uint64(v), 16)
+	if len(s) == 1 {
+		s = "0" + s
+	}
+	return s
+}
+
+// The tints the components paint (components.css), as fractions. A test
+// below keeps these in step with the CSS.
+const (
+	badgeTint        = 0.14 // .status
+	noticeTint       = 0.08 // .auth-notice, .auth-alert
+	ambientTint      = 0.26 // the Ambient light at its peak
+	ambientTintLight = 0.12 // the same in Daylight
+	scanlineTint     = 0.12 // Terminal's scanlines
+)
+
+// TestThemeContrastOnPaintedSurfaces checks text where the components lay
+// tints over the theme's surfaces (docs/22: 4.5:1 for text, 3:1 for marks).
+func TestThemeContrastOnPaintedSurfaces(t *testing.T) {
+	tokens := parseTokens(t)
+	for _, theme := range themeNames {
+		p := tokens["theme:"+theme]
+		check := func(what, fg, bg string, min float64) {
+			t.Helper()
+			if got := contrast(t, fg, bg); got < min {
+				t.Errorf("%s: %s = %.2f:1, want >= %.1f:1", theme, what, got, min)
+			}
+		}
+		for _, s := range []string{"bg", "surface-1", "surface-2"} {
+			for _, st := range []string{"up", "warning", "down", "paused", "pending", "flapping"} {
+				check("--text on the "+st+" badge over --"+s, p["text"], mix(t, p["status-"+st], p[s], badgeTint), 4.5)
+			}
+		}
+		for _, st := range []string{"up", "down"} {
+			check("--text on the "+st+" notice", p["text"], mix(t, p["status-"+st], p["surface-1"], noticeTint), 4.5)
+		}
+		// Terminal draws no Ambient light (TestPaintedMixesMatchCSS keeps it so).
+		tint := ambientTint
+		if theme == "daylight" {
+			tint = ambientTintLight
+		}
+		for _, a := range []string{"ambient-up", "ambient-down", "ambient-flapping"} {
+			if theme == "terminal" {
+				break
+			}
+			lit := mix(t, p[a], p["bg"], tint)
+			check("--text in the "+a+" light", p["text"], lit, 4.5)
+			check("--text-muted in the "+a+" light", p["text-muted"], lit, 4.5)
+		}
+		// Daylight's ink block: light text on the ink of --text.
+		check("--accent-contrast on an ink block (--text)", p["accent-contrast"], p["text"], 4.5)
+		if theme == "terminal" {
+			for _, fg := range []string{"text", "text-muted"} {
+				check("--"+fg+" under a scanline", mix(t, p["bg"], p[fg], scanlineTint), mix(t, p["bg"], p["surface-1"], scanlineTint), 4.5)
+			}
+		}
+		for _, b := range []string{"beat-up", "beat-down"} {
+			check("--"+b+" on --bg", p[b], p["bg"], 3)
+		}
+	}
+}
+
+// The fractions above must be the ones components.css paints.
+func TestPaintedMixesMatchCSS(t *testing.T) {
+	raw, err := fs.ReadFile(Static, "css/components.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(raw)
+	for _, want := range []string{
+		"color-mix(in srgb, var(--state) 14%, transparent)",
+		"color-mix(in srgb, var(--status-up) 8%, var(--surface-1))",
+		"color-mix(in srgb, var(--status-down) 8%, var(--surface-1))",
+		"color-mix(in srgb, var(--ambient) 26%, transparent)",
+		"color-mix(in srgb, var(--ambient) 12%, transparent)",
+		"color-mix(in srgb, var(--bg) 12%, transparent)",
+		"[data-theme=\"terminal\"] .monitor-header::before {\n  display: none;",
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("components.css no longer paints %s; update the tints in this test with it", want)
+		}
+	}
+}

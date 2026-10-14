@@ -126,3 +126,18 @@ func TestParentDownIsShown(t *testing.T) {
 		m.ParentDown = false
 	}
 }
+
+// Terminal shows short state tags (docs/05 "[FLAP]"). Where the tag is not
+// the word itself it is a separate aria-hidden span, so the word stays
+// what assistive technology reads.
+func TestStatusBadgeTerminalTag(t *testing.T) {
+	html := renderToString(t, StatusBadge(StateFlapping))
+	if !strings.Contains(html, `<span class="status-text">Flapping</span> <span class="status-tag" aria-hidden="true">FLAP</span>`) {
+		t.Fatalf("flapping badge: %s", html)
+	}
+	for _, state := range []string{StateUp, StateDown, StatePaused, StatePending} {
+		if html := renderToString(t, StatusBadge(state)); strings.Contains(html, "status-tag") {
+			t.Errorf("%s badge has a tag of its own: %s", state, html)
+		}
+	}
+}

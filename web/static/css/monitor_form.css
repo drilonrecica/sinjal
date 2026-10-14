@@ -22,21 +22,23 @@
   border-top: 1px solid var(--border);
 }
 
-.form-section legend,
+.form-section > legend,
 .form-advanced summary {
   padding: 0;
   font-size: 1rem;
   font-weight: 600;
 }
 
-/* A legend sits on the border; the padding above keeps it clear. */
-.form-section legend {
+/* A legend sits on the border; the padding above keeps it clear. Only the
+ * section's own: a nested fieldset's (often visually hidden) legend must
+ * keep its own size, or it widens the page. */
+.form-section > legend {
   float: left;
   width: 100%;
   margin-bottom: var(--space-1);
 }
 
-.form-section legend + * {
+.form-section > legend + * {
   clear: left;
 }
 

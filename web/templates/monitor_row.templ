@@ -65,11 +65,25 @@ func stateIcon(state string) string {
 	return "hourglass"
 }
 
-// StatusBadge is the status icon plus text.
+// stateTag is Terminal's short tag where it is not the label in capitals
+// (docs/05: [UP], [DOWN], [FLAP]); "" otherwise.
+func stateTag(state string) string {
+	if state == StateFlapping {
+		return "FLAP"
+	}
+	return ""
+}
+
+// StatusBadge is the status icon plus text. A short tag, when there is
+// one, is shown by Terminal instead of the word and hidden from assistive
+// technology, which reads the word.
 templ StatusBadge(state string) {
 	<span class="status" data-state={ state }>
 		@Icon(stateIcon(state))
 		<span class="status-text">{ stateLabel(state) }</span>
+		if tag := stateTag(state); tag != "" {
+			<span class="status-tag" aria-hidden="true">{ tag }</span>
+		}
 	</span>
 }
 
