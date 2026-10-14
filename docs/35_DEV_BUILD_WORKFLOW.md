@@ -73,6 +73,10 @@ Steps 4 and 5 have no check-only mode in templ, so they run the tool and fail wh
 
 No golangci-lint and no large lint configuration.
 
+## Browser tests
+
+`make test-browser` runs the chromedp suite in `tests/browser` (its own module, `docs/20_TESTING.md`). It builds the binary, needs a local Chrome or Chromium (skipped otherwise) and takes about half a minute. Not part of `make test`, `make lint` or CI; `gofmt` covers its files, `go vet ./...` at the root does not.
+
 ## Reproducibility
 
 `go.mod` and `go.sum` are authoritative.

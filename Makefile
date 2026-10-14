@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 DEV_DATA := ./.dev-data
 
-.PHONY: dev generate check-generated check-templ-fmt fmt lint test test-race bench build reset-dev-db release-local
+.PHONY: dev generate check-generated check-templ-fmt fmt lint test test-race test-browser bench build reset-dev-db release-local
 
 dev:
 	SINJAL_DATA_DIR=$(DEV_DATA) go run ./cmd/sinjal serve
@@ -43,6 +43,11 @@ test:
 
 test-race:
 	go test -race ./...
+
+# The small chromedp suite in its own module (docs/20_TESTING.md); not part
+# of `make test` or CI. Skips when no Chrome or Chromium is installed.
+test-browser:
+	cd tests/browser && go test -count=1 ./...
 
 bench:
 	go test -run='^$$' -bench=. -benchmem ./...

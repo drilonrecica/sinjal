@@ -3,6 +3,8 @@ package templates
 // AccountAppearance is the signed-in user's own look: theme, density and
 // Ambient light (docs/05 "Theme persistence"). Open to viewers; it changes
 // nothing but the caller's own row, so it needs no recent re-authentication.
+// The form is not boosted: a boosted answer swaps only the pane, and the new
+// theme, density and Ambient light live on <html>, so the save loads a page.
 templ AccountAppearance(page Page, f AppearanceForm) {
 	@settingsFrame(page, "appearance") {
 		<h1>Appearance</h1>
@@ -12,7 +14,7 @@ templ AccountAppearance(page Page, f AppearanceForm) {
 		if f.Error != "" {
 			<p id="form-error" class="auth-alert" role="alert">{ f.Error }</p>
 		}
-		<form class="auth-form" method="post" action="/account/appearance">
+		<form class="auth-form" method="post" action="/account/appearance" hx-boost="false">
 			@CSRFField(page)
 			<fieldset class="form-section">
 				<legend>Theme</legend>

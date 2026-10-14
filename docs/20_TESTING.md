@@ -107,6 +107,8 @@ Tooling (decision P0-14):
 - each test builds and boots the real `sinjal` binary on a temporary data directory and drives it over HTTP
 - no screenshots-as-assertions; assert on DOM text, attributes and status labels
 
+Built (M8-12), in `tests/browser/browser_test.go`: `TestLogin` (setup, wrong password, sign in, sign out), `TestCreateHTTPMonitor`, `TestSSETransition` (a monitor going down swaps the detail header and column row over SSE, checked without a reload), `TestThemeSwitch` (applied on save, kept across pages and in a new browser) and `TestStatusPageModes` (one page through public, password, authenticated and unlisted, opened each time from a fresh browser context; the monitor's own name and target never shown). The backup/restore confirmation test follows the backup UI (M9-01).
+
 ## Benchmarks
 
 See `docs/18_PERFORMANCE.md`.

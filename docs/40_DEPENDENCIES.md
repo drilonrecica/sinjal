@@ -81,7 +81,7 @@ Not linked into the `sinjal` binary and not present in production images.
 |---|---|---|
 | templ generator | generate `*_templ.go` | `go.mod` `tool` directive (`go tool templ`) |
 | staticcheck (`honnef.co/go/tools`) | static analysis for `make lint` and CI | `go.mod` `tool` directive |
-| `github.com/chromedp/chromedp` | small browser test suite (`20_TESTING.md`) | separate `tests/browser/go.mod` only |
+| `github.com/chromedp/chromedp` | small browser test suite (`20_TESTING.md`) | separate `tests/browser/go.mod` only (v0.21.0, with `cdproto` and `go-json-experiment/json`) |
 | syft | SBOM generation for releases (`17_MIGRATIONS_RELEASES.md`) | installed binary, version recorded in the release script |
 
 Adding another dev-only tool follows the same rule as runtime dependencies: list it here first.
