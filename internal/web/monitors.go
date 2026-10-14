@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/a-h/templ"
@@ -54,6 +55,7 @@ func RegisterMonitors(r chi.Router, h *Monitors) {
 		r.Method(method, "/fragments/monitors", http.HandlerFunc(h.column))
 		r.Method(method, "/fragments/activity", http.HandlerFunc(h.activity))
 		r.Method(method, "/fragments/palette", http.HandlerFunc(h.palette))
+		r.Method(method, "/fragments/column-filters", http.HandlerFunc(h.panel))
 		r.Method(method, "/fragments/monitors/{id}/row", h.fragment(rowBar, func(m templates.MonitorView) templ.Component { return templates.ColumnRow(m) }))
 		r.Method(method, "/fragments/monitors/{id}/beats", http.HandlerFunc(h.beatTips))
 		r.Method(method, "/fragments/monitors/{id}/header", h.fragment(heroBar, func(m templates.MonitorView) templ.Component { return templates.MonitorHeader(m) }))
@@ -180,32 +182,49 @@ func joinUnits(a int, au string, b int, bu string) string {
 
 // column serves GET /fragments/monitors: the shell's monitor list column,
 // loaded once per page load and again when a monitor is created or
-// deleted (docs/03 "Layout").
+// deleted (docs/03 "Layout"). Its query is the list state (views.go): the
+// rows are the monitors that pass it, in its order. The column's own form
+// asks with its id as the trigger; the answer then also puts the state in
+// the page's address (docs/29 "URL state").
 func (h *Monitors) column(w http.ResponseWriter, r *http.Request) {
 	admin := isAdmin(r)
-	rows, err := h.rows(r, admin)
+	f, sortBy := parseView(r.URL.Query())
+	rows, err := h.rows(r, admin, f, sortBy)
 	if err != nil {
 		h.log.Error("monitor column failed", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	render(w, r, h.log, http.StatusOK, templates.ColumnList(rows, admin))
+	query := viewQuery(f, sortBy)
+	if r.Header.Get("HX-Trigger") == "column-filter" {
+		if cur, err := url.Parse(r.Header.Get("HX-Current-URL")); err == nil && cur.Path != "" {
+			next := cur.Path
+			if query != "" {
+				next += "?" + query
+			}
+			w.Header().Set("HX-Replace-Url", next)
+		}
+	}
+	render(w, r, h.log, http.StatusOK, templates.ColumnList(rows, admin, query, !f.Empty()))
 }
 
 // rows builds every row of the column in a fixed number of queries,
-// however many monitors there are: the monitors, their tags, for admins
-// their targets (what the column's search matches), and the 24-hour raw
-// uptime of all of them at once. The beat bars come from the engine's
-// memory.
-func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, error) {
+// however many monitors there are: the monitors, their tags, public
+// labels (only for a text search), for admins their targets (what search
+// matches), and the 24-hour raw uptime of all of them at once. The beat
+// bars, failures and durations come from the engine's memory.
+func (h *Monitors) rows(r *http.Request, admin bool, f store.ViewFilters, sortBy string) ([]templates.MonitorView, error) {
 	ctx, q := r.Context(), h.db.Reader
 	now := h.now()
 	monitors, err := store.ListMonitors(ctx, q)
-	var tags map[string][]string
+	var tags, labels map[string][]string
 	var targets map[string]string
 	var uptimes map[string]incident.Ratio
 	if err == nil {
 		tags, err = store.TagsByMonitor(ctx, q)
+	}
+	if err == nil && f.Text != "" {
+		labels, err = store.DisplayNamesByMonitor(ctx, q)
 	}
 	if err == nil && admin {
 		targets, err = store.Targets(ctx, q)
@@ -216,15 +235,29 @@ func (h *Monitors) rows(r *http.Request, admin bool) ([]templates.MonitorView, e
 	if err != nil {
 		return nil, err
 	}
-	out := make([]templates.MonitorView, 0, len(monitors))
+	rows := make([]listRow, 0, len(monitors))
 	buf := make([]recent.Check, 0, listBeats)
 	clock := newBeatClock(now, h.loc)
+	textLow := strings.ToLower(f.Text)
 	for _, m := range monitors {
+		buf = h.engine.Recent().Newest(m.ID, rowBar.n, buf[:0])
+		in := filterInput{now: now, admin: admin, tags: tags[m.ID], labels: labels[m.ID], target: targets[m.ID], checks: buf, textLow: textLow}
+		if !matchView(f, m, in) {
+			continue
+		}
 		u := uptimes[m.ID]
 		v := monitorView(m, viewInput{Tags: tags[m.ID], Target: targets[m.ID], Uptime: u.Percent(), Adjusted: u.Percent(), Admin: admin}, now)
-		buf = h.engine.Recent().Newest(m.ID, rowBar.n, buf[:0])
 		v.Beats = beatBar(m.ID, buf, rowBar, clock)
-		out = append(out, v)
+		slow := int32(-1)
+		if len(buf) > 0 {
+			slow = buf[0].MS
+		}
+		rows = append(rows, listRow{view: v, slow: slow})
+	}
+	orderRows(rows, sortBy)
+	out := make([]templates.MonitorView, len(rows))
+	for i, lr := range rows {
+		out[i] = lr.view
 	}
 	return out, nil
 }

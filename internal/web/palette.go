@@ -54,7 +54,7 @@ func (h *Monitors) search(r *http.Request, q string, admin bool) ([]templates.Pa
 	}
 	var out []templates.PaletteMonitor
 	for _, m := range monitors {
-		if !paletteMatch(q, m, tags[m.ID], labels[m.ID], admin, targets[m.ID]) {
+		if !searchMatch(q, m, tags[m.ID], labels[m.ID], admin, targets[m.ID]) {
 			continue
 		}
 		out = append(out, templates.PaletteMonitor{ID: m.ID, Name: m.Name, State: displayState(m), Paused: m.State == "paused"})
@@ -65,7 +65,9 @@ func (h *Monitors) search(r *http.Request, q string, admin bool) ([]templates.Pa
 	return out, nil
 }
 
-func paletteMatch(q string, m store.Monitor, tags, labels []string, admin bool, target string) bool {
+// searchMatch is the monitor search of docs/29: q (lower case) in the name,
+// a tag, a public display label or, for admins, the target summary.
+func searchMatch(q string, m store.Monitor, tags, labels []string, admin bool, target string) bool {
 	if strings.Contains(strings.ToLower(m.Name), q) {
 		return true
 	}

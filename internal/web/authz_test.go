@@ -42,6 +42,9 @@ var viewerMutations = map[string]bool{
 	"/account/password":                 true, // changes the caller's own password
 	"/account/sessions/sign-out-others": true, // ends the caller's other sessions
 	"/account/appearance":               true, // the caller's own theme, density and Ambient light
+	"/views":                            true, // the caller's own saved views (docs/29)
+	"/views/{id}":                       true,
+	"/views/{id}/delete":                true,
 }
 
 var routeParamRe = regexp.MustCompile(`\{[^}]+\}|\*`)

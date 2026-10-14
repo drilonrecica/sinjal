@@ -25,7 +25,8 @@ internal/db/migrations/
   006_notifications.sql   # M5: channels, full profiles, routes, deliveries, tls_warnings
   007_aggregates.sql      # M6: check_aggregates
   008_status_pages.sql    # M7: pages, groups, page monitors, hosts
-  009_saved_views.sql     # M8: saved_views
+  009_themes.sql          # M8: Clear themes, Ambient light
+  010_saved_views.sql     # M8: saved_views
 ```
 
 One migration per milestone, created with the milestone that first needs the tables. `spec/schema.sql` is the consolidated end-state reference; the migrations are authoritative.

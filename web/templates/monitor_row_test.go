@@ -32,7 +32,6 @@ func TestColumnRow(t *testing.T) {
 	html := renderToString(t, ColumnRow(m))
 	for _, want := range []string{
 		`id="col-m1"`, `data-live`, `data-monitor-id="m1"`, `data-state="up"`,
-		`data-search="api http https://api.example.com prod eu"`,
 		`hx-get="/fragments/monitors/m1/row"`, `hx-trigger="refresh"`, `hx-swap="outerHTML"`,
 		`<a class="column-link" href="/monitors/m1">`, `<span class="visually-hidden">Up:</span>`,
 		`<span class="column-name">API</span>`, `>99.50%</span>`, `class="beat-bar"`,
@@ -44,14 +43,14 @@ func TestColumnRow(t *testing.T) {
 }
 
 func TestColumnList(t *testing.T) {
-	html := renderToString(t, ColumnList([]MonitorView{testMonitor}, false))
+	html := renderToString(t, ColumnList([]MonitorView{testMonitor}, false, "", false))
 	if !strings.Contains(html, `data-live-list hx-get="/fragments/monitors"`) || !strings.Contains(html, `id="col-m1"`) || strings.Contains(html, "No monitors yet") {
 		t.Fatalf("column list:\n%s", html)
 	}
-	if html := renderToString(t, ColumnList(nil, true)); !strings.Contains(html, "No monitors yet.") || !strings.Contains(html, `href="/monitors/new"`) {
+	if html := renderToString(t, ColumnList(nil, true, "", false)); !strings.Contains(html, "No monitors yet.") || !strings.Contains(html, `href="/monitors/new"`) {
 		t.Fatalf("empty column for an admin:\n%s", html)
 	}
-	if html := renderToString(t, ColumnList(nil, false)); strings.Contains(html, `/monitors/new`) {
+	if html := renderToString(t, ColumnList(nil, false, "", false)); strings.Contains(html, `/monitors/new`) {
 		t.Fatalf("empty column offers a viewer to create:\n%s", html)
 	}
 }

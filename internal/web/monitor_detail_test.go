@@ -194,11 +194,18 @@ func TestMonitorListFragment(t *testing.T) {
 	rec := e.getAs(t, "a1", "GET", "/fragments/monitors")
 	html := rec.Body.String()
 	if rec.Code != 200 || strings.Contains(html, "<html") || !strings.Contains(html, `data-live-list`) ||
-		strings.Index(html, ">A<") > strings.Index(html, ">b<") || !strings.Contains(html, "https://a.example") {
+		strings.Index(html, ">A<") > strings.Index(html, ">b<") {
 		t.Fatalf("admin fragment = %d:\n%s", rec.Code, html)
 	}
 	if v := e.getAs(t, "v1", "GET", "/fragments/monitors").Body.String(); strings.Contains(v, "example") {
 		t.Error("the viewer's list shows addresses")
+	}
+	// An admin's search reaches the host; a viewer's does not.
+	if a := e.getAs(t, "a1", "GET", "/fragments/monitors?q=a.example").Body.String(); !strings.Contains(a, ">A<") || strings.Contains(a, ">b<") {
+		t.Errorf("admin search by host:\n%s", a)
+	}
+	if v := e.getAs(t, "v1", "GET", "/fragments/monitors?q=a.example").Body.String(); strings.Contains(v, ">A<") {
+		t.Error("a viewer's search matched a host")
 	}
 	if rec := e.serve(req("GET", "/fragments/monitors", nil)); rec.Code != 303 {
 		t.Errorf("anonymous = %d", rec.Code)

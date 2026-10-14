@@ -1,0 +1,115 @@
+package templates
+
+// ColumnView is one saved view in the More panel: its name and the query
+// of the list state it restores.
+type ColumnView struct {
+	ID, Name, Query string
+}
+
+// ColumnPanelData is what the More panel shows: the choices, the current
+// values (from the column's own state) and the user's saved views.
+type ColumnPanelData struct {
+	Types           []string
+	Tags            []string
+	Type, Tag       string
+	Slowest         bool
+	TLS, Failing    bool
+	Views           []ColumnView
+	Notice, Problem string
+}
+
+// ColumnPanel is the column's More panel (docs/29): type, tag and sort
+// choices and the two flag filters, which are fields of the column's form
+// (a change asks for the list again), and the user's saved views. A view
+// is a link that loads the page with its query, so the whole column starts
+// from it; Update and Delete post the form's current fields to /views and
+// swap this panel with the answer.
+templ ColumnPanel(d ColumnPanelData) {
+	<div class="column-fields">
+		<label class="field">
+			<span>Type</span>
+			<select name="type">
+				<option value="">Any</option>
+				for _, t := range d.Types {
+					<option value={ t } selected?={ t == d.Type }>{ t }</option>
+				}
+			</select>
+		</label>
+		if len(d.Tags) > 0 {
+			<label class="field">
+				<span>Tag</span>
+				<select name="tag">
+					<option value="">Any</option>
+					for _, t := range d.Tags {
+						<option value={ t } selected?={ t == d.Tag }>{ t }</option>
+					}
+				</select>
+			</label>
+		}
+		<label class="field">
+			<span>Sort</span>
+			<select name="sort">
+				<option value="">Name</option>
+				<option value="slowest" selected?={ d.Slowest }>Slowest</option>
+			</select>
+		</label>
+		<label class="check"><input type="checkbox" name="tls" value="1" checked?={ d.TLS }/> TLS expiring</label>
+		<label class="check"><input type="checkbox" name="failing" value="1" checked?={ d.Failing }/> Recently failing</label>
+	</div>
+	<div class="column-views">
+		<h3>Saved views</h3>
+		if d.Problem != "" {
+			<p class="column-note" role="alert">{ d.Problem }</p>
+		}
+		if d.Notice != "" {
+			<p class="column-note" role="status">{ d.Notice }</p>
+		}
+		if len(d.Views) == 0 {
+			<p class="column-note">None yet.</p>
+		} else {
+			<ul role="list" class="view-list">
+				for _, v := range d.Views {
+					<li>
+						<a href={ templ.SafeURL(viewHref(v.Query)) } hx-boost="false">{ v.Name }</a>
+						<button
+							type="button"
+							class="chip"
+							hx-post={ "/views/" + v.ID }
+							hx-target="closest .column-panel"
+							hx-swap="innerHTML"
+							aria-label={ "Replace " + v.Name + " with the filters above" }
+						>Update</button>
+						<button
+							type="button"
+							class="chip"
+							hx-post={ "/views/" + v.ID + "/delete" }
+							hx-target="closest .column-panel"
+							hx-swap="innerHTML"
+							aria-label={ "Delete " + v.Name }
+						>Delete</button>
+					</li>
+				}
+			</ul>
+		}
+		<div class="view-save">
+			<label class="field">
+				<span>Save the filters above as</span>
+				<input type="text" name="view_name" maxlength="40" autocomplete="off" placeholder="View name"/>
+			</label>
+			<button
+				type="button"
+				class="button"
+				hx-post="/views"
+				hx-target="closest .column-panel"
+				hx-swap="innerHTML"
+			>Save view</button>
+		</div>
+	</div>
+}
+
+func viewHref(query string) string {
+	if query == "" {
+		return "/monitors"
+	}
+	return "/monitors?" + query
+}

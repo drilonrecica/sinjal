@@ -52,7 +52,7 @@ func TestMonitorFragments(t *testing.T) {
 				t.Fatalf("admin = %d %v", admin.Code, admin.Header())
 			}
 			body := admin.Body.String()
-			for _, want := range []string{"API", "https://api.example.com:8443", `data-monitor-id="` + id + `"`} {
+			for _, want := range []string{"API", `data-monitor-id="` + id + `"`} {
 				if !strings.Contains(body, want) {
 					t.Errorf("admin fragment lacks %q:\n%s", want, body)
 				}
@@ -65,10 +65,6 @@ func TestMonitorFragments(t *testing.T) {
 				if strings.Contains(body, secret) {
 					t.Errorf("fragment leaks %q:\n%s", secret, body)
 				}
-			}
-			// A row's tags are what the column's search matches.
-			if frag == "row" && !strings.Contains(body, `data-search="api http https://api.example.com:8443 prod"`) {
-				t.Errorf("row lacks its search text:\n%s", body)
 			}
 			if strings.Contains(body, "<html") {
 				t.Error("a fragment must not carry the page layout")
@@ -221,8 +217,7 @@ func TestMonitorColumn(t *testing.T) {
 		t.Fatalf("admin = %d", admin.Code)
 	}
 	for _, want := range []string{
-		`data-live-list hx-get="/fragments/monitors"`, `data-search="beta http https://beta.example.com eu prod"`,
-		`data-search="alpha http https://alpha.example.com"`, `<span class="visually-hidden">Down:</span>`,
+		`data-live-list hx-get="/fragments/monitors"`, `<span class="visually-hidden">Down:</span>`,
 		`<span class="visually-hidden">Pending:</span>`, `<span class="column-name">Beta</span>`,
 		`title="Uptime, last 24 hours">`,
 	} {

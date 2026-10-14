@@ -5,7 +5,7 @@ Sinjal uses templ + HTMX + CSS + minimal vanilla JS.
 ## Shared layout
 
 - app shell (`Shell`, `web/templates/shell.templ`): top bar with `topnav` and the account menu, the monitor column, the pane `#main` (`data-view` list or detail for phones), the Live activity column; `ShellStyles` / `ShellScripts` are every shell page's assets
-- monitor column: `ColumnList` / `ColumnRow` (`web/templates/monitors.templ`), search and chips run by `js/shell.js`
+- monitor column: `ColumnList` / `ColumnRow` (`web/templates/monitors.templ`); the search box, chips and More panel (`ColumnPanel`, `web/templates/column_panel.templ`) are one htmx form in the shell that asks `/fragments/monitors` for the filtered list; `js/shell.js` only sets the chip's hidden field
 - Live activity: `ActivityList` (`web/templates/activity.templ`), filled by `/fragments/activity`
 - phone menu: the top bar's sections in a `<details>`, closed by `js/shell.js` on phones
 - top context bar

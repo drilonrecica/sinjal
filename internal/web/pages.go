@@ -23,6 +23,7 @@ func pageFor(r *http.Request, title string) templates.Page {
 	page.AmbientOff = !ambient
 	page.Admin = isAdmin(r)
 	page.CSRFToken = CSRFToken(r)
+	page.ColumnQuery, page.ColumnText, page.ColumnState = columnState(r)
 	return page
 }
 

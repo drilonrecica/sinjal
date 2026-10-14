@@ -169,7 +169,9 @@ Heartbeat token endpoints are machine endpoints and use token authentication rat
 - `GET|HEAD /monitors/{id}` (M2-18): admins and viewers; `?tab=overview|history|incidents|configuration|diagnostics`, anything else is the overview. Unknown id: 404.
 - `POST /monitors/{id}/pause|resume` (M2-18): admin only; 303 back to the monitor; idempotent.
 - `POST /monitors/{id}/delete` (M2-18): admin only. Without `confirm=1` it answers 200 with the confirmation page and changes nothing; with it the monitor is deleted, `monitor.deleted` is sent and the answer is 303 to `/monitors`.
-- `GET|HEAD /fragments/monitors` (M2-18): the list rows alone, for the list to refresh itself; admins and viewers, `no-store`.
+- `GET|HEAD /fragments/monitors` (M2-18, M8-08): the list rows alone, for the list to refresh itself; admins and viewers, `no-store`. The query is the list state (docs/29): `q`, repeatable `state` (up, down, pending, flapping, paused), `type` and `tag`, `tls=1`, `failing=1`, `sort=slowest`; invalid values are dropped. The answer's `hx-get` keeps the state; when the column's own form asked (`HX-Trigger: column-filter`) the answer carries `HX-Replace-Url` (the current page's path with the state), which is the URL state.
+- `GET|HEAD /fragments/column-filters` (M8-08): the column's More panel (type, tag, sort, TLS expiring, recently failing, the caller's saved views); same query; admins and viewers, `no-store`.
+- `POST /views`, `POST /views/{id}`, `POST /views/{id}/delete` (M8-08): create (`view_name` plus the list state fields), replace the filters and sort of, and delete one of the caller's own saved views; viewers too. Another user's id is "no longer exists". Each answers with the refreshed More panel (200, validation messages inside it).
 
 ## Implemented (M3)
 

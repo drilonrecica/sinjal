@@ -1,17 +1,15 @@
 package templates
 
-import "strings"
-
 // ColumnList is the shell's monitor list column (docs/03 "Layout"): one
 // compact row per monitor. The shell loads it once from /fragments/monitors
 // and it replaces itself from there when live.js sends it "refresh", which
 // it does when a monitor is created or deleted.
-templ ColumnList(ms []MonitorView, admin bool) {
+templ ColumnList(ms []MonitorView, admin bool, query string, filtered bool) {
 	<ul
 		class="column-list"
 		role="list"
 		data-live-list
-		hx-get="/fragments/monitors"
+		hx-get={ columnListURL(query) }
 		hx-trigger="refresh"
 		hx-swap="outerHTML"
 	>
@@ -19,7 +17,11 @@ templ ColumnList(ms []MonitorView, admin bool) {
 			@ColumnRow(m)
 		}
 	</ul>
-	if len(ms) == 0 {
+	if len(ms) == 0 && filtered {
+		<div class="column-empty">
+			<p>No monitors match.</p>
+		</div>
+	} else if len(ms) == 0 {
 		<div class="column-empty">
 			<p>No monitors yet.</p>
 			if admin {
@@ -32,8 +34,8 @@ templ ColumnList(ms []MonitorView, admin bool) {
 // ColumnRow is one monitor in the column: its state (glyph, with the word
 // for assistive technology), name, 24-hour uptime and beat bar, all one
 // link into the pane. It replaces itself from /fragments/monitors/{id}/row
-// on every update of its monitor. data-search is what the column's search
-// matches; shell.js marks the row of the monitor in the pane.
+// on every update of its monitor; shell.js marks the row of the monitor in
+// the pane.
 templ ColumnRow(m MonitorView) {
 	<li
 		class="column-row"
@@ -41,7 +43,6 @@ templ ColumnRow(m MonitorView) {
 		data-live
 		data-monitor-id={ m.ID }
 		data-state={ m.State }
-		data-search={ columnSearch(m) }
 		hx-get={ "/fragments/monitors/" + m.ID + "/row" }
 		hx-trigger="refresh"
 		hx-swap="outerHTML"
@@ -56,11 +57,4 @@ templ ColumnRow(m MonitorView) {
 			@BeatBar(m.Beats)
 		</a>
 	</li>
-}
-
-// columnSearch is what the column's search box matches, in lower case:
-// name, tags and, for admins, the target summary (empty for viewers).
-func columnSearch(m MonitorView) string {
-	parts := append([]string{m.Name, m.Type, m.Target}, m.Tags...)
-	return strings.ToLower(strings.Join(parts, " "))
 }

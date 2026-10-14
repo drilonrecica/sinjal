@@ -53,15 +53,14 @@ func TestCreateEachTypeThroughForm(t *testing.T) {
 	}
 
 	// The column's search covers each target, for admins only.
-	list := e.getAs(t, "a1", "GET", "/fragments/monitors").Body.String()
-	for _, want := range []string{"127.0.0.1:1", "example.com mx"} {
-		if !strings.Contains(list, want) {
-			t.Errorf("list misses target %q", want)
+	for q, name := range map[string]string{"127.0.0.1:1": "m-tcp", "example.com mx": "m-dns"} {
+		if list := e.getAs(t, "a1", "GET", "/fragments/monitors?q="+url.QueryEscape(q)).Body.String(); !strings.Contains(list, ">"+name+"<") {
+			t.Errorf("search %q misses %s", q, name)
 		}
 	}
 	e.addUser(t, "v1", "viewer", "viewer", testPassword)
-	if list := e.getAs(t, "v1", "GET", "/monitors").Body.String(); strings.Contains(list, "127.0.0.1") || strings.Contains(list, "example.com MX") {
-		t.Error("a viewer sees targets")
+	if list := e.getAs(t, "v1", "GET", "/fragments/monitors?q=127.0.0.1").Body.String(); strings.Contains(list, "m-tcp") {
+		t.Error("a viewer's search matches targets")
 	}
 
 	// Edit keeps the type whatever is posted and round-trips the config.
@@ -169,8 +168,8 @@ func TestHeartbeatCreateRevealsTokenOnce(t *testing.T) {
 			t.Errorf("overview misses %q", want)
 		}
 	}
-	if list := e.getAs(t, "a1", "GET", "/fragments/monitors").Body.String(); !strings.Contains(list, "db-1 backup") {
-		t.Error("list misses the source label")
+	if list := e.getAs(t, "a1", "GET", "/fragments/monitors?q=db-1+backup").Body.String(); !strings.Contains(list, "column-row") {
+		t.Error("search misses the source label")
 	}
 
 	// An edit keeps the token.

@@ -43,24 +43,44 @@ templ Shell(page Page, active string) {
 							if page.Admin {
 								<a class="button button-primary column-add" href="/monitors/new">Add monitor</a>
 							}
-							<label for="column-search" class="visually-hidden">Search monitors</label>
-							<input class="column-search" id="column-search" type="search" placeholder="Search monitors" autocomplete="off" data-column-search/>
-							<div class="column-filters" role="group" aria-label="Show">
-								for _, f := range columnFilters {
-									<button
-										type="button"
-										class="chip"
-										data-column-filter={ f.State }
-										if f.State == "" {
-											aria-pressed="true"
-										} else {
-											aria-pressed="false"
-										}
-									>{ f.Label }</button>
-								}
-							</div>
+							<form
+								id="column-filter"
+								class="column-form"
+								action="/monitors"
+								method="get"
+								hx-get="/fragments/monitors"
+								hx-target="next .column-body"
+								hx-swap="innerHTML"
+								hx-trigger="submit, change, input delay:250ms from:#column-search"
+								hx-sync="this:replace"
+							>
+								<label for="column-search" class="visually-hidden">Search monitors</label>
+								<input class="column-search" id="column-search" type="search" name="q" value={ page.ColumnText } placeholder="Search monitors" autocomplete="off"/>
+								<input type="hidden" name="state" value={ page.ColumnState }/>
+								<div class="column-filters" role="group" aria-label="Show">
+									for _, f := range columnFilters {
+										<button
+											type="button"
+											class="chip"
+											data-column-filter={ f.State }
+											aria-pressed={ boolString(page.ColumnState == f.State) }
+										>{ f.Label }</button>
+									}
+								</div>
+								<details class="column-more" hx-boost="false">
+									<summary>More</summary>
+									<div
+										class="column-panel"
+										hx-get={ columnPanelURL(page.ColumnQuery) }
+										hx-trigger="toggle from:closest details once"
+										hx-swap="innerHTML"
+									>
+										<p class="column-note">Loading…</p>
+									</div>
+								</details>
+							</form>
 						</div>
-						<div class="column-body" hx-get="/fragments/monitors" hx-trigger="load" hx-swap="innerHTML">
+						<div class="column-body" hx-get={ columnListURL(page.ColumnQuery) } hx-trigger="load" hx-swap="innerHTML">
 							<noscript><p class="column-note"><a href="/monitors">All monitors</a></p></noscript>
 						</div>
 					</aside>
@@ -100,10 +120,31 @@ templ topnav(page Page, active string) {
 	</nav>
 }
 
-// columnFilters are the list column's chips (docs/03); search, type and
-// tag filters and saved views arrive with M8-08.
+// columnFilters are the list column's chips (docs/03); type, tag, sort,
+// the flag filters and saved views are in the More panel (ColumnPanel).
 var columnFilters = []struct{ State, Label string }{
 	{"", "All"}, {StateDown, "Down"}, {StateUp, "Up"}, {StatePaused, "Paused"},
+}
+
+func boolString(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func columnPanelURL(query string) string {
+	if query == "" {
+		return "/fragments/column-filters"
+	}
+	return "/fragments/column-filters?" + query
+}
+
+func columnListURL(query string) string {
+	if query == "" {
+		return "/fragments/monitors"
+	}
+	return "/fragments/monitors?" + query
 }
 
 func accountLabel(p Page) string {

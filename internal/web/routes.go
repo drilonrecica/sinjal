@@ -90,6 +90,7 @@ func Routes(r chi.Router, app App) {
 			RegisterPages(r, app.Logger)
 			RegisterEvents(r, app.Events, app.Sessions, app.Logger)
 			RegisterMonitors(r, monitors)
+			RegisterViews(r, monitors) // the caller's own saved views; viewers too
 			RegisterMaintenance(r, maint)
 			RegisterNotifications(r, notifications)
 			RegisterIncidents(r, incidents)

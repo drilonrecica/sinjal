@@ -4,9 +4,9 @@
  *
  * Column: the row of the monitor in the pane is marked (aria-current) when
  * the page loads and after every boosted navigation; ↑/↓, Home and End move
- * between rows; the search box and the chips hide rows that do not match
- * (data-search, data-state). Rows that refresh from the event stream keep
- * the current search and mark.
+ * between rows. The search box, the chips and the More panel are one form
+ * the server answers with the filtered list (docs/29); rows that refresh
+ * from the event stream keep the mark.
  *
  * Live activity: loaded only while the column is shown (from 2200 px), and
  * again on monitor and incident events, at most once every 3 s.
@@ -41,38 +41,21 @@
     });
   }
 
-  // --- Search and chips ---
-  var filter = { text: "", state: "" };
-
-  function applyFilter() {
-    var col = column();
-    if (!col) {
-      return;
-    }
-    Array.prototype.forEach.call(col.querySelectorAll(".column-row"), function (row) {
-      var okText = !filter.text || (row.getAttribute("data-search") || "").indexOf(filter.text) >= 0;
-      var okState = !filter.state || row.getAttribute("data-state") === filter.state;
-      row.hidden = !(okText && okState);
-    });
-  }
-
-  document.addEventListener("input", function (e) {
-    if (e.target.matches && e.target.matches("[data-column-search]")) {
-      filter.text = e.target.value.trim().toLowerCase();
-      applyFilter();
-    }
-  });
-
+  // --- Chips ---
+  // The column's form asks the server for the list (hx-get on the form):
+  // typing and the More panel's fields do it by themselves. A chip sets the
+  // form's hidden "state" field and asks the same way.
   document.addEventListener("click", function (e) {
     var chip = e.target.closest && e.target.closest("[data-column-filter]");
     if (!chip) {
       return;
     }
-    filter.state = chip.getAttribute("data-column-filter");
-    Array.prototype.forEach.call(document.querySelectorAll("[data-column-filter]"), function (c) {
+    var form = chip.closest("form");
+    form.elements.state.value = chip.getAttribute("data-column-filter");
+    Array.prototype.forEach.call(form.querySelectorAll("[data-column-filter]"), function (c) {
       c.setAttribute("aria-pressed", c === chip ? "true" : "false");
     });
-    applyFilter();
+    htmx.trigger(form, "change");
   });
 
   // --- Keyboard in the column ---
@@ -161,7 +144,6 @@
   document.addEventListener("htmx:afterSettle", function (e) {
     if (e.target.closest && e.target.closest(".monitor-column")) {
       markCurrent();
-      applyFilter();
     }
   });
   function navigated() {

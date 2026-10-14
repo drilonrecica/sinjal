@@ -40,6 +40,10 @@ type Page struct {
 	// View is which half of the shell a phone shows (docs/03 "Phones"):
 	// ViewList for the monitor list, ViewDetail (the default) for the pane.
 	View string
+	// ColumnQuery is the list state (docs/29 "URL state") of the page's own
+	// address as a query string; ColumnText and ColumnState are the values
+	// the column's search box and chip start from. All "" without one.
+	ColumnQuery, ColumnText, ColumnState string
 }
 
 // Shell views on phones.

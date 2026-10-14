@@ -246,7 +246,7 @@ func TestUpgradeFrom001KeepsDataAndBacksUp(t *testing.T) {
 	if got, want := e.versions(t), embeddedVersions(t); !equalInts(got, want) {
 		t.Errorf("versions = %v, want %v", got, want)
 	}
-	for _, table := range []string{"users", "sessions", "passkeys", "audit_events"} {
+	for _, table := range []string{"users", "sessions", "passkeys", "audit_events", "saved_views"} {
 		if !e.tableExists(t, table) {
 			t.Errorf("table %s was not created", table)
 		}
@@ -292,7 +292,7 @@ func TestAuthMigrationMatchesSpecSchema(t *testing.T) {
 		return strings.TrimSuffix(strings.TrimSpace(s), ";")
 	}
 
-	for _, table := range []string{"users", "sessions", "passkeys", "audit_events"} {
+	for _, table := range []string{"users", "sessions", "passkeys", "audit_events", "saved_views"} {
 		m := regexp.MustCompile(`(?s)CREATE TABLE ` + table + ` \(.*?\n\);`).FindString(spec)
 		if m == "" {
 			t.Fatalf("spec/schema.sql has no CREATE TABLE %s", table)
