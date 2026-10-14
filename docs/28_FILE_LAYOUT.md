@@ -67,6 +67,7 @@ The tree below is the current layout. Packages marked "planned" arrive with thei
 
   Dockerfile        # the scratch image (16_DEPLOYMENT.md "Docker")
   .dockerignore
+  docker-compose.yaml  # one service, one volume; ready for Coolify
   Makefile
   go.mod
   go.sum

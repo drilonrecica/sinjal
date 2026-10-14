@@ -20,7 +20,7 @@ docker run -d --name sinjal -p 8080:8080 -v sinjal-data:/data \
 docker logs sinjal   # the one-time "Initial setup: …/setup?token=…" link
 ```
 
-The same as Compose: `spec/docker-compose.example.yml`.
+The same with Compose: `docker-compose.yaml` at the repository root (uncomment its `ports` outside Coolify).
 
 Do not require:
 
@@ -136,21 +136,34 @@ Sinjal remembers which socket kind works per address family after the first chec
 
 ## Coolify
 
-Coolify builds the image from the repository with its Dockerfile build pack:
+### Docker Compose build pack (recommended)
 
-1. New resource → Public (or private) repository → this repository, build pack **Dockerfile**, port **8080**.
+`docker-compose.yaml` at the repository root is written for it. Create a resource from this repository with the **Docker Compose** build pack (compose file `/docker-compose.yaml`) and deploy. Coolify sets up the rest from the file:
+
+- **Domain and port:** `SERVICE_URL_SINJAL_8080` makes Coolify generate a domain for the `sinjal` service and route it to port 8080; its value (`https://…`) becomes `SINJAL_BASE_URL`. Replace the generated domain with your own in the service's settings.
+- **Environment variables,** each editable later in Coolify's UI, with these defaults:
+  - `SINJAL_TRUSTED_PROXIES`: `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16`. The container publishes no port, so only Coolify's proxy reaches it; narrow it to the proxy network (`docker network inspect coolify`) if you like.
+  - `SINJAL_TIMEZONE`: `UTC`
+  - `SINJAL_LOG_FORMAT`: `text`, `SINJAL_LOG_LEVEL`: `info`
+  - `SINJAL_WORKERS`: empty, which means 4 × CPUs between 8 and 32
+- **Storage:** the `sinjal-data` volume at `/data` appears under Persistent Storage. It is a named volume, so the non-root user owns it.
+- **Health check:** the file's `healthcheck` (`/sinjal healthcheck`) is what Coolify uses.
+
+First start: the deployment logs show `Initial setup: https://…/setup?token=…`. Open it to create the admin. Until an admin exists, every restart prints a new token.
+
+### Dockerfile build pack
+
+Without the Compose file, set the same by hand:
+
+1. Build pack **Dockerfile**, port **8080**.
 2. Storage: a **volume mount** (a named volume) at `/data`. Not a bind mount of a host directory: that is owned by root, and the container runs as 65532.
-3. Environment:
-   - `SINJAL_BASE_URL`: the domain Coolify serves, e.g. `https://sinjal.example.com`. The setup link and sign-in from custom status-page domains use it.
-   - `SINJAL_TRUSTED_PROXIES`: the subnet of Coolify's Docker network (`docker network inspect coolify`), so logs and rate limits see visitors' addresses, not Traefik's.
-   - optional: `SINJAL_TIMEZONE`, `SINJAL_LOG_FORMAT=json`.
+3. Environment: `SINJAL_BASE_URL` (the domain Coolify serves, e.g. `https://sinjal.example.com`), `SINJAL_TRUSTED_PROXIES` (the proxy's network), optionally `SINJAL_TIMEZONE` and `SINJAL_LOG_FORMAT=json`.
 4. Health check: the image's own `HEALTHCHECK` is enough. Leave Coolify's health check off: it runs curl or wget inside the container, and the image has neither.
 5. Domain: set it on the resource; Traefik terminates TLS and passes the event stream through unbuffered.
-6. First start: the deployment logs show `Initial setup: https://…/setup?token=…`. Open it to create the admin. Until an admin exists, every restart prints a new token.
 
-A status page on its own hostname needs that hostname added to the same resource too ("Custom domains" below).
+### Either way
 
-Back up the `/data` volume, `master.key` with it, until Sinjal's own backups exist (M9).
+A status page on its own hostname needs that hostname added to the same resource ("Custom domains" below). Back up the `/data` volume, `master.key` with it, until Sinjal's own backups exist (M9).
 
 ## Reverse proxy
 

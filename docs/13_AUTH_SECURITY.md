@@ -404,7 +404,7 @@ Custom hostnames (M7-06) are matched on `proxy.Host` only. A spoofed `X-Forwarde
 
 `internal/web/proxy` resolves every request once (router middleware, right after the request ID and security headers) into client IP, scheme and host. All code reads them through `proxy.ClientIP`, `proxy.IsHTTPS` and `proxy.Host`, never `RemoteAddr`, `r.TLS` or `r.Host` directly.
 
-- `SINJAL_TRUSTED_PROXIES` lists CIDRs or bare IPs. Empty (the default) trusts no proxy. There is no "trust the immediate peer" mode.
+- `SINJAL_TRUSTED_PROXIES` lists CIDRs or bare IPs. Empty (the default) trusts no proxy. There is no "trust the immediate peer" mode. The root `docker-compose.yaml` (for Coolify) presets the private ranges as an editable value: the container publishes no port there, so only the proxy reaches it, and the proxy's address on the per-deployment network is not known in advance (`16_DEPLOYMENT.md` "Coolify"). The binary's own default stays empty.
 - The TCP peer must be inside a trusted prefix for any `X-Forwarded-*` header to count. Otherwise: client IP = peer, scheme = `https` only for a direct TLS connection, host = `Host` header.
 - `X-Forwarded-For` (all header lines joined) is walked right to left, skipping trusted hops; the first untrusted address is the client. A malformed entry ends the walk at the last valid hop. If every hop is trusted, the leftmost one is used.
 - `X-Forwarded-Proto` and `X-Forwarded-Host`: the rightmost value (set by the immediate proxy) is used. Proto must be `http`/`https`; host may contain only letters, digits, `.`, `-`, `:` and IPv6 brackets. Invalid values are ignored.

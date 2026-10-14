@@ -13,3 +13,4 @@ scripts
 *.md
 Dockerfile
 .dockerignore
+docker-compose.yaml

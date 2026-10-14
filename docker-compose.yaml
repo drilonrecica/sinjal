@@ -1,0 +1,39 @@
+# Sinjal with Docker Compose, ready for Coolify's "Docker Compose" build
+# pack (docs/16 "Coolify"). Coolify turns each ${VAR:-default} below into
+# an editable environment variable with that default, the volume into
+# persistent storage, and SERVICE_URL_SINJAL_8080 into a generated domain
+# routed to port 8080. Every value can be changed in its UI later.
+#
+# Outside Coolify: `docker compose up -d --build`, after uncommenting
+# `ports`. SINJAL_BASE_URL is then empty, which Sinjal treats as unset.
+services:
+  sinjal:
+    build: .
+    image: sinjal:local
+    restart: unless-stopped
+    # ports:
+    #   - "8080:8080"
+    environment:
+      # Coolify fills this with the app's URL (https://…).
+      - SERVICE_URL_SINJAL_8080
+      - SINJAL_BASE_URL=${SERVICE_URL_SINJAL_8080:-}
+      # Who may set X-Forwarded-For: the reverse proxy. Private ranges suit
+      # Coolify, where only its proxy reaches the container (no published
+      # port); narrow it to the proxy network if you can.
+      - SINJAL_TRUSTED_PROXIES=${SINJAL_TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      - SINJAL_TIMEZONE=${SINJAL_TIMEZONE:-UTC}
+      - SINJAL_LOG_FORMAT=${SINJAL_LOG_FORMAT:-text}
+      - SINJAL_LOG_LEVEL=${SINJAL_LOG_LEVEL:-info}
+      # Empty: 4 × CPUs, between 8 and 32.
+      - SINJAL_WORKERS=${SINJAL_WORKERS:-}
+    volumes:
+      - sinjal-data:/data
+    healthcheck:
+      test: ["CMD", "/sinjal", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  sinjal-data:
