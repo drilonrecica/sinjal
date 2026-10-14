@@ -16,6 +16,10 @@ var (
 	densities = map[string]bool{"comfortable": true, "compact": true}
 )
 
+// ValidTheme and ValidDensity report whether v is a built-in value.
+func ValidTheme(v string) bool   { return themes[v] }
+func ValidDensity(v string) bool { return densities[v] }
+
 // Page is the per-request data the layout needs. Styles and Scripts are
 // logical asset names (for example "css/shell.css") added after the base
 // stylesheets; scripts load with defer. CSRFToken is set for signed-in
@@ -80,6 +84,45 @@ func (p Page) ColorScheme() string {
 		return "light"
 	}
 	return "dark"
+}
+
+// PrehydrateScript is the one inline script of a page (docs/05 "Theme
+// persistence"). On a signed-in page, whose <html> carries data-prefs, it
+// remembers the server-rendered theme, density and Ambient light in
+// localStorage; on any other page (sign-in, setup) it applies the
+// remembered values before first paint, so the sign-in page keeps the look
+// of the last session without a flash. Invalid stored values are ignored.
+// The Content-Security-Policy admits exactly this text by its hash
+// (middleware.ContentSecurityPolicy; a test pins the two together).
+const PrehydrateScript = `(function(){try{var d=document.documentElement,k="sinjal.prefs",s=window.localStorage;if(d.hasAttribute("data-prefs")){s.setItem(k,JSON.stringify([d.getAttribute("data-theme"),d.getAttribute("data-density"),d.getAttribute("data-ambient")]));return}var p=JSON.parse(s.getItem(k)||"null");if(!Array.isArray(p))return;if(/^(stark|terminal|daylight)$/.test(p[0])){d.setAttribute("data-theme",p[0]);var m=document.querySelector('meta[name="color-scheme"]');if(m)m.setAttribute("content",p[0]==="daylight"?"light":"dark")}if(p[1]==="comfortable"||p[1]==="compact")d.setAttribute("data-density",p[1]);if(p[2]==="on"||p[2]==="off")d.setAttribute("data-ambient",p[2])}catch(e){}})();`
+
+// SignedIn reports whether the page renders a signed-in user's own
+// preferences, which the pre-hydration script then stores.
+func (p Page) SignedIn() bool { return p.Login != "" }
+
+// ThemeOption is one choice of the appearance form.
+type ThemeOption struct{ Value, Label, Hint string }
+
+// ThemeOptions, DensityOptions list the appearance form's choices.
+var (
+	ThemeOptions = []ThemeOption{
+		{"stark", "Stark", "Pure black, one blue accent."},
+		{"terminal", "Terminal", "Monospace, amber on black, box rules."},
+		{"daylight", "Daylight", "Warm light, ink for emphasis."},
+	}
+	DensityOptions = []ThemeOption{
+		{"comfortable", "Comfortable", "The default spacing."},
+		{"compact", "Compact", "Tighter spacing, more on screen."},
+	}
+)
+
+// AppearanceForm is the appearance page's view.
+type AppearanceForm struct {
+	Theme   string
+	Density string
+	Ambient bool
+	Saved   bool
+	Error   string
 }
 
 // htmxConfig keeps htmx inside the Content-Security-Policy: no injected

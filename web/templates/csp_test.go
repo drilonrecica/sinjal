@@ -19,6 +19,8 @@ var (
 
 // cspViolation returns the first construct in html that the CSP would block.
 func cspViolation(html string) string {
+	// The one inline script the policy admits by hash.
+	html = strings.Replace(html, "<script>"+PrehydrateScript+"</script>", "", 1)
 	for _, tag := range scriptTagRe.FindAllString(html, -1) {
 		if !regexp.MustCompile(`(?i)\ssrc=`).MatchString(tag) {
 			return tag
@@ -44,6 +46,7 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 
 	pages := map[string]templ.Component{
 		"shell":       PlaceholderPage(page, Sections[0]),
+		"appearance":  AccountAppearance(page, AppearanceForm{Theme: "terminal", Density: "compact", Ambient: true, Saved: true, Error: "x"}),
 		"setup":       Setup(page, SetupForm{Token: "t", Errors: map[string]string{"login": "x", "form": "y"}}, 12),
 		"authMessage": AuthMessage(page, "Heading", "Message"),
 		"login":       Login(page, LoginForm{Login: "a", Next: "/x", Error: "e", Passkey: true}),

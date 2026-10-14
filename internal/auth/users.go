@@ -185,3 +185,15 @@ func SignOutOtherSessions(ctx context.Context, d *db.DB, userID, keepID, clientI
 	})
 	return n, err
 }
+
+// SetPreferences stores the user's theme, density and Ambient light
+// (docs/05 "Theme persistence"). The caller validates the values; the
+// column CHECKs are the last line.
+func SetPreferences(ctx context.Context, d *db.DB, userID, theme, density string, ambient bool, now time.Time) error {
+	return db.Retry(ctx, func() error {
+		_, err := d.Writer.ExecContext(ctx,
+			`UPDATE users SET theme = ?, density = ?, ambient_light = ?, updated_at = ? WHERE id = ?`,
+			theme, density, ambient, formatTime(now), userID)
+		return err
+	})
+}

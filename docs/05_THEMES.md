@@ -98,6 +98,8 @@ At minimum:
 
 - authenticated user preference persisted server-side (theme and Ambient light, `users.theme`, `users.ambient_light`)
 - may additionally use local storage for fast pre-hydration to avoid flash
+
+Built (M8-04): Settings → Appearance (`/account/appearance`, every signed-in user, no re-authentication) saves theme, density and Ambient light into the user's row; the server renders them on every page. A hashed inline script (see docs/13) keeps them in `localStorage` key `sinjal.prefs` and applies them before first paint on pages without a signed-in user. Status pages do not run it.
 - status pages select their own theme independently (default `daylight`)
 - stored values from before 009_themes map carbon/midnight → stark, paper → daylight, terminal → terminal
 

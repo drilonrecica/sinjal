@@ -386,9 +386,9 @@ Avoid CDN dependencies that complicate CSP.
 - `Permissions-Policy` disables camera, microphone, geolocation, payment, USB, serial, MIDI, display capture and topics. WebAuthn keeps its default (self) for passkeys.
 
 Notes:
-- There is no inline script, so no hash is needed: the theme is rendered on the server as `data-theme`/`data-density`, which also avoids a flash of the wrong theme.
+- The theme is rendered on the server as `data-theme`/`data-density`/`data-ambient`, so a signed-in page never flashes. The one inline script (M8-04, `templates.PrehydrateScript`) remembers those values in `localStorage` and applies them on pages that have no signed-in user (sign-in, setup); `script-src` admits exactly that text by its `'sha256-…'` hash, never `unsafe-inline`, and `middleware` tests pin the hash to the script.
 - htmx is configured with `<meta name="htmx-config">`: `includeIndicatorStyles:false` (its injected `<style>` would be blocked; the indicator rules are in `base.css`), `allowEval:false`, `allowScriptTags:false`.
-- `templates.TestPagesNeedNoInlineCode` renders every page and fails on inline `<script>`, `<style>`, `style=`, `on*=` handlers or `javascript:` URLs. New pages must be added to it.
+- `templates.TestPagesNeedNoInlineCode` renders every page and, apart from that one script, fails on inline `<script>`, `<style>`, `style=`, `on*=` handlers or `javascript:` URLs. New pages must be added to it.
 - No HSTS: TLS terminates at the reverse proxy, which owns that decision for its domain.
 - Status pages (M7-04): a page with a custom accent carries one inline `<style>` (`html[data-theme]{--accent:…;--accent-contrast:…}`, generated only from a checked `#rrggbb`). Its response replaces `style-src 'self'` with `style-src 'self' 'sha256-…'` for exactly that text (`middleware.CSPWithStyleHash`); nothing else inline is admitted and `unsafe-inline` is never used. A page without an accent sends the default policy. Status pages are not embeddable (`frame-ancestors 'none'` stays). The CSP test strips only that exact block before checking the public page.
 

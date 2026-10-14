@@ -155,7 +155,7 @@ func TestPublicPageOptions(t *testing.T) {
 	if strings.Contains(body, "Powered by") || strings.Contains(body, "<style") || strings.Contains(body, "<script") {
 		t.Error("footer, inline style or script on a plain page")
 	}
-	if csp := rec.Header().Get("Content-Security-Policy"); strings.Contains(csp, "sha256-") {
+	if csp := rec.Header().Get("Content-Security-Policy"); strings.Contains(csp, "style-src 'self' 'sha256-") {
 		t.Errorf("CSP without an accent = %q", csp)
 	}
 	if !strings.Contains(body, "No incidents in the last 30 days") {

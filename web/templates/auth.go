@@ -149,6 +149,7 @@ type settingsPage struct {
 // others from docs/03_INFORMATION_ARCHITECTURE.md join as they are built.
 var settingsPages = []settingsPage{
 	{"account", "Your account", "/account/password", false},
+	{"appearance", "Appearance", "/account/appearance", false},
 	{"authentication", "Authentication", "/settings/authentication", true},
 	{"system", "System", "/settings/system", true},
 }

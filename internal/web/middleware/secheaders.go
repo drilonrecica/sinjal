@@ -7,10 +7,11 @@ import (
 
 // ContentSecurityPolicy allows only Sinjal's own bundled assets: no inline
 // script or style, no eval, no CDNs, no framing, forms post only to Sinjal.
-// The theme is rendered on the server (data-theme), so no inline script
-// needs a hash. img-src allows data: for small generated images (QR codes,
-// M1-13).
-const ContentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self'; " +
+// The theme is rendered on the server (data-theme); the one inline script
+// is the localStorage pre-hydration (templates.PrehydrateScript), admitted
+// by its hash, which a test keeps in step with the script. img-src allows
+// data: for small generated images (QR codes, M1-13).
+const ContentSecurityPolicy = "default-src 'none'; script-src 'self' 'sha256-c3tGwkXhwhb37V0Gh2nJbPy9YRP58/Qto7cMbJppTow='; style-src 'self'; " +
 	"img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; " +
 	"form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
 

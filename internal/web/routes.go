@@ -97,6 +97,7 @@ func Routes(r chi.Router, app App) {
 			RegisterReauth(r, reauth)
 			RegisterPasskeyReauth(r, passkeys)
 			RegisterAccount(r, account, recentAuth) // the caller's own password; viewers too
+			RegisterAppearance(r, account)          // the caller's own look; viewers too
 
 			// Admins only. Every state-changing app route is mounted here;
 			// TestRouteTableGuards fails for one mounted anywhere else.

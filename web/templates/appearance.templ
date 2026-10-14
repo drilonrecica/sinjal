@@ -1,0 +1,48 @@
+package templates
+
+// AccountAppearance is the signed-in user's own look: theme, density and
+// Ambient light (docs/05 "Theme persistence"). Open to viewers; it changes
+// nothing but the caller's own row, so it needs no recent re-authentication.
+templ AccountAppearance(page Page, f AppearanceForm) {
+	@settingsFrame(page, "appearance") {
+		<h1>Appearance</h1>
+		if f.Saved {
+			<p class="auth-notice" role="status">Your appearance was saved.</p>
+		}
+		if f.Error != "" {
+			<p id="form-error" class="auth-alert" role="alert">{ f.Error }</p>
+		}
+		<form class="auth-form" method="post" action="/account/appearance">
+			@CSRFField(page)
+			<fieldset class="form-section">
+				<legend>Theme</legend>
+				for _, o := range ThemeOptions {
+					<div class="form-check">
+						<input id={ "theme-" + o.Value } type="radio" name="theme" value={ o.Value } checked?={ f.Theme == o.Value }/>
+						<label for={ "theme-" + o.Value }>{ o.Label }</label>
+						<p class="auth-hint">{ o.Hint }</p>
+					</div>
+				}
+			</fieldset>
+			<fieldset class="form-section">
+				<legend>Density</legend>
+				for _, o := range DensityOptions {
+					<div class="form-check">
+						<input id={ "density-" + o.Value } type="radio" name="density" value={ o.Value } checked?={ f.Density == o.Value }/>
+						<label for={ "density-" + o.Value }>{ o.Label }</label>
+						<p class="auth-hint">{ o.Hint }</p>
+					</div>
+				}
+			</fieldset>
+			<fieldset class="form-section">
+				<legend>Ambient light</legend>
+				<div class="form-check">
+					<input id="ambient" type="checkbox" name="ambient" value="on" checked?={ f.Ambient }/>
+					<label for="ambient">Show the Ambient light</label>
+					<p class="auth-hint">A soft light behind the status that follows its state.</p>
+				</div>
+			</fieldset>
+			<button class="button button-primary" type="submit">Save</button>
+		</form>
+	}
+}

@@ -92,6 +92,8 @@ POST /settings/authentication/viewers/{id}/enable
 GET  /account/password       # own password change; admin or viewer, recent re-authentication
 POST /account/password
 POST /account/sessions/sign-out-others   # own other sessions; admin or viewer, recent re-authentication
+GET  /account/appearance     # own theme, density, Ambient light; admin or viewer
+POST /account/appearance
 GET  /settings/data
 GET  /settings/backup
 GET  /settings/system

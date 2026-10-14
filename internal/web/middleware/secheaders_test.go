@@ -1,11 +1,21 @@
 package middleware
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/drilonrecica/sinjal/web/templates"
 )
+
+// prehydrateHash is the CSP hash source of the pre-hydration script.
+func prehydrateHash() string {
+	sum := sha256.Sum256([]byte(templates.PrehydrateScript))
+	return "'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'"
+}
 
 func TestContentSecurityPolicyIsStrict(t *testing.T) {
 	directives := map[string]string{}
@@ -15,7 +25,7 @@ func TestContentSecurityPolicyIsStrict(t *testing.T) {
 	}
 	for name, want := range map[string]string{
 		"default-src":     "'none'",
-		"script-src":      "'self'",
+		"script-src":      "'self' " + prehydrateHash(),
 		"style-src":       "'self'",
 		"frame-ancestors": "'none'",
 		"form-action":     "'self'",

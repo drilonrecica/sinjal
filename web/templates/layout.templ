@@ -13,12 +13,21 @@ templ CSRFField(page Page) {
 // Layout is the document skeleton shared by every page.
 templ Layout(page Page) {
 	<!DOCTYPE html>
-	<html lang="en" data-theme={ page.Theme } data-density={ page.Density } data-ambient={ page.Ambient() }>
+	<html
+		lang="en"
+		data-theme={ page.Theme }
+		data-density={ page.Density }
+		data-ambient={ page.Ambient() }
+		if page.SignedIn() {
+			data-prefs="user"
+		}
+	>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content={ page.ColorScheme() }/>
 			<meta name="htmx-config" content={ htmxConfig }/>
+			@templ.Raw("<script>" + PrehydrateScript + "</script>")
 			<title>{ page.Title }</title>
 			<link rel="preload" href={ assets.URL("fonts/inter-var.woff2") } as="font" type="font/woff2" crossorigin="anonymous"/>
 			<link rel="stylesheet" href={ assets.URL("css/tokens.css") }/>

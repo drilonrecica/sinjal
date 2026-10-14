@@ -74,7 +74,7 @@ func TestLayoutThemeAndDensityAttributes(t *testing.T) {
 				t.Errorf("theme=%q density=%q: missing %s in\n%s", tt.theme, tt.density, want, out)
 			}
 		}
-		if strings.Contains(out, "onload") || strings.Contains(out, "<script>") {
+		if bare := strings.Replace(out, "<script>"+PrehydrateScript+"</script>", "", 1); strings.Contains(bare, "onload") || strings.Contains(bare, "<script>") {
 			t.Errorf("theme=%q density=%q: attribute injection reached the output:\n%s", tt.theme, tt.density, out)
 		}
 	}
@@ -114,5 +114,20 @@ func TestNewPageFallbacks(t *testing.T) {
 	p := NewPage("x", "nope", "nope")
 	if p.Theme != DefaultTheme || p.Density != DefaultDensity {
 		t.Errorf("got %+v", p)
+	}
+}
+
+// A signed-in page marks <html> so the pre-hydration script stores its
+// preferences; an anonymous one does not, so the script applies the stored
+// ones instead.
+func TestLayoutMarksSignedInPreferences(t *testing.T) {
+	anon := renderWith(t, Layout(NewPage("T", "", "")), templ.NopComponent)
+	if strings.Contains(anon, "data-prefs=") {
+		t.Error("anonymous page carries data-prefs on <html>")
+	}
+	page := NewPage("T", "", "")
+	page.Login = "admin"
+	if out := renderWith(t, Layout(page), templ.NopComponent); !strings.Contains(out, `data-prefs="user"`) {
+		t.Error("signed-in page lacks data-prefs")
 	}
 }
