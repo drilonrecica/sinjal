@@ -1,4 +1,4 @@
-plan = "tasks.md"
+plan = "imp-docs/tasks.md"
 backend = "herdr"
 default_mode = "default"
 needs_input_after = "30s"
@@ -17,7 +17,7 @@ poll_interval = "2s"
   extra_args = []
 
 [run]
-  verify = ""
+  verify = "make lint && make test-race"
   verify_timeout = "15m0s"
   verify_max_attempts = 3
   commit = "ask"
