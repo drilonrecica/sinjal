@@ -1,11 +1,23 @@
 # Information Architecture and UX
 
-## Primary navigation
+## Layout ("Clear", owner decision 2026-10-14)
 
-Desktop: collapsible left sidebar.
+Master–detail, like Uptime Kuma, with one job per region:
 
-Sections:
-1. Overview
+- **Top bar** (slim): the wordmark, then Status Pages, Incidents, Notifications, Maintenance, Settings, and the account menu.
+- **Monitor list column** (left, up to ~360 px, scrolls on its own): "Add monitor", search, filter chips (status, type, tags), then one row per monitor: status icon, name, uptime %, a compact beat bar. Keyboard-navigable; the selected monitor is marked by an accent edge as well as colour.
+- **Detail pane** (right): Home when no monitor is selected, otherwise the monitor. Incidents, status pages, notifications, maintenance and settings open in the same pane.
+
+Wide screens use the width with more of the same content, never widgets:
+- from 1600 px the pane splits into two columns (monitor: status hero, beat bar, the four numbers and the chart on the left; incidents, recent events and facts on the right; Home the same way)
+- from 2200 px a third column, **Live activity**, streams check results and state changes across all monitors
+- beat bars and the chart show more history as they get wider
+
+Phones: the list and the detail are separate views; the top bar becomes a menu.
+
+Built so far: a left sidebar with the sections below; the top bar, the list column and the wide breakpoints arrive with the app shell (M8-05). The sections and routes stay as they are:
+
+1. Overview (Home)
 2. Monitors
 3. Incidents
 4. Status Pages
@@ -13,14 +25,9 @@ Sections:
 6. Maintenance
 7. Settings
 
-Sidebar states:
-- expanded: icon + label
-- collapsed: icon + accessible tooltip
-- mobile: drawer
+## Overview (Home)
 
-## Overview
-
-Order:
+Home opens with one calm status sentence ("All 23 monitors are up." / "Postgres primary is down. 3 more monitors are affected."). Then, in order:
 
 1. Problem strip — only when actionable problems exist:
    - DOWN

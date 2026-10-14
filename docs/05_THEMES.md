@@ -1,88 +1,53 @@
 # Themes
 
-Sinjal ships with four first-class themes.
+Sinjal ships with three first-class themes (owner decision 2026-10-14, after the "Clear" design concepts; they replace Carbon, Paper, Midnight and the old Terminal):
+
+| Theme | Kind | Key | Default for |
+|---|---|---|---|
+| Stark | dark | `stark` | the admin UI |
+| Terminal | dark | `terminal` | — |
+| Daylight | light | `daylight` | status pages |
 
 All themes share:
 - layout
 - semantic status meaning
 - component structure
-- accessibility requirements
+- accessibility requirements (AA contrast, status as colour + shape + text)
+- motion
 
-They may differ in:
-- background
-- surfaces
-- border intensity
-- shadow depth
-- accent
-- typography emphasis
-- radius
-- chart treatment
-- mono usage
+They differ in character, set through tokens and a few theme-scoped rules (never separate components).
 
-## Carbon
+## Stark
 
-Personality:
-- graphite
-- neutral
-- precise
-- infrastructure-first
+Personality: stark, high-contrast, dramatic, precise.
 
-Suggested direction:
-- deep charcoal background
-- slightly lighter surfaces
-- restrained neutral borders
-- cool accent
-- compact visual feel
-- radius ~6 px
-
-## Paper
-
-Personality:
-- warm light
-- editorial
-- calm
-- highly readable
-
-Suggested direction:
-- warm off-white background
-- white/stone surfaces
-- subtle gray/taupe borders
-- low shadow
-- radius ~8 px
-- minimal visual chrome
-
-## Midnight
-
-Personality:
-- deep navy-black
-- premium developer tool
-- slightly more depth
-
-Suggested direction:
-- near-black blue background
-- deep blue raised surfaces
-- subtle luminous chart lines
-- restrained accent
-- radius ~8 px
-
-Do not make it neon.
+- true black background (`#000`), near-black surfaces, hairline grey borders
+- near-white text; one vivid electric-blue accent (`#3d93ff`)
+- vivid status colours: green means up and nothing else, red means down
+- large heavy numerals, filled status blocks
+- **Ambient light** (on by default, a per-user setting): one soft radial light behind the status hero whose colour follows the state, blue when healthy, red when down, amber when flapping. It is the only decorative gradient in the product besides chart area fills. Switched off, Stark is pure black.
 
 ## Terminal
 
-Personality:
-- terse
-- technical
-- utility-focused
+Personality: a warm amber phosphor terminal. Calm is one colour; only problems break it.
 
-Suggested direction:
-- very dark neutral background
-- lower radius ~2–4 px
-- increased mono use for data
-- green/amber accent influence
-- flatter surfaces
-- sharper separators
+- warm near-black background, amber text, a pale amber accent
+- the whole UI in JetBrains Mono (this theme alone sets body text in mono)
+- square corners (2–4 px radii), box-rule borders, a block cursor in headings
+- faint static scanlines; none with `prefers-reduced-motion`; never animated
+- state tags in text: `[UP]` stays in the base amber; problems invert: `[DOWN]` is a red-orange inverse block, `[FLAP]` a pale amber inverse block
+- no glow except the cursor, no neon
 
-Do not turn the whole UI into a fake terminal.
+## Daylight
+
+Personality: crisp, bright, editorial contrast.
+
+- pure white background and surfaces, near-black type
+- filled near-black status blocks and primary buttons (the accent is ink, not a hue)
+- status colours darkened for AA on white; beat bars use brighter beat-only tones (3:1, they are marks, not text)
+- the Ambient light setting shows as a faint state-tinted halo behind the status
+
+The default for public status pages: a page's visitors are not its operators.
 
 ## Token model
 
@@ -114,6 +79,12 @@ At minimum:
 --radius-md
 --radius-lg
 
+--on-status        /* text on a filled status block */
+--beat-none        /* a beat with no result (paused, before the first check) */
+--ambient-up       /* Ambient light colours per state */
+--ambient-down
+--ambient-flapping
+
 --space-density-factor
 --chart-grid
 --chart-line
@@ -123,9 +94,10 @@ At minimum:
 
 ## Theme persistence
 
-- authenticated user preference persisted server-side
+- authenticated user preference persisted server-side (theme and Ambient light, `users.theme`, `users.ambient_light`)
 - may additionally use local storage for fast pre-hydration to avoid flash
-- status pages select their own theme independently
+- status pages select their own theme independently (default `daylight`)
+- stored values from before 009_themes map carbon/midnight → stark, paper → daylight, terminal → terminal
 
 ## Customization
 
