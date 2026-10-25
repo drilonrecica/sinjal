@@ -16,6 +16,7 @@ import (
 	"github.com/drilonrecica/sinjal/internal/engine"
 	"github.com/drilonrecica/sinjal/internal/incident"
 	"github.com/drilonrecica/sinjal/internal/logging"
+	"github.com/drilonrecica/sinjal/internal/ratelimit"
 	"github.com/drilonrecica/sinjal/internal/recent"
 	"github.com/drilonrecica/sinjal/internal/store"
 	"github.com/drilonrecica/sinjal/internal/vault"
@@ -36,6 +37,7 @@ type Monitors struct {
 	log    *slog.Logger
 	loc    *time.Location // the instance time zone, for history ranges
 	now    func() time.Time
+	tries  *ratelimit.Limiter // Test now, per user
 }
 
 // NewMonitors returns the monitor handler; loc nil means UTC.
@@ -43,7 +45,8 @@ func NewMonitors(d *db.DB, key *vault.Key, eng *engine.Engine, events *sse.Hub, 
 	if loc == nil {
 		loc = time.UTC
 	}
-	return &Monitors{db: d, key: key, engine: eng, events: events, loc: loc, log: logging.Sub(logger, "http"), now: time.Now}
+	return &Monitors{db: d, key: key, engine: eng, events: events, loc: loc, log: logging.Sub(logger, "http"), now: time.Now,
+		tries: ratelimit.New(testNowLimit, testNowWindow, testNowCapacity)}
 }
 
 // RegisterMonitors mounts the monitor list, the detail page and their live

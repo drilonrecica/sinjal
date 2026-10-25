@@ -60,6 +60,7 @@ Admin is intentionally allowed to monitor private networks.
 Mitigations ("Internal monitoring / SSRF"):
 - only admin configures monitors
 - viewer/public cannot submit arbitrary destinations
+- the form's Test now reaches no further than saving a monitor would: admin only, CSRF-protected, one check bounded to 20 s, 10 a minute per user, nothing stored
 - status pages hide targets
 - bounded redirects/body/timeouts
 

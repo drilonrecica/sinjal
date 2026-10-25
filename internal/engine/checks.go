@@ -25,24 +25,17 @@ func (e *Engine) runOther(ctx context.Context, m store.Monitor, started time.Tim
 	case store.TypeTCP:
 		var c store.TCPConfig
 		if c, err = store.GetTCPConfig(ctx, e.db.Reader, m.ID); err == nil {
-			r := tcpcheck.Check(ctx, tcpcheck.Config{Host: c.Host, Port: c.Port, Timeout: timeout})
-			res = baseResult(m.ID, r.Started, r.Duration, r.Success, r.Kind, r.Message)
+			res = e.otherCheck(ctx, m.ID, store.MonitorInput{Type: m.Type, TCP: c}, timeout)
 		}
 	case store.TypeICMP:
 		var c store.ICMPConfig
 		if c, err = store.GetICMPConfig(ctx, e.db.Reader, m.ID); err == nil {
-			r := e.icmp.Check(ctx, icmpcheck.Config{Host: c.Host, Timeout: timeout})
-			res = baseResult(m.ID, r.Started, r.Duration, r.Success, r.Kind, r.Message)
+			res = e.otherCheck(ctx, m.ID, store.MonitorInput{Type: m.Type, ICMP: c}, timeout)
 		}
 	case store.TypeDNS:
 		var c store.DNSConfig
 		if c, err = store.GetDNSConfig(ctx, e.db.Reader, m.ID); err == nil {
-			r := dnscheck.Check(ctx, dnscheck.Config{
-				Hostname: c.Hostname, QueryType: c.QueryType, Resolver: c.Resolver,
-				Expected: c.Expected, MatchMode: c.MatchMode, Timeout: timeout,
-			})
-			res = baseResult(m.ID, r.Started, r.Duration, r.Success, r.Kind, r.Message)
-			res.Snippet = r.Snippet
+			res = e.otherCheck(ctx, m.ID, store.MonitorInput{Type: m.Type, DNS: c}, timeout)
 		}
 	default:
 		return unusable(m.ID, started, "unknown monitor type "+m.Type), true
@@ -55,6 +48,27 @@ func (e *Engine) runOther(ctx context.Context, m store.Monitor, started time.Tim
 		return results.Result{}, false
 	}
 	return res, true
+}
+
+// otherCheck runs one TCP, ICMP or DNS check from the config of in.Type,
+// for a scheduled check and for the form's "Test now" alike.
+func (e *Engine) otherCheck(ctx context.Context, id string, in store.MonitorInput, timeout time.Duration) results.Result {
+	switch in.Type {
+	case store.TypeTCP:
+		r := tcpcheck.Check(ctx, tcpcheck.Config{Host: in.TCP.Host, Port: in.TCP.Port, Timeout: timeout})
+		return baseResult(id, r.Started, r.Duration, r.Success, r.Kind, r.Message)
+	case store.TypeICMP:
+		r := e.icmp.Check(ctx, icmpcheck.Config{Host: in.ICMP.Host, Timeout: timeout})
+		return baseResult(id, r.Started, r.Duration, r.Success, r.Kind, r.Message)
+	}
+	c := in.DNS
+	r := dnscheck.Check(ctx, dnscheck.Config{
+		Hostname: c.Hostname, QueryType: c.QueryType, Resolver: c.Resolver,
+		Expected: c.Expected, MatchMode: c.MatchMode, Timeout: timeout,
+	})
+	res := baseResult(id, r.Started, r.Duration, r.Success, r.Kind, r.Message)
+	res.Snippet = r.Snippet
+	return res
 }
 
 func baseResult(id string, started time.Time, d time.Duration, ok bool, kind, msg string) results.Result {

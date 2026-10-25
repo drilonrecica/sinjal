@@ -136,6 +136,7 @@ Built: every shell page loads the same scripts (`ShellScripts`), deferred, in th
 - `copy.js`: clipboard copy (`button[data-copy]`, hidden until the script finds the Clipboard API)
 - `passkey.js`: WebAuthn ceremonies
 - `toast.js`: toasts, failed-request feedback, `aria-busy`, stream lost/resumed notes
+- `monitor_form.js`: the monitor form's name follows the address until typed; shows Test now
 
 The local pre-hydration is the inline `templates.PrehydrateScript` (`05_THEMES.md` "Theme persistence"). Public status pages run no script.
 
@@ -189,9 +190,11 @@ Since M8-05 there is no full-width list page. The monitors are the shell's list 
 `MonitorFormPage` (`web/templates/monitor_form.templ`, `css/monitor_form.css` on top of the form primitives in `css/auth.css`) is fed by `MonitorForm`, which keeps numbers as typed so a rejected value comes back unchanged.
 
 - The translation to `store.MonitorInput` lives in `internal/web/monitor_form.go`: seconds → ms, KiB → bytes, `Name: value` lines → `headers_json`, assertion rows → `json_assertions_json`, expected DNS values one per line.
-- Each type renders only its own section. The type is a row of links on create (`.type-switch`) and text on edit.
+- Layout (docs/03 "Redesign: essentials and summaries"): `typeChoice` (`.type-cards`, links; a fixed `.type-card` on edit), `essentials` (`.form-essentials`), one `formRow` per `FormSection` (`<details class="form-row">` with `.form-row-title`, `.form-row-summary` and a chevron; `SectionOpen` opens it on an error in its fields), and `.form-bar` with `#test-result` and the actions. The sections of each type are `formSections` in `web/templates/monitor_form.go`.
+- `unitField` is `numberField` with a unit after the input (`.input-unit[data-unit]`); the method is a `.segmented` radio group; `.if-post`, `.if-basic` and `.if-bearer` show only for their choice.
+- `TestResultView` renders Test now's answer: `.test-up` (`role="status"`), `.test-down` and `.test-problems` (`role="alert"`).
 - `HeartbeatTokenPage` (`web/templates/heartbeat_token.templ`) is the one-time push URL page; its copy buttons come from `js/copy.js`.
-- Primitives used: text input and select through `field` (label, hint, error with `aria-describedby` / `aria-invalid`), `checkbox`, `numberField`, secret inputs with a "keep" note (`keepNote`), the collapsible Advanced section, and a validation summary (`role="alert"`, links in page order).
+- Primitives used: text input and select through `field` (label, hint, error with `aria-describedby` / `aria-invalid`), `checkbox`, `numberField`, `unitField`, secret inputs with a "keep" note (`keepNote`), the collapsible section rows, and a validation summary (`role="alert"`, links in page order).
 
 ## Styling
 

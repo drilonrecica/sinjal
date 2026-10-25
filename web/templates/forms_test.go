@@ -126,7 +126,6 @@ func TestMonitorFormPage(t *testing.T) {
 	for _, want := range []string{
 		`<h2 id="summary-title">Fix 3 problems to save</h2>`,
 		`<a href="#name">Name</a>: Enter a name.`,
-		`<details class="form-section form-advanced" open>`,
 		`aria-describedby="basic_user-keep"`,
 		`id="sh_value.X-Api-Key"`,
 		`<option value="m2" selected>DB</option>`,
@@ -145,8 +144,91 @@ func TestMonitorFormPage(t *testing.T) {
 			t.Errorf("a secret input has a value: %s", in)
 		}
 	}
-	if html := renderString(t, MonitorFormPage(page, MonitorForm{Type: "http"})); strings.Contains(html, "summary-title") || strings.Contains(html, "form-advanced\" open") {
-		t.Error("a clean form shows errors or an open Advanced section")
+	// A section opens for its own errors only: Advanced (proxy_url) and
+	// Request (secret_headers); the others stay closed.
+	for key, open := range map[string]bool{"advanced": true, "request": true, "checking": false, "assertions": false, "alerts": false} {
+		if tag := sectionTag(html, key); tag == "" || strings.Contains(tag, " open") != open {
+			t.Errorf("section %s: %q, want open=%v", key, tag, open)
+		}
+	}
+	clean := renderString(t, MonitorFormPage(page, MonitorForm{Type: "http"}))
+	for _, key := range []string{"checking", "assertions", "request", "alerts", "advanced"} {
+		if strings.Contains(sectionTag(clean, key), " open") {
+			t.Errorf("clean form: section %s is open", key)
+		}
+	}
+	if strings.Contains(clean, "summary-title") || strings.Contains(clean, `class="form-row" id="section-checking" open`) {
+		t.Error("a clean form shows errors or an open section")
+	}
+	// Name and URL come first and stay outside the sections.
+	if strings.Index(clean, `id="url"`) > strings.Index(clean, `id="name"`) || strings.Index(clean, `id="name"`) > strings.Index(clean, `class="form-row"`) {
+		t.Error("URL, then Name, do not come before the sections")
+	}
+	// Test now is a plain button after the submit button, hidden until the
+	// script shows it.
+	if i, j := strings.Index(clean, `type="submit"`), strings.Index(clean, `id="test-now"`); i < 0 || j < i {
+		t.Error("Test now is missing or before the submit button")
+	}
+}
+
+// sectionTag is the opening <details> tag of a form section, "" if absent.
+func sectionTag(html, key string) string {
+	i := strings.Index(html, `id="section-`+key+`"`)
+	if i < 0 {
+		return ""
+	}
+	start := strings.LastIndex(html[:i], "<details")
+	end := strings.Index(html[i:], ">")
+	return html[start : i+end+1]
+}
+
+// Section summaries say what a closed section holds, in words, and never
+// show a secret.
+func TestSectionSummary(t *testing.T) {
+	f := MonitorForm{Type: "http", Interval: "30", Timeout: "5", FailureThreshold: "2", RetryDelay: "5", SuccessThreshold: "1",
+		ExpectedStatus: "200-399", BodyContains: "Software for people with work to do", Method: "GET", FollowRedirects: true,
+		Headers: "Accept: text/html\nX-Env: prod", Auth: "bearer", HasBearer: true, SecretHeaders: []string{"X-Api-Key"},
+		Profiles: []Option{{"p1", "On-call"}}, Profile: "p1", Parents: []Option{{"m2", "DB"}},
+		TLSExpiry: true, TLSDays: "30, 14, 7", MaxBodyKiB: "1024",
+		Assertions: []AssertionField{{Path: "$.status", Op: "equals", Value: `"ok"`}, {}}}
+	for key, want := range map[string]string{
+		"checking":   "Every 30 s · timeout 5 s · down after 2 failures",
+		"assertions": "Status 200–399 · body contains “Software for people…” · 1 JSON check",
+		"request":    "GET · follows redirects · 2 headers · bearer token · 1 secret header",
+		"alerts":     "Notifies On-call · no dependency",
+		"advanced":   "Certificate warning 30, 14, 7 days",
+	} {
+		if got := f.SectionSummary(key); got != want {
+			t.Errorf("%s = %q, want %q", key, got, want)
+		}
+	}
+	g := MonitorForm{Type: "heartbeat", FailureThreshold: "1", RetryDelay: "5", Parent: "m2", Parents: []Option{{"m2", "DB"}},
+		Method: "POST", Auth: "basic", TLSDays: "7", Insecure: true, Proxy: "http://proxy:3128", IPFamily: "ipv6", MaxBodyKiB: "64"}
+	for key, want := range map[string]string{
+		"checking":   "Down after 1 failure · retry after 5 s",
+		"alerts":     "No notifications · depends on DB",
+		"request":    "POST · no redirects · basic auth",
+		"advanced":   "No certificate warning · accepts invalid certificates · through a proxy · IPv6 only · body limit 64 KiB",
+		"assertions": "Status 200–399 · any body",
+	} {
+		if got := g.SectionSummary(key); got != want {
+			t.Errorf("%s = %q, want %q", key, got, want)
+		}
+	}
+	d := MonitorForm{Type: "dns", Resolver: "192.0.2.53", Expected: "192.0.2.1\n\n192.0.2.2", MatchMode: "any", SourceLabel: "backup job on db-1"}
+	for key, want := range map[string]string{
+		"query":  "Resolver 192.0.2.53 · expects any of 2 values",
+		"source": "From backup job on db-1",
+	} {
+		if got := d.SectionSummary(key); got != want {
+			t.Errorf("%s = %q, want %q", key, got, want)
+		}
+	}
+	if got := (MonitorForm{Type: "dns"}).SectionSummary("query"); got != "This server's resolvers · any answer counts" {
+		t.Errorf("default query = %q", got)
+	}
+	if got := (MonitorForm{Type: "heartbeat"}).SectionSummary("source"); got != "No source label" {
+		t.Errorf("empty source = %q", got)
 	}
 }
 
@@ -166,13 +248,16 @@ func TestMonitorFormTypes(t *testing.T) {
 				t.Errorf("%s form lacks %q", typ, w)
 			}
 		}
-		for _, absent := range []string{`id="url"`, `id="expected_status"`, "form-advanced"} {
+		for _, absent := range []string{`id="url"`, `id="expected_status"`, `id="section-advanced"`, `id="section-assertions"`, `id="section-request"`} {
 			if strings.Contains(html, absent) {
 				t.Errorf("%s form has %q", typ, absent)
 			}
 		}
 		if typ == "heartbeat" && (strings.Contains(html, `id="interval"`) || strings.Contains(html, `id="timeout"`)) {
 			t.Error("heartbeat form has an interval or timeout")
+		}
+		if hasTest := strings.Contains(html, `id="test-now"`); hasTest != (typ != "heartbeat") {
+			t.Errorf("%s form: Test now shown = %v", typ, hasTest)
 		}
 	}
 	html := renderString(t, MonitorFormPage(page, MonitorForm{ID: "m1", Type: "dns", QueryType: "MX", MatchMode: "any"}))
@@ -181,7 +266,7 @@ func TestMonitorFormTypes(t *testing.T) {
 			t.Errorf("dns edit form lacks %q", w)
 		}
 	}
-	if strings.Contains(html, `name="type"`) || strings.Contains(html, "type-switch") {
+	if strings.Contains(html, `name="type"`) || strings.Contains(html, "type-cards") {
 		t.Error("the edit form offers a type change")
 	}
 }

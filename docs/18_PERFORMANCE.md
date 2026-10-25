@@ -176,6 +176,7 @@ Payload (M8-14):
 | Scenario | Benchmark | Result |
 |---|---|---|
 | payload check (M8-14) | every file under `web/static`, `gzip -9`, summed over what `ShellScripts`, `ShellStyles` and the layout link | **JS 58.3 KB of the 100 KB budget** (htmx 17.1, uPlot 22.3, SSE 2.8, palette 2.4, toast 2.4, chart.js 2.3, shell.js 2.3, beats.js 2.0, passkey.js 1.9, live.js 1.2, shortcuts 1.0, copy.js 0.6); the 52.5 KB of M8-05 grew by palette, toast and shortcuts. **CSS 21.9 KB** (tokens 1.3, base 1.9, components 4.3, then the shell's 14 sheets 14.5). **Fonts 45.5 KB** woff2 (Inter 29.9, JetBrains Mono 15.6) against the 150 KB cap; woff2 does not gzip further. Total first load about 125.7 KB, all immutable. The public status page links tokens, base, components and public.css (8.9 KB gzip) and the Inter preload, with no first-party JS. Headroom: 41.7 KB of JS |
+| payload check (monitor form redesign, 2026-10-25) | same method | **JS 59.8 KB** of the 100 KB budget: `monitor_form.js` 0.8 KB is new, shell.js grew to 3.0 KB with the sign-off phone menu and the 422 swap. **CSS 24.1 KB** (`monitor_form.css` 2.9 KB). Headroom: 40.2 KB of JS |
 
 Status page redesign (M8-17): the redesigned page was measured against the code before it, back to back on the same loaded machine (load average 12, so the absolute times are not comparable with M7-04's).
 

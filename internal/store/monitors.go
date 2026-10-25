@@ -92,6 +92,13 @@ type MonitorInput struct {
 	Tags                  []string
 }
 
+// WithDefaults returns m with the defaults filled in and text trimmed, as
+// it is saved.
+func (m MonitorInput) WithDefaults() MonitorInput {
+	m.applyDefaults()
+	return m
+}
+
 func (m *MonitorInput) applyDefaults() {
 	set := func(p *int, def int) {
 		if *p == 0 {

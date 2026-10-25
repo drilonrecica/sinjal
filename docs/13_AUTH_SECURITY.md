@@ -420,6 +420,7 @@ Administrators are trusted to monitor private addresses.
 Therefore:
 - private network targets are allowed
 - viewer accounts cannot create/edit monitors
+- Test now on the monitor form (one check without saving) is admin only, bounded to 20 s and 10 tests a minute per user
 - status pages must not expose targets
 - redirects remain bounded by timeout/body limits
 - no untrusted public endpoint can create arbitrary monitor requests

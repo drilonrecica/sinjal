@@ -108,7 +108,7 @@ func TestCreateMonitor(t *testing.T) {
 	if page.Code != 200 {
 		t.Fatalf("new form = %d", page.Code)
 	}
-	for _, want := range []string{`action="/monitors"`, `name="interval" type="text" inputmode="decimal" value="30"`, `<details class="form-section form-advanced">`, "Create monitor"} {
+	for _, want := range []string{`action="/monitors"`, `name="interval" type="text" inputmode="decimal" value="30"`, `class="form-row" id="section-advanced" hx-post`, "Create monitor"} {
 		if !strings.Contains(page.Body.String(), want) {
 			t.Errorf("new form lacks %q", want)
 		}
@@ -258,7 +258,7 @@ func TestMonitorFormErrors(t *testing.T) {
 		}
 	}
 	for _, want := range []string{`id="name-error"`, `aria-invalid="true"`, `value="ftp://x"`, `value="abc"`, "no colon",
-		`<details class="form-section form-advanced" open>`, `value="status"`} {
+		`class="form-row" id="section-advanced" open`, `class="form-row" id="section-checking" open`, `value="status"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("error page lacks %q", want)
 		}
@@ -361,5 +361,97 @@ func TestMonitorFormParsing(t *testing.T) {
 		monitorConfig{HTTP: store.HTTPConfig{Headers: `[{"name":"A","value":"1"}]`, TLSWarningDays: "[30,7]", MaxBodyBytes: 1 << 20}}, []string{"a", "b"})
 	if f.Timeout != "0.5" || f.Headers != "A: 1" || f.TLSDays != "30, 7" || f.MaxBodyKiB != "1024" || f.Tags != "a, b" {
 		t.Errorf("form = %+v", f)
+	}
+}
+
+// Test now runs one check with the form as posted and saves nothing. On
+// the edit address a secret left blank is the stored one.
+func TestMonitorTestNow(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "a1", "admin", "admin", "")
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+testToken {
+			http.Error(w, "no token", http.StatusUnauthorized)
+			return
+		}
+		w.Write([]byte("Software for people with work to do"))
+	}))
+	t.Cleanup(target.Close)
+	form := func(extra url.Values) url.Values {
+		f := url.Values{"type": {"http"}, "name": {"Site"}, "url": {target.URL}, "auth": {"bearer"}, "bearer_token": {testToken}}
+		for k, v := range extra {
+			f[k] = v
+		}
+		return f
+	}
+
+	rec := e.postAs(t, "a1", "/monitors/test", form(url.Values{"body_contains": {"work to do"}}))
+	if body := rec.Body.String(); rec.Code != 200 || !strings.Contains(body, `role="status"`) || !strings.Contains(body, "Up") || !strings.Contains(body, "HTTP 200") {
+		t.Fatalf("up = %d:\n%s", rec.Code, body)
+	}
+	rec = e.postAs(t, "a1", "/monitors/test", form(url.Values{"body_contains": {"nothing like this"}}))
+	if body := rec.Body.String(); !strings.Contains(body, `role="alert"`) || !strings.Contains(body, "Would be down") || !strings.Contains(body, "Body assertion") {
+		t.Errorf("wrong body:\n%s", body)
+	}
+	if strings.Contains(rec.Body.String(), testToken) {
+		t.Error("the result echoes the token")
+	}
+	// Invalid input is listed, linked to its fields; nothing runs.
+	rec = e.postAs(t, "a1", "/monitors/test", form(url.Values{"url": {"ftp://x"}, "interval": {"abc"}}))
+	if body := rec.Body.String(); rec.Code != 200 || !strings.Contains(body, `href="#url"`) || !strings.Contains(body, `href="#interval"`) {
+		t.Errorf("invalid = %d:\n%s", rec.Code, body)
+	}
+
+	// Edit: the stored token is used when the field is blank.
+	if rec := e.postAs(t, "a1", "/monitors", form(url.Values{"enabled": {"1"}})); rec.Code != 303 {
+		t.Fatalf("create = %d", rec.Code)
+	}
+	id := e.monitorID(t, "Site")
+	rec = e.postAs(t, "a1", "/monitors/"+id+"/test", form(url.Values{"bearer_token": {""}}))
+	if !strings.Contains(rec.Body.String(), "HTTP 200") {
+		t.Errorf("edit with the stored token:\n%s", rec.Body)
+	}
+	if n := e.count(t, `SELECT COUNT(*) FROM monitors`); n != 1 {
+		t.Errorf("%d monitors", n)
+	}
+
+	// Heartbeats run no check; viewers and unknown monitors are refused.
+	if rec := e.postAs(t, "a1", "/monitors/test", url.Values{"type": {"heartbeat"}, "name": {"Job"}}); rec.Code != 400 {
+		t.Errorf("heartbeat = %d", rec.Code)
+	}
+	if rec := e.postAs(t, "v1", "/monitors/test", form(nil)); rec.Code != 403 {
+		t.Errorf("viewer = %d", rec.Code)
+	}
+	if rec := e.postAs(t, "a1", "/monitors/nope/test", form(nil)); rec.Code != 404 {
+		t.Errorf("unknown monitor = %d", rec.Code)
+	}
+	// At most testNowLimit tries a minute per user.
+	limited := false
+	for range testNowLimit + 1 {
+		if rec := e.postAs(t, "a1", "/monitors/test", form(url.Values{"url": {"ftp://x"}})); rec.Code == http.StatusTooManyRequests {
+			limited = true
+		}
+	}
+	if !limited {
+		t.Error("Test now is not rate limited")
+	}
+}
+
+// A section's summary is rendered from the posted values, for the rows'
+// refresh when they are closed.
+func TestMonitorFormSummary(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "a1", "admin", "admin", "")
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	rec := e.postAs(t, "a1", "/monitors/form-summary?section=checking", url.Values{"type": {"http"}, "interval": {"60"}, "timeout": {"5"}, "failure_threshold": {"3"}})
+	if rec.Code != 200 || strings.TrimSpace(rec.Body.String()) != "Every 60 s · timeout 5 s · down after 3 failures" {
+		t.Errorf("summary = %d %q", rec.Code, rec.Body)
+	}
+	if rec := e.postAs(t, "a1", "/monitors/form-summary?section=bogus", url.Values{"type": {"http"}}); rec.Code != 400 {
+		t.Errorf("unknown section = %d", rec.Code)
+	}
+	if rec := e.postAs(t, "v1", "/monitors/form-summary?section=checking", url.Values{"type": {"http"}}); rec.Code != 403 {
+		t.Errorf("viewer = %d", rec.Code)
 	}
 }

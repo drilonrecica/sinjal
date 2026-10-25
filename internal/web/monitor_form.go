@@ -32,8 +32,9 @@ import (
 // the rest of the fields with room to spare.
 const monitorFormMaxBody = 512 << 10
 
-// RegisterMonitorChanges mounts the create and edit forms, the pause,
-// resume and delete actions and the heartbeat token regeneration, which
+// RegisterMonitorChanges mounts the create and edit forms with their Test
+// now and row summaries, the pause, resume and delete actions and the
+// heartbeat token regeneration, which
 // also needs a recent re-authentication (recent). They must sit behind
 // RequireAdmin: the form shows the full configuration, and every one of
 // them changes monitors.
@@ -41,6 +42,9 @@ func RegisterMonitorChanges(r chi.Router, h *Monitors, recent func(http.Handler)
 	r.With(recent).Post("/monitors/{id}/heartbeat/token", h.regenerateToken)
 	r.Get("/monitors/new", h.newForm)
 	r.Post("/monitors", h.create)
+	r.Post("/monitors/test", h.tryNew)
+	r.Post("/monitors/form-summary", h.formSummary)
+	r.Post("/monitors/{id}/test", h.tryExisting)
 	r.Get("/monitors/{id}/edit", h.editForm)
 	r.Post("/monitors/{id}", h.update)
 	r.Post("/monitors/{id}/pause", h.pause)
@@ -583,24 +587,9 @@ func (h *Monitors) storedSecrets(r *http.Request, id string) (map[string]bool, e
 // renderForm fills in what the page needs besides the field values (the
 // parent choices and the names of stored secrets) and renders it.
 func (h *Monitors) renderForm(w http.ResponseWriter, r *http.Request, status int, f templates.MonitorForm, stored map[string]bool) {
-	monitors, err := store.ListMonitors(r.Context(), h.db.Reader)
-	if err != nil {
-		h.fail(w, r, "listing monitors", err)
+	if err := h.fillChoices(r.Context(), &f); err != nil {
+		h.fail(w, r, "listing form choices", err)
 		return
-	}
-	for _, m := range monitors {
-		if m.ID != f.ID {
-			f.Parents = append(f.Parents, templates.Option{Value: m.ID, Label: m.Name})
-		}
-	}
-	profiles, err := store.ListProfiles(r.Context(), h.db.Reader)
-	if err != nil {
-		h.fail(w, r, "listing profiles", err)
-		return
-	}
-	f.Profiles = nil
-	for _, p := range profiles {
-		f.Profiles = append(f.Profiles, templates.Option{Value: p.ID, Label: p.Name})
 	}
 	f.HasBasic, f.HasBearer = stored[monitor.SecretBasicAuth], stored[monitor.SecretBearerToken]
 	f.SecretHeaders = nil
@@ -616,6 +605,45 @@ func (h *Monitors) renderForm(w http.ResponseWriter, r *http.Request, status int
 		title = "Edit " + f.Name + " — Sinjal"
 	}
 	render(w, r, h.log, status, templates.MonitorFormPage(pageFor(r, title), f))
+}
+
+// fillChoices sets the parent and notification profile choices.
+func (h *Monitors) fillChoices(ctx context.Context, f *templates.MonitorForm) error {
+	monitors, err := store.ListMonitors(ctx, h.db.Reader)
+	if err != nil {
+		return err
+	}
+	f.Parents = nil
+	for _, m := range monitors {
+		if m.ID != f.ID {
+			f.Parents = append(f.Parents, templates.Option{Value: m.ID, Label: m.Name})
+		}
+	}
+	profiles, err := store.ListProfiles(ctx, h.db.Reader)
+	if err != nil {
+		return err
+	}
+	f.Profiles = nil
+	for _, p := range profiles {
+		f.Profiles = append(f.Profiles, templates.Option{Value: p.ID, Label: p.Name})
+	}
+	return nil
+}
+
+// mergeFieldErrors adds the store's findings to the form's errors, under
+// the form's field names. It reports false when err is not a FieldErrors.
+func mergeFieldErrors(errs map[string]string, err error) bool {
+	var fe store.FieldErrors
+	if !errors.As(err, &fe) {
+		return false
+	}
+	for k, msg := range fe {
+		if mapped, ok := storeFieldToForm[k]; ok {
+			k = mapped
+		}
+		addErr(errs, k, msg)
+	}
+	return true
 }
 
 func (h *Monitors) fail(w http.ResponseWriter, r *http.Request, what string, err error) {
@@ -711,19 +739,7 @@ func (h *Monitors) save(w http.ResponseWriter, r *http.Request, old *store.Monit
 		secrets = secretsFromValues(r.PostForm, stored, in.HTTP.Headers, f.Errors)
 	}
 
-	invalid := func(err error) bool {
-		var fe store.FieldErrors
-		if !errors.As(err, &fe) {
-			return false
-		}
-		for k, msg := range fe {
-			if mapped, ok := storeFieldToForm[k]; ok {
-				k = mapped
-			}
-			addErr(f.Errors, k, msg)
-		}
-		return true
-	}
+	invalid := func(err error) bool { return mergeFieldErrors(f.Errors, err) }
 	if len(f.Errors) > 0 {
 		// Show the store's findings for the other fields too.
 		if err := store.CheckMonitor(ctx, h.db.Reader, id, in); err != nil && !invalid(err) {

@@ -72,6 +72,7 @@ func TestScreenshots(t *testing.T) {
 	sh.matrix(ctx, s, ids["Search"])
 	sh.statusPages(ctx, s, demo.page)
 	sh.extras(ctx, s)
+	sh.forms(ctx, s, demo.targets["Billing"].URL+"/health", ids["Billing"])
 	sh.writeIndex()
 
 	for _, e := range errs() {
@@ -440,6 +441,28 @@ func (sh *shooter) extras(ctx context.Context, s *server) {
 	)
 	v := visitor(t, ctx)
 	sh.take(v, s.base+"/login", shot{Page: "sign-in", Theme: "stark", Size: desktop.name}, desktop)
+}
+
+// forms: the create form empty, filled with a Test now result and on a
+// phone, and the edit form with a section open, in each theme.
+func (sh *shooter) forms(ctx context.Context, s *server, target, edit string) {
+	t := sh.t
+	for _, v := range []variant{variants[0], variants[2], variants[3]} {
+		setAppearance(t, ctx, s, v, "comfortable")
+		sh.take(ctx, s.base+"/monitors/new?type=http", shot{Page: "form-new", Theme: v.name, Size: desktop.name}, desktop)
+		sh.take(ctx, s.base+"/monitors/new?type=http", shot{Page: "form-tested", Theme: v.name, Size: desktop.name}, desktop,
+			chromedp.SendKeys(chromedp.CSS("#url"), target),
+			chromedp.Click(chromedp.CSS("#test-now")),
+			chromedp.WaitVisible(chromedp.CSS("#test-result .test-outcome")),
+			chromedp.Sleep(300*time.Millisecond),
+		)
+		sh.take(ctx, s.base+"/monitors/"+edit+"/edit", shot{Page: "form-edit", Theme: v.name, Size: desktop.name}, desktop,
+			chromedp.Click(chromedp.CSS("#section-checking > summary")),
+			chromedp.WaitVisible(chromedp.CSS("#interval")),
+		)
+		sh.take(ctx, s.base+"/monitors/new?type=http", shot{Page: "form-new", Theme: v.name, Size: phone.name}, phone)
+	}
+	sh.take(ctx, s.base+"/monitors/new?type=tcp", shot{Page: "form-new-tcp", Theme: "daylight", Size: desktop.name}, desktop)
 }
 
 // take sizes the tab, opens url, waits for the page to settle, runs then,

@@ -22,8 +22,7 @@
   border-top: 1px solid var(--border);
 }
 
-.form-section > legend,
-.form-advanced summary {
+.form-section > legend {
   padding: 0;
   font-size: 1rem;
   font-weight: 600;
@@ -40,18 +39,6 @@
 
 .form-section > legend + * {
   clear: left;
-}
-
-.form-advanced summary {
-  min-height: 2.75rem;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.form-advanced-body {
-  display: grid;
-  gap: var(--space-4);
 }
 
 .monitor-form textarea {
@@ -229,4 +216,373 @@
   white-space: pre-wrap;
   background: var(--surface-1);
   border-radius: var(--radius-md);
+}
+
+/* ---- Create/edit monitor (docs/03): type cards, the essentials, one
+ * collapsed row per section and a sticky action bar. Scoped to
+ * .monitor-form: the other form pages share the primitives above. ---- */
+
+.monitor-form-head {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.monitor-form-lede {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Type cards: links, so the choice works without JavaScript. */
+.type-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.type-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-1) var(--space-2);
+  min-height: 2.75rem; /* touch target */
+  padding: var(--space-3);
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--motion-fast) ease-out, background-color var(--motion-fast) ease-out;
+}
+
+.type-card .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.type-card-label {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.type-card-text {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+a.type-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.type-card[aria-current="page"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-1));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.type-card[aria-current="page"] .icon {
+  color: var(--accent);
+}
+
+.type-card-fixed {
+  max-width: 24rem;
+}
+
+.type-card-fixed .type-fixed {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* The essentials: what to check, and its name. A little larger, so the
+ * eye lands here first. */
+.form-essentials {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.form-essentials > .auth-field input,
+.form-essentials > .form-pair .auth-field input,
+.form-essentials > .form-pair .auth-field select {
+  min-height: 2.75rem;
+  font-size: 1rem;
+}
+
+#url {
+  font-size: 1rem;
+}
+
+/* Section rows: a list of collapsed sections, each one line that says
+ * what it holds. */
+.form-rows {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.form-row + .form-row {
+  border-top: 1px solid var(--border);
+}
+
+.form-row > summary {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3rem;
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius-md);
+}
+
+.form-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.form-row > summary:hover {
+  background: var(--surface-2);
+}
+
+.form-row > summary:focus-visible {
+  outline-offset: -2px;
+}
+
+.form-row-title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.form-row-summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.form-row > summary .icon {
+  color: var(--text-subtle);
+  transition: transform var(--motion-fast) ease-out;
+}
+
+.form-row[open] > summary .icon {
+  transform: rotate(90deg);
+}
+
+/* Open, the fields show the values: the summary line steps back. */
+.form-row[open] > summary .form-row-summary {
+  visibility: hidden;
+}
+
+.form-row-body {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4) var(--space-5);
+}
+
+/* A number with its unit after it. */
+.input-unit {
+  position: relative;
+  display: block;
+}
+
+.input-unit::after {
+  content: attr(data-unit);
+  position: absolute;
+  inset-block: 0;
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  color: var(--text-subtle);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+.input-unit input {
+  padding-right: calc(var(--space-3) * 2 + 2ch);
+}
+
+/* Method: a segmented control of radio buttons. */
+.segmented {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.segmented legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.segmented-options {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.segmented-options input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.segmented-options label {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.segmented-options label + input + label {
+  border-left: 1px solid var(--border-strong);
+}
+
+.segmented-options input:checked + label {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.segmented-options input:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Fields that only matter for one choice: shown when it is chosen. Where
+ * :has() is missing everything stays visible, which still works. */
+@supports selector(:has(*)) {
+  .monitor-form:not(:has(#method-POST:checked)) .if-post,
+  .monitor-form:not(:has(#auth option[value="basic"]:checked)) .if-basic,
+  .monitor-form:not(:has(#auth option[value="bearer"]:checked)) .if-bearer {
+    display: none;
+  }
+}
+
+/* The actions, with the test result above the buttons. The form is short
+ * enough that they need not float. */
+.form-bar {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.form-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.form-bar-actions .button {
+  min-height: 2.75rem;
+  padding-inline: var(--space-4);
+}
+
+.form-bar-actions a {
+  margin-left: var(--space-2);
+  color: var(--text-muted);
+}
+
+.test-result:empty {
+  display: none;
+}
+
+.test-outcome {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--tone, var(--border-strong));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tone, var(--border)) 8%, var(--surface-1));
+}
+
+.test-outcome > .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+  color: var(--tone);
+}
+
+.test-up { --tone: var(--status-up); }
+.test-down { --tone: var(--status-down); }
+.test-problems { --tone: var(--status-warning); }
+
+.test-outcome-body {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.test-headline {
+  font-weight: 600;
+}
+
+.test-facts {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.test-message {
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.test-outcome ul {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.test-outcome .failure-snippet {
+  max-height: 10rem;
+  overflow: auto;
+}
+
+.test-now .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+@media (max-width: 48rem) {
+  .type-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-row > summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+
+  .form-row-summary {
+    grid-column: 1;
+    grid-row: 2;
+    white-space: normal;
+  }
+
+  .form-row > summary .icon {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
 }

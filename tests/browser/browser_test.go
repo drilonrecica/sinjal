@@ -96,6 +96,60 @@ func TestCreateHTTPMonitor(t *testing.T) {
 	}
 }
 
+// TestMonitorFormTestNow: the name follows the URL, Test now answers in
+// place without saving, a closed section summarises itself and an error
+// opens the section that holds the field.
+func TestMonitorFormTestNow(t *testing.T) {
+	ctx, s := signedInAdmin(t)
+	tg := newTarget(t)
+	do(t, ctx, "fill the URL",
+		chromedp.Navigate(s.base+"/monitors/new?type=http"),
+		chromedp.WaitVisible(chromedp.CSS("#test-now")),
+		chromedp.SendKeys(chromedp.CSS("#url"), tg.URL+"/health"),
+	)
+	if got := eval[string](t, ctx, `document.querySelector("#name").value`); got != "127.0.0.1" {
+		t.Errorf("name = %q, want it to follow the URL's host", got)
+	}
+	eval[bool](t, ctx, `window.sinjalNoReload = true`)
+	do(t, ctx, "test now",
+		chromedp.Click(chromedp.CSS("#test-now")),
+		chromedp.WaitVisible(chromedp.CSS("#test-result .test-up")),
+	)
+	if got := text(t, ctx, "#test-result .test-headline"); got != "Up" {
+		t.Errorf("test result = %q, want Up", got)
+	}
+	if !eval[bool](t, ctx, `window.sinjalNoReload === true`) {
+		t.Error("Test now reloaded the page")
+	}
+	tg.failing.Store(true)
+	do(t, ctx, "test a failing target",
+		chromedp.Click(chromedp.CSS("#test-now")),
+		chromedp.WaitVisible(chromedp.CSS("#test-result .test-down")),
+	)
+	if got := text(t, ctx, "#test-result .test-headline"); !strings.Contains(got, "Would be down") {
+		t.Errorf("failing test result = %q", got)
+	}
+
+	// Edit the interval in its section, close it: the summary follows.
+	do(t, ctx, "change the interval",
+		chromedp.Click(chromedp.CSS("#section-checking > summary")),
+		chromedp.WaitVisible(chromedp.CSS("#interval")),
+		chromedp.SetValue(chromedp.CSS("#interval"), "120"),
+		chromedp.Click(chromedp.CSS("#section-checking > summary")),
+		chromedp.Poll[chromedp.Void](`document.querySelector("#section-checking .form-row-summary").textContent.startsWith("Every 120 s")`,
+			chromedp.WithPollingTimeout(5*time.Second)),
+	)
+	// A server-side error opens the section with the field.
+	do(t, ctx, "save with a bad timeout",
+		chromedp.SetValue(chromedp.CSS("#timeout"), "abc"),
+		chromedp.Click(chromedp.CSS(`form.monitor-form button[type="submit"]`)),
+		chromedp.WaitVisible(chromedp.CSS("#summary-title")),
+	)
+	if !eval[bool](t, ctx, `document.querySelector("#section-checking").open && !document.querySelector("#section-advanced").open`) {
+		t.Error("the error did not open the Checking section alone")
+	}
+}
+
 // TestSSETransition: a monitor going down reaches an open page over SSE
 // and htmx swaps the header and the column row in place, without a reload.
 func TestSSETransition(t *testing.T) {

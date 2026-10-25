@@ -381,6 +381,14 @@ const maxParentDepth = 64
 // the current database, and writes nothing. A form uses it to show all
 // problems at once when some of its input could not even be parsed. id is "" for a new monitor. It returns nil when in is valid.
 func CheckMonitor(ctx context.Context, q *sql.DB, id string, in MonitorInput) error {
+	_, err := PrepareMonitor(ctx, q, id, in)
+	return err
+}
+
+// PrepareMonitor is CheckMonitor that also returns the input as it would be
+// saved: defaults filled in and values normalized (DNS expected values).
+// The form's "Test now" checks exactly that, without saving it.
+func PrepareMonitor(ctx context.Context, q *sql.DB, id string, in MonitorInput) (MonitorInput, error) {
 	in.applyDefaults()
-	return checkRefs(ctx, q, id, &in, in.validate(id))
+	return in, checkRefs(ctx, q, id, &in, in.validate(id))
 }

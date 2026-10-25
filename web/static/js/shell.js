@@ -185,6 +185,13 @@
     if (!cfg || !cfg.boosted) {
       return;
     }
+    // A form that did not validate answers 422 with the page and its
+    // errors (docs/03): show it, as a browser without JavaScript would.
+    // htmx swaps no 4xx answer by default.
+    if (e.detail.xhr && e.detail.xhr.status === 422) {
+      e.detail.shouldSwap = true;
+      e.detail.isError = false;
+    }
     var text = e.detail.xhr && e.detail.xhr.responseText;
     if (text && text.indexOf('id="main"') < 0) {
       e.detail.shouldSwap = false;

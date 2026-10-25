@@ -204,9 +204,30 @@ A normal HTTP monitor should require only:
 
 ### Built (M2-17, M4-06, M5-11)
 
-`/monitors/new` and `/monitors/{id}/edit`, admins only. One page, no JavaScript.
+`/monitors/new` and `/monitors/{id}/edit`, admins only. One page that works without JavaScript.
 
-**Sections:**
+### Redesign: essentials and summaries (owner request, 2026-10-25)
+
+The form was one long column of about 40 fields. It now reads top to bottom as:
+1. **Type** (create): five cards with an icon, the label and one line ("A URL answers", "A port is open", "A host answers pings", "A name resolves", "Your job checks in"). They are links, as before. On edit, a fixed card.
+2. **Essentials**, larger: what to check, then the name. HTTP: URL; TCP: host and port; Ping: host; DNS: host name and record type; Heartbeat: expected interval and grace. Then tags and "Start checking now" (create).
+3. **Section rows**, collapsed: one row per section with its title, a one-line summary of its current values (`MonitorForm.SectionSummary`: "Every 30 s · timeout 5 s · down after 2 failures", "Status 200–399 · body contains “…”", "GET · follows redirects · bearer token", "Notifies On-call · no dependency", "Certificate warning 30, 14, 7 days") and a chevron. Secrets appear only as the kind of authentication and a count.
+   - HTTP: Checking, Assertions, Request, Alerts, Advanced
+   - TCP and Ping: Checking, Alerts
+   - DNS: Query (resolver, expected values, match), Checking, Alerts
+   - Heartbeat: Source (source label), Checking (thresholds only), Alerts
+   - A row opens when one of its fields has an error. Toggling a row posts the form to `POST /monitors/form-summary?section=…` (htmx) and puts the answer in its summary, so the words come from one place.
+4. **Actions**: Create monitor / Save changes, **Test now**, Cancel; the test result sits above the buttons.
+
+**Test now** runs one check with the form as it stands, without saving (`POST /monitors/test`, on edit `POST /monitors/{id}/test`, where a blank secret is the stored one). It answers in place: "Up" with the status, latency and certificate, "Would be down: <kind>" with the message and, for admins, the response excerpt, or the list of problems that keep it from running, linked to their fields. Not for heartbeats. Bounded to 20 s and 10 tests a minute per user.
+
+Small touches without JavaScript: unit suffixes ("s", "KiB"), the method as a segmented control, and the request body and the basic or bearer fields shown only for the choice that needs them (`:has()`, everything visible where it is unsupported).
+
+`js/monitor_form.js` adds two things: the name follows the address's host until a name is typed, and Test now is shown (it needs htmx).
+
+A boosted save that does not validate (422) now replaces the pane like any answer, so the error summary and the field messages appear; htmx swaps no 4xx answer by default, which had hidden them behind a generic toast on every form.
+
+**Sections before the redesign** (M2-17, M4-06, M5-11), kept for reference:
 - Basics: type; name; tags; "start checking now" (create only)
 - Request: URL, method, POST body, redirects, plain headers as `Name: value` lines, authentication, secret headers
 - Assertions: status; contains / does not contain; JSON rows (path, check, expected value)

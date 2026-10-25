@@ -35,6 +35,9 @@ POST /monitors/{id}/pause
 POST /monitors/{id}/resume
 POST /monitors/{id}/delete
 POST /monitors/{id}/heartbeat/token   # new push URL, shown once; recent re-authentication
+POST /monitors/test                   # Test now on the create form: one check, nothing saved
+POST /monitors/{id}/test              # Test now on the edit form: blank secrets are the stored ones
+POST /monitors/form-summary           # ?section=…: one form row's summary from the posted values
 
 POST /views                    # save the column's filters as a view (docs/29); admin or viewer, own views only
 POST /views/{id}               # rename or replace its filters
@@ -128,6 +131,8 @@ Monitors:
 - `POST /monitors/{id}/pause|resume` (M2-18): admin only; 303 back to the monitor; idempotent.
 - `POST /monitors/{id}/delete` (M2-18): admin only. Without `confirm=1` it answers 200 with the confirmation page and changes nothing. With it, the monitor is deleted, `monitor.deleted` is sent and the answer is 303 to `/monitors`.
 - `POST /monitors/{id}/heartbeat/token` (M4-06): admin group plus `RequireRecentAuth`.
+- `POST /monitors/test`, `POST /monitors/{id}/test` (form redesign): admin only, CSRF via the htmx header. They validate like a save and write nothing; invalid input is answered 200 with the problems. A check runs through `Engine.Try`, bounded to 20 s; 10 per minute per user, then 429. A heartbeat is 400, an unknown monitor 404. Logged at info with the user and type, never the address.
+- `POST /monitors/form-summary?section=checking|assertions|request|alerts|advanced|query|source`: admin only; the row's summary as text; an unknown section is 400.
   - Issues a new token for a heartbeat monitor (404 for another type or an unknown id) and audits `monitor.heartbeat_token_regenerated`.
   - Answers 200 with the one-time push URL page (`no-store`).
   - A stale session is sent to `/reauth`, with the Referer (the Configuration tab) as `next`.
