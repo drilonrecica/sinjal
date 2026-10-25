@@ -57,26 +57,7 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 	v.Maintenance = maintenanceNotes(windows, nil, now, h.loc)
 	switch v.Tab {
 	case "overview":
-		var hb *store.HeartbeatConfig
-		if m.Type == store.TypeHeartbeat {
-			var c store.HeartbeatConfig
-			if c, err = store.GetHeartbeatConfig(ctx, q, id); err == nil {
-				hb = &c
-			}
-		}
-		if err == nil {
-			v.Overview = overviewFacts(m, hb, now)
-			v.Strip, err = h.strip(r, id, now)
-		}
-		if err == nil {
-			v.History, err = h.historyView(r, m, false)
-		}
-		if err == nil {
-			v.Incidents, err = incidentListView(ctx, q, h.loc, now, id, detailIncidents)
-		}
-		if err == nil {
-			v.Events, err = recentEventViews(ctx, q, id, detailEvents, now, h.loc)
-		}
+		err = h.overview(r, m, &v, now)
 	case "history":
 		v.History, err = h.historyView(r, m, true)
 	case "incidents":
@@ -97,6 +78,52 @@ func (h *Monitors) detail(w http.ResponseWriter, r *http.Request) {
 	render(w, r, h.log, http.StatusOK, templates.MonitorDetail(pageFor(r, m.Name+" — Sinjal"), v))
 }
 
+// overviewFragment serves GET /fragments/monitors/{id}/overview: the
+// Overview tab's body, refetched by live.js when the monitor changes.
+func (h *Monitors) overviewFragment(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	m, mv, err := h.view(r, id, heroBar)
+	if err == nil {
+		v := templates.MonitorDetailView{Monitor: mv}
+		if err = h.overview(r, m, &v, h.now()); err == nil {
+			render(w, r, h.log, http.StatusOK, templates.MonitorOverview(v))
+			return
+		}
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	h.fail(w, r, "loading a monitor's overview", err)
+}
+
+// overview fills the Overview tab: facts, the 90-day strip, the last 24
+// hours, the latest incidents and recent events.
+func (h *Monitors) overview(r *http.Request, m store.Monitor, v *templates.MonitorDetailView, now time.Time) error {
+	ctx, q := r.Context(), h.db.Reader
+	var hb *store.HeartbeatConfig
+	if m.Type == store.TypeHeartbeat {
+		c, err := store.GetHeartbeatConfig(ctx, q, m.ID)
+		if err != nil {
+			return err
+		}
+		hb = &c
+	}
+	v.Overview = overviewFacts(m, hb, now)
+	var err error
+	if v.Strip, err = h.strip(r, m.ID, now); err != nil {
+		return err
+	}
+	if v.History, err = h.historyView(r, m, false); err != nil {
+		return err
+	}
+	if v.Incidents, err = incidentListView(ctx, q, h.loc, now, m.ID, detailIncidents); err != nil {
+		return err
+	}
+	v.Events, err = recentEventViews(ctx, q, m.ID, detailEvents, now, h.loc)
+	return err
+}
+
 // strip is a monitor's last 90 days, as its status page service shows them.
 func (h *Monitors) strip(r *http.Request, id string, now time.Time) (templates.StripView, error) {
 	days := stripBounds(now, h.loc)
@@ -108,9 +135,11 @@ func (h *Monitors) strip(r *http.Request, id string, now time.Time) (templates.S
 	return templates.StripView{Days: bars, Uptime: adjusted.Percent(), Label: label}, nil
 }
 
-// overviewFacts are the facts under the header that do not change with
-// every check. hb is the config of a heartbeat monitor, nil for the other
-// types: it is not checked on an interval but expects beats.
+// overviewFacts are the Overview tab's facts. Most follow the checks (last
+// success and failure, the certificate, the last beat), which is why the
+// tab's body is a live fragment. hb is the config of a heartbeat monitor,
+// nil for the other types: it is not checked on an interval but expects
+// beats.
 func overviewFacts(m store.Monitor, hb *store.HeartbeatConfig, now time.Time) []templates.Fact {
 	ago := func(t *time.Time) string {
 		if t == nil {

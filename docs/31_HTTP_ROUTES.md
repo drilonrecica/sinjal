@@ -179,6 +179,7 @@ Live fragments (admins and viewers; 404 for an unknown monitor). The checked add
 ```text
 GET /fragments/monitors/{id}/row
 GET /fragments/monitors/{id}/header
+GET /fragments/monitors/{id}/overview # the detail Overview tab's body: facts, strips, chart, incidents, events
 GET /fragments/monitors/{id}/beats    # ?until= a list row's beat tooltips (JSON, newest first, from memory)
 ```
 

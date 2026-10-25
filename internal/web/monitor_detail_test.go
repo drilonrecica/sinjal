@@ -261,3 +261,101 @@ func TestOverviewSideColumn(t *testing.T) {
 		t.Error("another monitor's incident is on this monitor's overview")
 	}
 }
+
+// applyCheck stores one check result for id and its effect on the monitor
+// row, as the result processor does.
+func (e *appEnv) applyCheck(t *testing.T, id string, at time.Time, ok bool, tls *time.Time) {
+	t.Helper()
+	success, state := 1, "up"
+	if !ok {
+		success, state = 0, "down"
+	}
+	if _, err := e.db.Writer.Exec(`INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 266, ?)`,
+		id, store.FormatTime(at), success); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := e.db.Writer.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if err := store.ApplyCheck(t.Context(), tx, id, store.CheckUpdate{State: state, StateChanged: true, CheckedAt: at, Success: ok, TLSNotAfter: tls}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The Overview tab's body is a live fragment: it refetches itself when its
+// monitor changes, like the header, so the facts, the strips and the events
+// follow every check without a reload (bug: "Up" over "Last success: never").
+func TestOverviewFragmentFollowsChecks(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "v1", "viewer", "viewer", "")
+	id := e.addMonitor(t, "Site", "https://laserpickle.com/")
+	frag := "/fragments/monitors/" + id + "/overview"
+
+	// The page wires the body to the fragment, as the header is wired.
+	page := e.getAs(t, "v1", "GET", "/monitors/"+id).Body.String()
+	for _, want := range []string{`class="detail-grid" id="monitor-overview-` + id + `" data-live data-monitor-id="` + id + `"`,
+		`hx-get="` + frag + `" hx-trigger="refresh" hx-swap="outerHTML"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("overview tab lacks %q", want)
+		}
+	}
+
+	// Before any check.
+	before := e.getAs(t, "v1", "GET", frag)
+	if before.Code != 200 || !strings.Contains(before.Body.String(), "never") {
+		t.Fatalf("fragment before a check = %d %s", before.Code, before.Body.String())
+	}
+
+	// The first check succeeds and sees the certificate.
+	now := time.Now().Truncate(time.Second)
+	expiry := time.Date(2027, 1, 23, 12, 0, 0, 0, time.UTC)
+	e.applyCheck(t, id, now.Add(-time.Second), true, &expiry)
+	body := e.getAs(t, "v1", "GET", frag).Body.String()
+	for _, want := range []string{"Certificate expires", "2027-01-23", `data-monitor-id="` + id + `"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("after a success the fragment lacks %q", want)
+		}
+	}
+	for _, stale := range []string{"No checks were stored", "No data yet"} {
+		if strings.Contains(body, stale) {
+			t.Errorf("after a success the fragment still says %q", stale)
+		}
+	}
+	if last := factValue(body, "Last success"); last == "never" || last == "" {
+		t.Errorf("Last success = %q after a successful check", last)
+	}
+
+	// Then it fails and an incident opens: Last failure and a Down event.
+	e.applyCheck(t, id, now, false, nil)
+	e.addIncident(t, "inc1", id, now, nil, false)
+	body = e.getAs(t, "v1", "GET", frag).Body.String()
+	if last := factValue(body, "Last failure"); last == "never" || last == "" {
+		t.Errorf("Last failure = %q after a failed check", last)
+	}
+	if !strings.Contains(body, "Declared down") || !strings.Contains(body, "2027-01-23") {
+		t.Error("after a failure the fragment lacks the Down event or forgot the certificate")
+	}
+
+	if rec := e.getAs(t, "v1", "GET", "/fragments/monitors/nope/overview"); rec.Code != 404 {
+		t.Errorf("unknown monitor = %d", rec.Code)
+	}
+	if rec := e.serve(req("GET", frag, nil)); rec.Code == 200 {
+		t.Error("the fragment is served without a session")
+	}
+}
+
+// factValue is the value after the <dt> label in rendered facts.
+func factValue(html, label string) string {
+	_, rest, ok := strings.Cut(html, "<dt>"+label+"</dt>")
+	if !ok {
+		return ""
+	}
+	_, rest, _ = strings.Cut(rest, "<dd>")
+	v, _, _ := strings.Cut(rest, "</dd>")
+	return v
+}

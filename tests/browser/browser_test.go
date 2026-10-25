@@ -82,6 +82,14 @@ func TestCreateHTTPMonitor(t *testing.T) {
 	if got := text(t, ctx, "header.monitor-header .status-text"); got != "Up" {
 		t.Errorf("status label = %q, want Up", got)
 	}
+	// The Overview body follows the first check without a reload: never
+	// "Up" over "Last success: never" or an empty chart.
+	do(t, ctx, "wait for the overview to show the first check",
+		chromedp.Poll[chromedp.Void](`(() => {
+			const o = document.querySelector("#monitor-overview-`+id+`");
+			const dt = [...(o?.querySelectorAll("dt") ?? [])].find(d => d.textContent === "Last success");
+			return dt && dt.nextElementSibling.textContent !== "never" && !o.textContent.includes("No checks were stored");
+		})()`, chromedp.WithPollingTimeout(10*time.Second)))
 	do(t, ctx, "find the monitor in the column", chromedp.WaitVisible(chromedp.CSS("#col-"+id)))
 	if got := text(t, ctx, "#col-"+id+" .column-name"); got != "Checkout API" {
 		t.Errorf("column row name = %q", got)
@@ -108,6 +116,13 @@ func TestSSETransition(t *testing.T) {
 	if got := text(t, ctx, "header.monitor-header .status-text"); got != "Down" {
 		t.Errorf("status label = %q, want Down", got)
 	}
+	// The Overview body follows too: the failure and its incident's event.
+	do(t, ctx, "wait for the overview to show the failure",
+		chromedp.Poll[chromedp.Void](`(() => {
+			const o = document.querySelector("#monitor-overview-`+id+`");
+			const dt = [...(o?.querySelectorAll("dt") ?? [])].find(d => d.textContent === "Last failure");
+			return dt && dt.nextElementSibling.textContent !== "never" && o.textContent.includes("Declared down");
+		})()`, chromedp.WithPollingTimeout(10*time.Second)))
 	if !eval[bool](t, ctx, `window.sinjalNoReload === true`) {
 		t.Error("the page reloaded: the transition did not arrive over SSE")
 	}

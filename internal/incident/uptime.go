@@ -59,15 +59,18 @@ func (r Ratio) Percent() string {
 //	raw      = (O − D) / O
 //	adjusted = (O − M − (D − D∩M)) / (O − M)
 //
-// Times are taken in whole seconds, as they are stored.
+// Times are taken in whole seconds, as they are stored: rounded down. Now
+// is rounded up, because the current second has begun: a monitor created
+// and checked within one second has been observed for that second.
 func Uptime(in UptimeInput) (raw, adjusted Ratio) {
-	r := Span{latest(in.Range.From, in.Created).Truncate(time.Second), earliest(in.Range.To, in.Now).Truncate(time.Second)}
+	now := CeilSecond(in.Now)
+	r := Span{latest(in.Range.From, in.Created).Truncate(time.Second), CeilSecond(earliest(in.Range.To, now))}
 	if !r.To.After(r.From) {
 		return Ratio{}, Ratio{}
 	}
-	observed := subtract([]Span{r}, normalize(in.Paused, in.Now))
-	down := intersect(normalize(in.Down, in.Now), observed)
-	excluded := intersect(normalize(in.Excluded, in.Now), observed)
+	observed := subtract([]Span{r}, normalize(in.Paused, now))
+	down := intersect(normalize(in.Down, now), observed)
+	excluded := intersect(normalize(in.Excluded, now), observed)
 	o, d, m := total(observed), total(down), total(excluded)
 	dm := total(intersect(down, excluded))
 	return Ratio{Up: o - d, Den: o}, Ratio{Up: o - m - (d - dm), Den: o - m}
@@ -144,6 +147,15 @@ func total(spans []Span) int64 {
 		sum += int64(s.To.Sub(s.From) / time.Second)
 	}
 	return sum
+}
+
+// CeilSecond rounds t up to a whole second. A range ending now ends at the
+// end of the current second, so it includes what was stored during it.
+func CeilSecond(t time.Time) time.Time {
+	if f := t.Truncate(time.Second); !f.Equal(t) {
+		return f.Add(time.Second)
+	}
+	return t
 }
 
 func latest(a, b time.Time) time.Time {

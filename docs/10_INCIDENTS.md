@@ -201,7 +201,7 @@ Built (`incident.Uptime`, pure; `store.Uptime` reads its inputs):
   - the monitor's `monitor_pauses` and `incidents` overlapping the range, both read through their `(monitor_id, start)` indexes; an open pause or active incident ends at now
   - the occurrences of the maintenance windows covering the monitor with `exclude_from_adjusted_uptime`, expanded in the instance time zone
 - raw check results are never read, so retention changes nothing and no union with aggregates is needed
-- times count in whole seconds, as stored; overlapping intervals count once. Each ratio is two integers: up seconds and observed seconds (`incident.Ratio`).
+- times count in whole seconds, as stored (rounded down); now and a range ending now are rounded up, because the current second has begun, so a monitor created and checked within one second has one observed second, not "no data"; overlapping intervals count once. Each ratio is two integers: up seconds and observed seconds (`incident.Ratio`).
 - display (`Ratio.Percent`): integer hundredths of a percent, truncated (`99.99%`, never `100.00%` with any downtime); no data is `—`
 - a monitor created paused gets a pause interval from its creation, closed by its first resume, so the time before it was ever checked is not observed time
 

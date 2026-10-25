@@ -118,7 +118,7 @@ Since M8-05 the app shell opens the only stream. The `Live` component (`web/temp
 
 `web/static/js/live.js` (first-party, ~90 lines, renders nothing) does the rest:
 
-- `sse:monitor.updated`: read `monitor_id`, then ask every element marked `data-live` with that `data-monitor-id` to `refresh`. Such an element (the column's `ColumnRow`, `MonitorHeader`) carries `hx-get` of its own fragment (`/fragments/monitors/{id}/row|header`), `hx-trigger="refresh"` and `hx-swap="outerHTML"`, so htmx fetches the fragment and replaces the element.
+- `sse:monitor.updated`: read `monitor_id`, then ask every element marked `data-live` with that `data-monitor-id` to `refresh`. Such an element (the column's `ColumnRow`, `MonitorHeader`, the detail Overview tab's body `MonitorOverview`) carries `hx-get` of its own fragment (`/fragments/monitors/{id}/row|header|overview`), `hx-trigger="refresh"` and `hx-swap="outerHTML"`, so htmx fetches the fragment and replaces the element.
 - `sse:monitor.created`: refresh every `data-live-list` element. The list column (`ColumnList`, `hx-get="/fragments/monitors"`) is one, so a new monitor appears in name order, rendered by the server.
 - `sse:monitor.deleted`: an element showing that monitor with `data-gone-href` (the detail header) sends the browser there (`/monitors`). Every `data-live-list` is refreshed, which drops the row.
 - `sse:maintenance.updated`: refresh every `data-live-list`, among them the Maintenance page's list (`MaintenanceSections`, `hx-get="/fragments/maintenance"`). A window starting or ending is not an event: the sections move on the next refresh or reload.

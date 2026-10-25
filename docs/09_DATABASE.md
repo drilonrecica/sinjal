@@ -162,6 +162,7 @@ It returns:
   - current is the newest sample in the range; with no raw sample, the newest bucket's average
   - p95 is exact (nearest rank, the sample at rank ⌈0.95 n⌉) when the range holds raw results only
   - when the range holds buckets with samples, p95 is `history.ApproxP95` over the raw samples (weight 1 each) and the buckets' p95 (weighted by their samples), and `Approximate` is set. The History tab then reads "p95 (approximate)" in its figures and its text summary.
+- a range ending now ends at the end of the current second (rounded up), since stored times are rounded down: a check made a moment ago is in it
 - the series: the range in at most `buckets` equal buckets of whole seconds, only those holding results, each with checks, failures, average and max latency. The chart asks for 720. A rolled bucket counts in the chart bucket where it starts, and in the range only when it starts inside it.
 
 Resolution follows from retention:

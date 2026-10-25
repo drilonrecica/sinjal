@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/drilonrecica/sinjal/internal/history"
+	"github.com/drilonrecica/sinjal/internal/incident"
 )
 
 // History over check results (docs/09_DATABASE.md "History queries"). A
@@ -51,7 +52,9 @@ type LatencyPoint struct {
 // samples every duration of the summary is zero.
 func LatencyHistory(ctx context.Context, q *sql.DB, monitorID string, from, to time.Time, buckets int) (LatencyStats, []LatencyPoint, error) {
 	var s LatencyStats
-	from, to = from.Truncate(time.Second), to.Truncate(time.Second)
+	// Stored times are rounded down to the second, so a range ending now
+	// ends at the end of the current second: it includes a check just made.
+	from, to = from.Truncate(time.Second), incident.CeilSecond(to)
 	span := int64(to.Sub(from) / time.Second)
 	if span <= 0 || buckets <= 0 {
 		return s, nil, nil

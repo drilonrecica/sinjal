@@ -59,6 +59,7 @@ func RegisterMonitors(r chi.Router, h *Monitors) {
 		r.Method(method, "/fragments/monitors/{id}/row", h.fragment(rowBar, func(m templates.MonitorView) templ.Component { return templates.ColumnRow(m) }))
 		r.Method(method, "/fragments/monitors/{id}/beats", http.HandlerFunc(h.beatTips))
 		r.Method(method, "/fragments/monitors/{id}/header", h.fragment(heroBar, func(m templates.MonitorView) templ.Component { return templates.MonitorHeader(m) }))
+		r.Method(method, "/fragments/monitors/{id}/overview", http.HandlerFunc(h.overviewFragment))
 	}
 }
 

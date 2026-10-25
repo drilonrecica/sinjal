@@ -198,3 +198,18 @@ func BenchmarkLatencyHistory7d(b *testing.B) {
 		}
 	}
 }
+
+// A range that ends now includes a check made earlier in the same second:
+// its stored time is rounded down to that second.
+func TestLatencyHistoryIncludesTheCurrentSecond(t *testing.T) {
+	d := testDB(t)
+	id := create(t, d, sample("api"))
+	addResults(t, d, id, now, 266)
+	s, err := stats(context.Background(), d, id, now.Add(-24*time.Hour), now.Add(900*time.Millisecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Checks != 1 {
+		t.Fatalf("checks = %d, want the check made this second", s.Checks)
+	}
+}

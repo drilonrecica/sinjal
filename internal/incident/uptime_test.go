@@ -78,3 +78,20 @@ func TestUptimeWholeSeconds(t *testing.T) {
 		t.Fatalf("raw = %d/%d, want 90/100", raw.Up, raw.Den)
 	}
 }
+
+// Times are stored to the second, rounded down, so the current second has
+// begun: a monitor created and asked about within one second has been
+// observed for it, not for nothing ("No data yet" next to a first check).
+func TestUptimeCountsTheCurrentSecond(t *testing.T) {
+	created := t0.Add(200 * time.Millisecond)
+	raw, _ := Uptime(UptimeInput{Range: Span{t0.Add(-time.Hour), t0.Add(time.Hour)}, Created: created, Now: t0.Add(900 * time.Millisecond)})
+	if raw.Up != 1 || raw.Den != 1 {
+		t.Fatalf("raw = %d/%d, want 1/1", raw.Up, raw.Den)
+	}
+	// An outage open since this second is down for it.
+	raw, _ = Uptime(UptimeInput{Range: Span{t0.Add(-time.Hour), t0.Add(time.Hour)}, Created: t0.Add(-9 * time.Second),
+		Now: t0.Add(900 * time.Millisecond), Down: []Span{{From: t0.Add(100 * time.Millisecond)}}})
+	if raw.Up != 9 || raw.Den != 10 {
+		t.Fatalf("open outage: raw = %d/%d, want 9/10", raw.Up, raw.Den)
+	}
+}
