@@ -74,7 +74,7 @@ docker logs sinjal
 
 Use a named volume for `/data`, as above; a host directory must be writable by UID 65532. With Compose: [`docker-compose.yaml`](docker-compose.yaml) (uncomment its `ports`).
 
-**Coolify:** create a resource from this repository with the **Docker Compose** build pack and deploy. The Compose file gives it a domain on port 8080, the `/data` volume, the health check and every setting as an editable variable with a sensible default. Details: [deploying with Coolify](docs/16_DEPLOYMENT.md#coolify).
+**Coolify:** create a resource from this repository with the **Docker Compose** build pack, set the service's domain and `SINJAL_BASE_URL` to the same `https://…` address, and deploy. The Compose file gives it routing to port 8080, the `/data` volume, the health check and every setting as an editable variable with a sensible default. Details: [deploying with Coolify](docs/16_DEPLOYMENT.md#coolify).
 
 ### From source
 

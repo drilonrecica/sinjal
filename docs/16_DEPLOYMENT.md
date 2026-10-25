@@ -140,8 +140,9 @@ Sinjal remembers which socket kind works per address family after the first chec
 
 `docker-compose.yaml` at the repository root is written for it. Create a resource from this repository with the **Docker Compose** build pack (compose file `/docker-compose.yaml`) and deploy. Coolify sets up the rest from the file:
 
-- **Domain and port:** `SERVICE_URL_SINJAL_8080` makes Coolify generate a domain for the `sinjal` service and route it to port 8080; its value (`https://…`) becomes `SINJAL_BASE_URL`. Replace the generated domain with your own in the service's settings.
+- **Domain and port:** `SERVICE_URL_SINJAL_8080` makes Coolify generate a domain for the `sinjal` service and route it to port 8080. Replace the generated domain with your own in the service's settings. The variable's value is not passed to Sinjal: it keeps the first generated domain, with `:8080` appended, even after the domain is changed.
 - **Environment variables,** each editable later in Coolify's UI, with these defaults:
+  - `SINJAL_BASE_URL`: empty. **Set it** to the domain the service is served at, e.g. `https://sinjal.example.com`, and redeploy. Without it the setup link reads `http://localhost:8080/setup?token=…` (use the token with your domain) and passkeys are off.
   - `SINJAL_TRUSTED_PROXIES`: `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16`. The container publishes no port, so only Coolify's proxy reaches it; narrow it to the proxy network (`docker network inspect coolify`) if you like.
   - `SINJAL_TIMEZONE`: `UTC`
   - `SINJAL_LOG_FORMAT`: `text`, `SINJAL_LOG_LEVEL`: `info`
@@ -149,7 +150,7 @@ Sinjal remembers which socket kind works per address family after the first chec
 - **Storage:** the `sinjal-data` volume at `/data` appears under Persistent Storage. It is a named volume, so the non-root user owns it.
 - **Health check:** the file's `healthcheck` (`/sinjal healthcheck`) is what Coolify uses.
 
-First start: the deployment logs show `Initial setup: https://…/setup?token=…`. Open it to create the admin. Until an admin exists, every restart prints a new token.
+First start: the service's runtime logs (Logs, not Deployments) show `Initial setup: https://…/setup?token=…`. Open it to create the admin. Until an admin exists, every restart prints a new token.
 
 ### Dockerfile build pack
 

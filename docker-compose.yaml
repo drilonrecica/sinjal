@@ -3,6 +3,7 @@
 # an editable environment variable with that default, the volume into
 # persistent storage, and SERVICE_URL_SINJAL_8080 into a generated domain
 # routed to port 8080. Every value can be changed in its UI later.
+# Set SINJAL_BASE_URL to the domain you serve Sinjal at.
 #
 # Outside Coolify: `docker compose up -d --build`, after uncommenting
 # `ports`. SINJAL_BASE_URL is then empty, which Sinjal treats as unset.
@@ -14,9 +15,13 @@ services:
     # ports:
     #   - "8080:8080"
     environment:
-      # Coolify fills this with the app's URL (https://…).
+      # Routes Coolify's proxy to port 8080. Its value is not used: Coolify
+      # keeps the first generated domain (with ":8080") there even after the
+      # domain is changed.
       - SERVICE_URL_SINJAL_8080
-      - SINJAL_BASE_URL=${SERVICE_URL_SINJAL_8080:-}
+      # The public URL, e.g. https://sinjal.example.com: the setup link,
+      # passkeys and sign-in redirects of custom status-page domains use it.
+      - SINJAL_BASE_URL=${SINJAL_BASE_URL:-}
       # Who may set X-Forwarded-For: the reverse proxy. Private ranges suit
       # Coolify, where only its proxy reaches the container (no published
       # port); narrow it to the proxy network if you can.
