@@ -133,6 +133,7 @@
   min-height: 0;
 }
 .monitor-column {
+  position: relative; /* contains its absolute descendants, see .content */
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -141,6 +142,8 @@
   background: var(--surface-1);
 }
 .content {
+  position: relative; /* a .visually-hidden span deep inside is clipped by
+                         this scroller instead of stretching the page */
   min-width: 0;
   overflow-y: auto;
   padding: var(--space-5) var(--space-6);
@@ -156,6 +159,7 @@
     grid-template-columns: 22.5rem minmax(0, 1fr) 22rem;
   }
   .activity-column {
+    position: relative; /* see .content */
     display: block;
     min-height: 0;
     overflow-y: auto;

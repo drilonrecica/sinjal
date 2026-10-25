@@ -129,6 +129,20 @@ func TestMonitorFormTestNow(t *testing.T) {
 	if got := text(t, ctx, "#test-result .test-headline"); !strings.Contains(got, "Would be down") {
 		t.Errorf("failing test result = %q", got)
 	}
+	// The pane scrolls, never the page: a hidden element deep in a tall
+	// form (the Test now hint) must not stretch the document.
+	do(t, ctx, "open the tall sections",
+		chromedp.Click(chromedp.CSS("#section-assertions > summary")),
+		chromedp.Click(chromedp.CSS("#section-request > summary")),
+		chromedp.WaitVisible(chromedp.CSS("#method")),
+	)
+	if got := eval[string](t, ctx, `document.scrollingElement.scrollHeight + "/" + innerHeight`); !eval[bool](t, ctx, `document.scrollingElement.scrollHeight <= innerHeight`) {
+		t.Errorf("document height/viewport = %s, want the page not to scroll", got)
+	}
+	do(t, ctx, "close the tall sections",
+		chromedp.Click(chromedp.CSS("#section-assertions > summary")),
+		chromedp.Click(chromedp.CSS("#section-request > summary")),
+	)
 
 	// Edit the interval in its section, close it: the summary follows.
 	do(t, ctx, "change the interval",
