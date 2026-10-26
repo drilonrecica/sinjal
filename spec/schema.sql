@@ -310,7 +310,9 @@ CREATE TABLE status_pages (
   show_powered_by INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  theme TEXT NOT NULL DEFAULT 'daylight' -- last since 009_themes
+  theme TEXT NOT NULL DEFAULT 'daylight', -- moved last by 009_themes
+  layout TEXT NOT NULL DEFAULT 'sentence' -- last since 011_status_page_layouts
+    CHECK (layout IN ('signal','sentence','heartline','logbook'))
 );
 
 CREATE TABLE status_page_groups (

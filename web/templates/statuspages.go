@@ -60,6 +60,7 @@ type StatusPageForm struct {
 	Description   string
 	Visibility    string
 	Theme         string
+	Layout        string
 	Accent        string
 	IncidentDays  string
 	ShowPoweredBy bool
@@ -117,12 +118,24 @@ func (StatusPageForm) ThemeOptions() []Option {
 	return out
 }
 
-var statusPageFieldOrder = []string{"title", "slug", "description", "visibility", "password", "theme", "accent",
+// LayoutOption is a layout choice: its value, name and one-line description
+// (docs/12 "Layouts").
+type LayoutOption struct{ Value, Label, Text string }
+
+// LayoutOptions lists the layouts in display order.
+var LayoutOptions = []LayoutOption{
+	{"signal", "Signal", "A large status lamp, then each service as a card."},
+	{"sentence", "Sentence", "The status as a plain sentence, services as a quiet list."},
+	{"heartline", "Heartline", "A live 24-hour response pulse for each service."},
+	{"logbook", "Logbook", "A 90-day calendar and a logbook of every incident."},
+}
+
+var statusPageFieldOrder = []string{"title", "slug", "description", "visibility", "password", "layout", "theme", "accent",
 	"incident_days", "groups", "monitors", "hosts", "logo"}
 
 var statusPageLabels = map[string]string{
 	"title": "Title", "slug": "Address", "description": "Description", "visibility": "Who can see it",
-	"password": "Page password", "theme": "Theme", "accent": "Accent colour", "incident_days": "Incident history",
+	"password": "Page password", "layout": "Layout", "theme": "Theme", "accent": "Accent colour", "incident_days": "Incident history",
 	"groups": "Groups", "monitors": "Monitors", "hosts": "Hostnames", "logo": "Logo",
 }
 

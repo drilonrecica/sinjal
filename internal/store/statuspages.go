@@ -23,6 +23,7 @@ type StatusPage struct {
 	Description   string
 	Visibility    string
 	Theme         string
+	Layout        string
 	Accent        string // #rrggbb, or "" for the theme's own
 	LogoPath      string // file name under the uploads directory, or ""
 	HasToken      bool
@@ -69,14 +70,14 @@ type StatusPageSummary struct {
 // normalized. A page that is not password-protected loses its password
 // hash, and one that is not unlisted loses its token hash.
 type StatusPageInput struct {
-	Slug, Title, Description, Visibility, Theme, Accent string
-	IncidentDays                                        int
-	ShowPoweredBy                                       bool
-	PasswordHash                                        string // set when not empty; otherwise the stored one is kept
-	TokenHash                                           []byte // set when not nil; otherwise the stored one is kept
-	Groups                                              []string
-	Monitors                                            []StatusPageMonitorInput
-	Hosts                                               []string
+	Slug, Title, Description, Visibility, Theme, Layout, Accent string
+	IncidentDays                                                int
+	ShowPoweredBy                                               bool
+	PasswordHash                                                string // set when not empty; otherwise the stored one is kept
+	TokenHash                                                   []byte // set when not nil; otherwise the stored one is kept
+	Groups                                                      []string
+	Monitors                                                    []StatusPageMonitorInput
+	Hosts                                                       []string
 }
 
 // StatusPageMonitorInput is a monitor to show; Group is a name from
@@ -88,14 +89,14 @@ type StatusPageMonitorInput struct {
 }
 
 const statusPageColumns = `id, slug, title, description, visibility, unlisted_token_hash IS NOT NULL,
-	password_hash IS NOT NULL, theme, accent, logo_path, incident_days, show_powered_by, created_at, updated_at`
+	password_hash IS NOT NULL, theme, layout, accent, logo_path, incident_days, show_powered_by, created_at, updated_at`
 
 func scanStatusPage(r scanner) (StatusPage, error) {
 	var p StatusPage
 	var desc, accent, logo sql.NullString
 	var created, updated string
 	if err := r.Scan(&p.ID, &p.Slug, &p.Title, &desc, &p.Visibility, &p.HasToken, &p.HasPassword,
-		&p.Theme, &accent, &logo, &p.IncidentDays, &p.ShowPoweredBy, &created, &updated); err != nil {
+		&p.Theme, &p.Layout, &accent, &logo, &p.IncidentDays, &p.ShowPoweredBy, &created, &updated); err != nil {
 		return p, err
 	}
 	p.Description, p.Accent, p.LogoPath = desc.String, accent.String, logo.String
@@ -118,7 +119,7 @@ func ListStatusPages(ctx context.Context, q querier) ([]StatusPageSummary, error
 		var desc, accent, logo sql.NullString
 		var created, updated string
 		if err := rows.Scan(&s.ID, &s.Slug, &s.Title, &desc, &s.Visibility, &s.HasToken, &s.HasPassword,
-			&s.Theme, &accent, &logo, &s.IncidentDays, &s.ShowPoweredBy, &created, &updated, &s.Monitors); err != nil {
+			&s.Theme, &s.Layout, &accent, &logo, &s.IncidentDays, &s.ShowPoweredBy, &created, &updated, &s.Monitors); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -320,6 +321,9 @@ func saveStatusPage(ctx context.Context, d *db.DB, id string, create bool, in St
 			}
 		}
 
+		if in.Layout == "" {
+			in.Layout = statuspage.DefaultLayout
+		}
 		password := nullable(in.PasswordHash)
 		if password == nil && hadHash.Valid {
 			password = hadHash.String
@@ -346,15 +350,15 @@ func saveStatusPage(ctx context.Context, d *db.DB, id string, create bool, in St
 
 		if create {
 			_, err = tx.ExecContext(ctx, `INSERT INTO status_pages (id, slug, title, description, visibility, unlisted_token_hash,
-				password_hash, theme, accent, incident_days, show_powered_by, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				id, in.Slug, in.Title, nullable(in.Description), in.Visibility, token, password, in.Theme,
+				password_hash, theme, layout, accent, incident_days, show_powered_by, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				id, in.Slug, in.Title, nullable(in.Description), in.Visibility, token, password, in.Theme, in.Layout,
 				nullable(in.Accent), in.IncidentDays, b2i(in.ShowPoweredBy), formatTime(now), formatTime(now))
 		} else {
 			_, err = tx.ExecContext(ctx, `UPDATE status_pages SET slug = ?, title = ?, description = ?, visibility = ?,
-				unlisted_token_hash = ?, password_hash = ?, theme = ?, accent = ?, incident_days = ?, show_powered_by = ?,
+				unlisted_token_hash = ?, password_hash = ?, theme = ?, layout = ?, accent = ?, incident_days = ?, show_powered_by = ?,
 				updated_at = ? WHERE id = ?`,
-				in.Slug, in.Title, nullable(in.Description), in.Visibility, token, password, in.Theme,
+				in.Slug, in.Title, nullable(in.Description), in.Visibility, token, password, in.Theme, in.Layout,
 				nullable(in.Accent), in.IncidentDays, b2i(in.ShowPoweredBy), formatTime(now), id)
 		}
 		if err != nil {

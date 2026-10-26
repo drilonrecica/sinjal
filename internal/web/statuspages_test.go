@@ -227,6 +227,7 @@ func TestStatusPageValidation(t *testing.T) {
 		{"bad slug", func(f url.Values) { f.Set("slug", "My Page!") }, "slug", "lowercase letters"},
 		{"slug taken", func(f url.Values) { f.Set("slug", "First") }, "slug", "already used"},
 		{"bad visibility", func(f url.Values) { f.Set("visibility", "secret") }, "visibility", "Choose who"},
+		{"bad layout", func(f url.Values) { f.Set("layout", "grid") }, "layout", "Choose a layout"},
 		{"bad theme", func(f url.Values) { f.Set("theme", "neon") }, "theme", "Choose a theme"},
 		{"accent not a colour", func(f url.Values) { f.Set("accent", "blue") }, "accent", "#rrggbb"},
 		{"accent unreadable", func(f url.Values) { f.Set("accent", "#f6f3ec") }, "accent", "Too little contrast"},
@@ -438,4 +439,77 @@ func decodeBase32(t *testing.T, s string) []byte {
 		t.Fatalf("token %q is not 128 bits of base32: %v", s, err)
 	}
 	return raw
+}
+
+// The layout choice: the form offers the four layouts before the theme, an
+// empty value means the default, and the choice is stored and shown back.
+func TestStatusPageLayout(t *testing.T) {
+	e := newAppEnv(t)
+	e.addUser(t, "a1", "admin", "admin", "")
+
+	body := e.getAs(t, "a1", "GET", "/status-pages/new").Body.String()
+	last := -1
+	for _, l := range []string{"signal", "sentence", "heartline", "logbook"} {
+		i := strings.Index(body, `name="layout" value="`+l+`"`)
+		if i < last || i < 0 {
+			t.Fatalf("layout %q missing or out of order in the new form", l)
+		}
+		last = i
+	}
+	if i := strings.Index(body, `id="theme"`); i < last {
+		t.Error("the layout choice comes after the theme")
+	}
+	if !strings.Contains(body, `value="sentence" checked`) || strings.Count(body, `name="layout"`) != 4 {
+		t.Error("a new page does not start on sentence")
+	}
+
+	f := pageForm("Plain", "plain") // no layout posted: the default
+	if rec := e.postAs(t, "a1", "/status-pages", f); rec.Code != 303 {
+		t.Fatalf("create = %d", rec.Code)
+	}
+	if got := e.layoutOf(t, "plain"); got != "sentence" {
+		t.Errorf("layout without a choice = %q, want sentence", got)
+	}
+
+	f = pageForm("Logs", "logs")
+	f.Set("layout", "logbook")
+	if rec := e.postAs(t, "a1", "/status-pages", f); rec.Code != 303 {
+		t.Fatalf("create = %d", rec.Code)
+	}
+	if got := e.layoutOf(t, "logs"); got != "logbook" {
+		t.Errorf("stored layout = %q, want logbook", got)
+	}
+	edit := e.getAs(t, "a1", "GET", "/status-pages/"+e.pageID(t, "logs")+"/edit").Body.String()
+	if !strings.Contains(edit, `value="logbook" checked`) || strings.Contains(edit, `value="sentence" checked`) {
+		t.Error("the edit form does not show logbook chosen")
+	}
+
+	f.Set("layout", "heartline")
+	if rec := e.postAs(t, "a1", "/status-pages/"+e.pageID(t, "logs"), f); rec.Code != 303 {
+		t.Fatalf("update = %d", rec.Code)
+	}
+	if got := e.layoutOf(t, "logs"); got != "heartline" {
+		t.Errorf("updated layout = %q, want heartline", got)
+	}
+
+	// A rejected value is reported on the layout field, which shows the
+	// default again rather than an unknown choice.
+	f.Set("layout", "grid")
+	rec := e.postAs(t, "a1", "/status-pages/"+e.pageID(t, "logs"), f)
+	b := rec.Body.String()
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(b, `id="layout-error"`) || !strings.Contains(b, `aria-invalid="true"`) {
+		t.Errorf("bad layout = %d, no error shown:\n%s", rec.Code, b)
+	}
+	if got := e.layoutOf(t, "logs"); got != "heartline" {
+		t.Errorf("a rejected layout changed the page to %q", got)
+	}
+}
+
+func (e *appEnv) layoutOf(t *testing.T, slug string) string {
+	t.Helper()
+	var l string
+	if err := e.db.Reader.QueryRow(`SELECT layout FROM status_pages WHERE slug = ?`, slug).Scan(&l); err != nil {
+		t.Fatal(err)
+	}
+	return l
 }

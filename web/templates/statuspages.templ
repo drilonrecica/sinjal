@@ -113,6 +113,21 @@ templ StatusPageFormPage(page Page, f StatusPageForm) {
 				</fieldset>
 				<fieldset class="form-section">
 					<legend>Appearance</legend>
+					<div class="auth-field">
+						<fieldset id="layout" class="layout-cards" { fieldAttrs("layout", f.Errors)... }>
+							<legend>Layout</legend>
+							for _, o := range LayoutOptions {
+								<label for={ "layout-" + o.Value } class="type-card layout-card">
+									<input id={ "layout-" + o.Value } class="visually-hidden" type="radio" name="layout" value={ o.Value } checked?={ f.Layout == o.Value }/>
+									<span class="type-card-label">{ o.Label }</span>
+									<span class="type-card-text">{ o.Text }</span>
+								</label>
+							}
+						</fieldset>
+						if msg, ok := f.Errors["layout"]; ok {
+							<p id="layout-error" class="auth-error">{ msg }</p>
+						}
+					</div>
 					@field("theme", "Theme", f.Errors) {
 						<select id="theme" name="theme" { fieldAttrs("theme", f.Errors)... }>
 							for _, o := range f.ThemeOptions() {

@@ -88,6 +88,7 @@ func (h *StatusPages) list(w http.ResponseWriter, r *http.Request) {
 // incidents, nothing shown yet.
 func (h *StatusPages) newForm(w http.ResponseWriter, r *http.Request) {
 	h.renderForm(w, r, http.StatusOK, templates.StatusPageForm{Visibility: statuspage.Public, Theme: statuspage.DefaultTheme,
+		Layout:       statuspage.DefaultLayout,
 		IncidentDays: strconv.Itoa(statuspage.DefaultIncidentDays), ShowPoweredBy: true, Errors: map[string]string{}})
 }
 
@@ -107,7 +108,7 @@ func (h *StatusPages) editForm(w http.ResponseWriter, r *http.Request) {
 // renderForm.
 func formFromPage(p store.StatusPageDetail) templates.StatusPageForm {
 	f := templates.StatusPageForm{ID: p.ID, Title: p.Title, Slug: p.Slug, Description: p.Description, Visibility: p.Visibility,
-		Theme: p.Theme, Accent: p.Accent, IncidentDays: strconv.Itoa(p.IncidentDays), ShowPoweredBy: p.ShowPoweredBy,
+		Theme: p.Theme, Layout: p.Layout, Accent: p.Accent, IncidentDays: strconv.Itoa(p.IncidentDays), ShowPoweredBy: p.ShowPoweredBy,
 		HasPassword: p.HasPassword, HasToken: p.HasToken, Logo: p.LogoPath, Hosts: strings.Join(p.Hosts, "\n"), Errors: map[string]string{}}
 	groupName := map[string]string{}
 	var names []string
@@ -190,7 +191,7 @@ func lines(s string) []string {
 // password is returned apart, to be hashed once the rest is valid.
 func (h *StatusPages) parseForm(v url.Values, monitors []store.Monitor, old *store.StatusPageDetail) (f templates.StatusPageForm, in store.StatusPageInput, password string) {
 	f = templates.StatusPageForm{Title: strings.TrimSpace(v.Get("title")), Slug: strings.TrimSpace(v.Get("slug")),
-		Description: strings.TrimSpace(v.Get("description")), Visibility: v.Get("visibility"), Theme: v.Get("theme"),
+		Description: strings.TrimSpace(v.Get("description")), Visibility: v.Get("visibility"), Theme: v.Get("theme"), Layout: v.Get("layout"),
 		Accent: strings.TrimSpace(v.Get("accent")), IncidentDays: strings.TrimSpace(v.Get("incident_days")),
 		ShowPoweredBy: v.Get("show_powered_by") == "1", Groups: v.Get("groups"), Hosts: v.Get("hosts"), Errors: map[string]string{}}
 	if old != nil {
@@ -213,6 +214,12 @@ func (h *StatusPages) parseForm(v url.Values, monitors []store.Monitor, old *sto
 	}
 	if !slices.Contains(statuspage.Visibilities, f.Visibility) {
 		bad("visibility", "Choose who can see the page.")
+	}
+	if f.Layout == "" {
+		f.Layout = statuspage.DefaultLayout
+	}
+	if !statuspage.ValidLayout(f.Layout) {
+		bad("layout", "Choose a layout.")
 	}
 	if !slices.Contains(statuspage.Themes, f.Theme) {
 		bad("theme", "Choose a theme.")
@@ -303,7 +310,7 @@ func (h *StatusPages) parseForm(v url.Values, monitors []store.Monitor, old *sto
 			ShowLatency: row.ShowLatency, Sort: order})
 	}
 
-	in = store.StatusPageInput{Slug: slug, Title: f.Title, Description: f.Description, Visibility: f.Visibility, Theme: f.Theme,
+	in = store.StatusPageInput{Slug: slug, Title: f.Title, Description: f.Description, Visibility: f.Visibility, Theme: f.Theme, Layout: f.Layout,
 		Accent: accent, IncidentDays: days, ShowPoweredBy: f.ShowPoweredBy, Groups: groups, Monitors: shown, Hosts: hosts}
 	return f, in, password
 }

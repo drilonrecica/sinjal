@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -32,6 +33,16 @@ var Themes = []string{"stark", "terminal", "daylight"}
 
 // DefaultTheme is the theme of a new page.
 const DefaultTheme = "daylight"
+
+// Layouts are the public page layouts in display order (docs/12 "Layouts").
+var Layouts = []string{"signal", "sentence", "heartline", "logbook"}
+
+// DefaultLayout is the layout of a new page and of every page that existed
+// before layouts (011_status_page_layouts).
+const DefaultLayout = "sentence"
+
+// ValidLayout reports whether s is one of Layouts.
+func ValidLayout(s string) bool { return slices.Contains(Layouts, s) }
 
 // Bounds of the page fields.
 const (

@@ -59,6 +59,37 @@ func TestStatusPageCreateAndRead(t *testing.T) {
 	}
 }
 
+func TestStatusPageLayoutRoundTrip(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	in := pageInput("lay") // no layout set: the default
+	id, err := CreateStatusPage(ctx, d, in, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := GetStatusPage(ctx, d.Reader, id); got.Layout != "sentence" {
+		t.Errorf("default layout = %q, want sentence", got.Layout)
+	}
+	for _, l := range []string{"signal", "heartline", "logbook", "sentence"} {
+		in.Layout = l
+		if err := UpdateStatusPage(ctx, d, id, in, now); err != nil {
+			t.Fatal(err)
+		}
+		got, err := GetStatusPage(ctx, d.Reader, id)
+		if err != nil || got.Layout != l {
+			t.Errorf("layout = %q, %v; want %q", got.Layout, err, l)
+		}
+		list, err := ListStatusPages(ctx, d.Reader)
+		if err != nil || len(list) != 1 || list[0].Layout != l {
+			t.Errorf("listed layout = %+v, %v; want %q", list, err, l)
+		}
+	}
+	in.Layout = "grid"
+	if err := UpdateStatusPage(ctx, d, id, in, now); err == nil {
+		t.Error("an unknown layout was stored")
+	}
+}
+
 func TestStatusPageUniqueSlugAndHosts(t *testing.T) {
 	d := testDB(t)
 	ctx := context.Background()

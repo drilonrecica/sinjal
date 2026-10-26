@@ -21,6 +21,25 @@ func TestNormalizeSlug(t *testing.T) {
 	}
 }
 
+func TestLayouts(t *testing.T) {
+	if got := strings.Join(Layouts, ","); got != "signal,sentence,heartline,logbook" {
+		t.Errorf("Layouts = %s", got)
+	}
+	if !ValidLayout(DefaultLayout) || DefaultLayout != "sentence" {
+		t.Errorf("DefaultLayout = %q", DefaultLayout)
+	}
+	for _, l := range Layouts {
+		if !ValidLayout(l) {
+			t.Errorf("ValidLayout(%q) = false", l)
+		}
+	}
+	for _, l := range []string{"", "Signal", "grid", " sentence"} {
+		if ValidLayout(l) {
+			t.Errorf("ValidLayout(%q) = true", l)
+		}
+	}
+}
+
 func TestNormalizeHost(t *testing.T) {
 	for in, want := range map[string]string{
 		"Status.Example.com": "status.example.com", " status.example.com. ": "status.example.com",
