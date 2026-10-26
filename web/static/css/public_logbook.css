@@ -300,6 +300,7 @@ a.cal-day:focus-visible {
   font-size: var(--text-sm);
   font-weight: 500;
 }
+.logbook-service-state .public-glyph,
 .logbook-service-state .status-text {
   color: var(--dot);
 }
@@ -400,6 +401,7 @@ a.cal-day:focus-visible {
 [data-theme="terminal"] .cal-swatch[data-day="partial"] {
   background: color-mix(in srgb, var(--status-down) 60%, var(--bg));
 }
+[data-theme="terminal"] .logbook-service-state .public-glyph,
 [data-theme="terminal"] .logbook-service-state .status-text {
   color: var(--text);
 }

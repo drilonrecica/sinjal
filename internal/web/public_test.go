@@ -420,7 +420,7 @@ func TestPublicPageLogbookLayout(t *testing.T) {
 		`<h2 id="calendar">The last 90 days, all services</h2>`, `<a class="cal-day" id="day-` + today + `" href="#day-` + today + `"`, `data-today data-newest title="`,
 		`<section class="cal-panel" data-newest aria-labelledby="day-` + today + `-title"><h3 id="day-` + today + `-title">Today, `,
 		`<p class="public-incident-text">Database has been down since <time`, `<p class="cal-panel-rest">Every other service had no issues.</p>`,
-		`<span>Public API</span> <span class="logbook-service-group">Web</span></p><p class="logbook-service-state"><span class="status-text">Operational</span>`,
+		`<span>Public API</span> <span class="logbook-service-group">Web</span></p><p class="logbook-service-state"><span class="public-glyph"><svg class="icon icon-check"`, `</span> <span class="status-text">Operational</span>`,
 		`<p class="logbook-service-latency">87 ms</p>`, `<p class="logbook-service-latency">no reply</p>`,
 		`<li class="logbook-entry" data-active><p class="logbook-entry-when"><time datetime="`, `· since `, `<p class="logbook-entry-title">Database is down</p><p class="public-note logbook-no-note">No note was published.</p>`,
 		"css/public_logbook"} {
@@ -476,7 +476,8 @@ func TestPublicPageHeartlineLayout(t *testing.T) {
 		`<li class="heartline-row" data-state="up" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Public API</p>`,
 		`role="img" aria-label="Response over 24 hours: min 80 ms, median 83 ms, max 87 ms">`, `<path class="pulse-area" d="M5 `, `<path class="pulse-line" d="M5 `,
 		`<p class="heartline-figure"><span class="heartline-ms">87 ms</span><small>last check</small></p>`,
-		`<li class="heartline-row" data-state="down" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Database</p><p class="heartline-row-state"><span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span> since `,
+		`<li class="heartline-row" data-state="down" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Database</p><p class="heartline-row-state"><span class="public-glyph"><svg class="icon icon-octagon-x"`,
+		`</span> <span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span> since `,
 		`<path class="pulse-tail" d="M920 62H960" vector-effect="non-scaling-stroke"></path> <path class="pulse-end" d="M960 62h0"`,
 		`<p class="heartline-figure"><span class="heartline-ms">no reply</span><small>last check</small></p>`,
 		`<section class="heartline-panel" aria-label="Services"><h2 class="heartline-panel-head">Services</h2><ul class="heartline-rows" role="list"><li class="heartline-row" data-state="up"><div class="heartline-row-id"><p class="heartline-row-name">Queue</p>`,

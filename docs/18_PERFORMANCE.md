@@ -222,3 +222,8 @@ Heartline layout (SL-07): the new `web.BenchmarkStatusPageHeartline` is `Benchma
 - Cached visit: **0.95–1.05 ms**; the HTML is 260 KB (Sentence 215 KB): 25 pulses of about 1.8 KB of path data each.
 - `api.json` and `feed.xml` unchanged (they are measured on the Sentence page; their bytes do not depend on the layout).
 - CSS, gzip -9: `public_heartline.css` 3.2 KB, under the 6 KB per layout sheet. The pulse is server-side SVG: no script, no image.
+
+Status page layouts, stylesheets (SL-08): every public sheet, `gzip -9`, after the layout tests' fixes (each layout's sheet now styles the state glyph; Signal's lamp highlight changed its mix only).
+- Shared `public.css` 1.9 KB (5.6 KB raw), linked on every public page with tokens, base and components.
+- `public_sentence.css` 2.0 KB (7.5 KB raw), `public_signal.css` 2.7 KB (10.1 KB raw), `public_heartline.css` 3.2 KB (12.2 KB raw), `public_logbook.css` 3.6 KB (14.0 KB raw): all under the 6 KB of a layout sheet. A page links the shared sheet and its layout's alone, so the heaviest, Logbook, adds 5.5 KB of public CSS.
+- `web.TestPublicLayoutSheetsSize` fails a layout sheet at 6 KiB gzip -9, so the budget is kept by the tests, not only recorded here.

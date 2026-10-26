@@ -140,7 +140,7 @@ templ signalCard(row PublicRow) {
 		<div class="signal-card-head">
 			<div class="signal-card-id">
 				<p class="signal-card-name"><span class="signal-dot"></span>{ row.Name }</p>
-				<p class="signal-card-state"><span class="status-text">{ publicStateLabel(row.State) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(row.State) }</span>{ signalLatency(row) }</p>
+				<p class="signal-card-state">@publicState(row.State, signalLatency(row))</p>
 			</div>
 			<p class="signal-card-figure"><span class="signal-card-uptime">{ row.Uptime }</span><small>90-day uptime</small></p>
 		</div>
@@ -236,10 +236,7 @@ templ publicRow(row PublicRow) {
 	<li class="public-service" data-state={ row.State }>
 		<div class="public-service-head">
 			<span class="public-service-name">{ row.Name }</span>
-			<span class="public-service-state">
-				<span class="public-glyph">@Icon(publicStateIcon(row.State))</span>
-				<span class="status-text">{ publicStateLabel(row.State) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(row.State) }</span>
-			</span>
+			<span class="public-service-state">@publicState(row.State, "")</span>
 		</div>
 		<div class="public-service-strip">
 			@PublicDayBars(row)
@@ -401,7 +398,7 @@ templ logbookDayPanel(v PublicPage, d PublicDay, newest bool) {
 templ logbookService(g PublicGroup, row PublicRow) {
 	<li class="logbook-service" data-state={ row.State }>
 		<p class="logbook-service-name"><span class="logbook-dot"></span><span>{ row.Name }</span> <span class="logbook-service-group">{ g.Name }</span></p>
-		<p class="logbook-service-state"><span class="status-text">{ publicStateLabel(row.State) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(row.State) }</span></p>
+		<p class="logbook-service-state">@publicState(row.State, "")</p>
 		if f := logbookFigure(row); f != "" {
 			<p class="logbook-service-uptime">{ f }</p>
 		}
@@ -496,7 +493,7 @@ templ heartlineRow(row PublicRow) {
 	<li class="heartline-row" data-state={ row.State } data-pulse?={ row.Pulse != nil }>
 		<div class="heartline-row-id">
 			<p class="heartline-row-name">{ row.Name }</p>
-			<p class="heartline-row-state"><span class="status-text">{ publicStateLabel(row.State) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(row.State) }</span>{ heartlineStateSuffix(row) }</p>
+			<p class="heartline-row-state">@publicState(row.State, heartlineStateSuffix(row))</p>
 		</div>
 		if row.Pulse != nil {
 			{{ figure, sub := heartlineFigure(row) }}
@@ -579,6 +576,15 @@ templ publicFooter(v PublicPage) {
 			<p>Powered by <a href="https://github.com/drilonrecica/sinjal">Sinjal</a></p>
 		}
 	</footer>
+}
+
+// publicState is a service's state: its glyph, whose shape differs per
+// state (publicStateIcon), its word, which Terminal shows as a tag, and
+// the layout's suffix (" · 71 ms"). Colour is never the only signal
+// (docs/12 "States").
+templ publicState(state, suffix string) {
+	<span class="public-glyph">@Icon(publicStateIcon(state))</span>
+	<span class="status-text">{ publicStateLabel(state) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(state) }</span>{ suffix }
 }
 
 // publicNote is the newest published note of an ongoing incident, shown

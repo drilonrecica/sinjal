@@ -272,6 +272,13 @@ In process (`internal/web/m7_test.go`, `publicfeed_test.go`, `api_test.go`): the
 
 Mutation-checked: serving a locked page's JSON, or letting an anonymous request read an authenticated feed, fails them.
 
+### SL: status page layouts
+
+- `internal/web/layouts_test.go` (`TestLayoutsNothingPrivateAndClosedStaysClosed`): scenario 17 for each layout in Daylight, Stark and Terminal. The M7 fixture of private values (monitor names, hostname, IP, token in the URL, the failure's summary and diagnostic snippet, the incident id) with a day of latency and "Show latency" on, so Heartline draws its pulse; every address (slug, unlisted token, mapped hostname, unlocked password page, signed-in authenticated page) in HTML, `api.json` and `feed.xml` shows none of it. The closed pages stay closed in every format. The HTML has no script, inline style attribute, event handler or `javascript:` URL, and its CSP is the app's with only the accent's style hash added. Mutation-checked: a published note naming the private host fails it in every layout and theme.
+- `web/templates/public_a11y_test.go`: each layout in each theme, rendered with a service in every state during an outage with a note, has its `h1` first and only once, inside `main`, no skipped heading level, one `header`, `main` and `footer`, and a name on every `section`; each service row shows its state's glyph, and the six states' glyphs differ in shape (`TestPublicLayoutsGlyphPerState`).
+- `web/tokens_test.go` (`TestStatusPageLayoutContrast`, `TestLayoutMixesMatchCSS`): the colour pairs the layouts add, text at 4.5:1 and marks at 3:1 (the maintenance word, the lamp and dots on the page and on a card, the glyph on the lamp and on its highlight, Heartline's down row and note band, the pulse, the calendar's rings and Terminal's partial day on its card), with the painted tints kept in step with the sheets.
+- `web/public_css_test.go`: every animation in the public sheets has its own reduced-motion rule that stops or hides it (the lamp's halo, the live dot's ring, the scan line), the sheets use no transitions, and each layout sheet stays under 6 KB gzip.
+
 ## UI/browser tests
 
 Small focused set only:
@@ -300,6 +307,10 @@ Built (M8-12), in `tests/browser/browser_test.go`:
 - `TestSSETransition`: a monitor going down swaps the detail header and column row over SSE, checked without a reload
 - `TestThemeSwitch`: applied on save, kept across pages and in a new browser
 - `TestStatusPageModes`: one page through public, password, authenticated and unlisted, opened each time from a fresh browser context; the monitor's own name and target never shown
+
+Built (SL-08), in `tests/browser/layouts_test.go`:
+
+- `TestStatusPageLayouts`: one public page with two past incidents (written while the server is stopped), set through the form to each layout and theme and opened as a stranger at 1440 and 390 px: no horizontal scroll and nothing on the console; with reduced motion asked for, no element or pseudo-element still animates; in Logbook, the older incident day's link opens its panel and closes the newest day's, which shows by default
 
 The backup/restore confirmation test follows the backup UI (M9-01).
 

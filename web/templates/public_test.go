@@ -464,7 +464,7 @@ func TestLogbookPageCalm(t *testing.T) {
 		// Services: dot, name, group, state, figure and latency.
 		`<h2 id="services">Services</h2>`,
 		`<li class="logbook-service" data-state="up"><p class="logbook-service-name"><span class="logbook-dot"></span><span>Scaneks.com</span> <span class="logbook-service-group">POS Kosova</span></p>`,
-		`<p class="logbook-service-state"><span class="status-text">Operational</span><span class="status-tag" aria-hidden="true">UP</span></p><p class="logbook-service-uptime">99.70% · 90 days</p><p class="logbook-service-latency">71 ms</p>`,
+		`<p class="logbook-service-state">` + stateGlyph(t, StateUp) + `<span class="status-text">Operational</span><span class="status-tag" aria-hidden="true">UP</span></p><p class="logbook-service-uptime">99.70% · 90 days</p><p class="logbook-service-latency">71 ms</p>`,
 		`<p class="logbook-service-uptime">Since 25 Oct, 100.00%</p>`,
 		`<li class="logbook-service" data-state="maintenance"><p class="logbook-service-name"><span class="logbook-dot"></span><span>Recica.dev</span> <span class="logbook-service-group"></span></p>`,
 		// The logbook: when, the sentence and the notes.
@@ -526,7 +526,7 @@ func TestLogbookPageOutage(t *testing.T) {
 		`<a class="cal-day" id="day-2026-10-26" href="#day-2026-10-26" data-day="down" data-m="3" data-d="26" data-w="13" data-wd="1" data-today data-newest title="Mon 26 Oct: outage, 1 incident">`,
 		`<section class="cal-panel" data-newest aria-labelledby="day-2026-10-26-title"><h3 id="day-2026-10-26-title">Today, Monday 26 October</h3>`,
 		`<p class="public-incident-text">Scaneks.com has been down since <time datetime="2026-10-26T13:52:00+01:00">13:52</time>.</p>`,
-		`<li class="logbook-service" data-state="down"><p class="logbook-service-name"><span class="logbook-dot"></span><span>Scaneks.com</span> <span class="logbook-service-group">POS Kosova</span></p><p class="logbook-service-state"><span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span></p><p class="logbook-service-uptime">99.70% · 90 days</p><p class="logbook-service-latency">no reply</p>`,
+		`<li class="logbook-service" data-state="down"><p class="logbook-service-name"><span class="logbook-dot"></span><span>Scaneks.com</span> <span class="logbook-service-group">POS Kosova</span></p><p class="logbook-service-state">` + stateGlyph(t, StateDown) + `<span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span></p><p class="logbook-service-uptime">99.70% · 90 days</p><p class="logbook-service-latency">no reply</p>`,
 		`<ol class="logbook-entries" role="list"><li class="logbook-entry" data-active><p class="logbook-entry-when"><time datetime="2026-10-26T13:52:00+01:00">Today · since 13:52</time></p><p class="logbook-entry-title">Scaneks.com is down</p><p class="public-note"><q>Our hosting provider has network trouble.</q>`,
 	} {
 		if !strings.Contains(html, want) {
@@ -614,11 +614,11 @@ func TestHeartlinePageCalm(t *testing.T) {
 		`<dl class="heartline-figures"><div><dt>Uptime, 90 days</dt><dd>99.91%</dd></div><div><dt>Response, median</dt><dd>71 ms</dd></div></dl>`,
 		`<p class="heartline-legend" aria-hidden="true"><span>Service</span><span><span>Response · 24 h ago</span><span>Now</span></span><span>Now</span></p>`,
 		`<section class="heartline-panel" aria-label="POS Kosova"><h2 class="heartline-panel-head">POS Kosova</h2><ul class="heartline-rows" role="list">`,
-		`<li class="heartline-row" data-state="up" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Scaneks.com</p><p class="heartline-row-state"><span class="status-text">Operational</span><span class="status-tag" aria-hidden="true">UP</span> · 99.70% in 90 days</p></div>`,
+		`<li class="heartline-row" data-state="up" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Scaneks.com</p><p class="heartline-row-state">` + stateGlyph(t, StateUp) + `<span class="status-text">Operational</span><span class="status-tag" aria-hidden="true">UP</span> · 99.70% in 90 days</p></div>`,
 		`<div class="pulse"><svg class="pulse-svg" viewBox="0 0 960 64" preserveAspectRatio="none" role="img" aria-label="Response over 24 hours: min 40 ms, median 60 ms, max 80 ms"><path class="pulse-area" d="M5 62L5 35.9L15 9.8L25 22.9L25 62Z"></path> <path class="pulse-line" d="M5 35.9L15 9.8L25 22.9" vector-effect="non-scaling-stroke"></path> <path class="pulse-end" d="M25 22.9h0" vector-effect="non-scaling-stroke"></path></svg> <span class="pulse-scan" aria-hidden="true"></span></div>`,
 		`<p class="heartline-figure"><span class="heartline-ms">71 ms</span><small>last check</small></p><ol class="day-bars" role="img"`,
 		// A service without latency: the strip alone, with "Monitoring since".
-		`<li class="heartline-row" data-state="flapping"><div class="heartline-row-id"><p class="heartline-row-name">Checkout</p><p class="heartline-row-state"><span class="status-text">Unstable</span><span class="status-tag" aria-hidden="true">FLAP</span> · 100.00% since 25 Oct</p></div><ol class="day-bars" role="img" aria-label=""><li class="day-bars-since">Monitoring since 25 Oct</li>`,
+		`<li class="heartline-row" data-state="flapping"><div class="heartline-row-id"><p class="heartline-row-name">Checkout</p><p class="heartline-row-state">` + stateGlyph(t, StateFlapping) + `<span class="status-text">Unstable</span><span class="status-tag" aria-hidden="true">FLAP</span> · 100.00% since 25 Oct</p></div><ol class="day-bars" role="img" aria-label=""><li class="day-bars-since">Monitoring since 25 Oct</li>`,
 		`<section class="heartline-panel" aria-label="Services"><h2 class="heartline-panel-head">Services</h2>`,
 		`<span class="status-text">Maintenance</span><span class="status-tag" aria-hidden="true">MAINT</span> · 99.95% in 90 days</p>`,
 		`<p class="public-axis" aria-hidden="true">`,
@@ -676,7 +676,7 @@ func TestHeartlinePageOutage(t *testing.T) {
 		`<section class="public-hero heartline-hero" data-state="down" aria-labelledby="overall">`,
 		`Live · Updated <time datetime="2026-10-26T14:10:00+01:00">14:10 CET</time></p><h1 id="overall">Scaneks.com is down</h1>`,
 		`<blockquote class="public-hero-note"><p>Our hosting provider has network trouble.</p><p class="public-hero-note-meta">Update at <time datetime="2026-10-26T14:05:00+01:00">14:05 CET</time> · Scaneks.com</p></blockquote>`,
-		`<li class="heartline-row" data-state="down" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Scaneks.com</p><p class="heartline-row-state"><span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span> since 13:52</p></div>`,
+		`<li class="heartline-row" data-state="down" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Scaneks.com</p><p class="heartline-row-state">` + stateGlyph(t, StateDown) + `<span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span> since 13:52</p></div>`,
 		`<path class="pulse-line" d="M5 35.9L15 9.8" vector-effect="non-scaling-stroke"></path> <path class="pulse-tail" d="M948 62H960" vector-effect="non-scaling-stroke"></path> <path class="pulse-end" d="M960 62h0" vector-effect="non-scaling-stroke"></path>`,
 		`<p class="heartline-figure"><span class="heartline-ms">no reply</span><small>last check</small></p>`,
 		`<li class="heartline-incident" data-active><p class="heartline-incident-when"><time datetime="2026-10-26T13:52:00+01:00">Today 13:52</time></p>`,
@@ -696,4 +696,11 @@ func TestHeartlinePageOutage(t *testing.T) {
 		strings.Contains(html, "heartline-legend") || strings.Contains(html, "public-axis") {
 		t.Errorf("none:\n%s", html)
 	}
+}
+
+// stateGlyph is publicState's glyph for state, as it renders before the
+// state word.
+func stateGlyph(t *testing.T, state string) string {
+	t.Helper()
+	return `<span class="public-glyph">` + renderToString(t, Icon(publicStateIcon(state))) + `</span> `
 }

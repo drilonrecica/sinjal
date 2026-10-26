@@ -70,7 +70,7 @@
   place-items: center;
   border-radius: 50%;
   color: var(--on-status);
-  background: radial-gradient(circle at 36% 30%, color-mix(in srgb, var(--lamp) 55%, #fff) 0%, var(--lamp) 52%, color-mix(in srgb, var(--lamp) 72%, #000) 100%);
+  background: radial-gradient(circle at 36% 30%, color-mix(in srgb, var(--lamp) 72%, #fff) 0%, var(--lamp) 52%, color-mix(in srgb, var(--lamp) 72%, #000) 100%);
   box-shadow: inset 0 -8px 20px rgb(0 0 0 / 0.22), 0 0 0 10px color-mix(in srgb, var(--lamp) 12%, transparent);
 }
 .signal-bulb .icon {
@@ -199,6 +199,7 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+.signal-card-state .public-glyph,
 .signal-card-state .status-text {
   color: var(--dot);
   font-weight: 500;
@@ -317,6 +318,7 @@
   border-radius: 0;
   box-shadow: none;
 }
+[data-theme="terminal"] .signal-card-state .public-glyph,
 [data-theme="terminal"] .signal-card-state .status-text {
   color: var(--text);
 }

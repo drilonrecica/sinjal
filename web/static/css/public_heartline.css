@@ -206,6 +206,7 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+.heartline-row-state .public-glyph,
 .heartline-row-state .status-text {
   color: var(--dot);
   font-weight: 500;
@@ -385,6 +386,7 @@
 [data-theme="terminal"] .heartline-panel-head {
   background: transparent;
 }
+[data-theme="terminal"] .heartline-row-state .public-glyph,
 [data-theme="terminal"] .heartline-row-state .status-text {
   color: var(--text);
 }

@@ -306,3 +306,85 @@ func TestPaintedMixesMatchCSS(t *testing.T) {
 		}
 	}
 }
+
+// The tints the status page layouts paint (css/public_<layout>.css), as
+// fractions; TestLayoutMixesMatchCSS keeps them in step with the CSS.
+const (
+	lampHighlight = 0.72 // Signal's bulb, its highlight: the lamp colour over white
+	downRowTint   = 0.06 // Heartline's down row
+	noteBandTint  = 0.07 // Heartline's ongoing note band
+)
+
+// TestStatusPageLayoutContrast checks the colour pairs the four layouts
+// add (docs/04 "Status page marks"; docs/22: 4.5:1 for text, 3:1 for
+// marks). Pairs already checked above, such as the calendar cells and the
+// status colours on the surfaces, are not repeated.
+func TestStatusPageLayoutContrast(t *testing.T) {
+	tokens := parseTokens(t)
+	for _, theme := range themeNames {
+		p := tokens["theme:"+theme]
+		check := func(what, fg, bg string, min float64) {
+			t.Helper()
+			if got := contrast(t, fg, bg); got < min {
+				t.Errorf("%s: %s = %.2f:1, want >= %.1f:1", theme, what, got, min)
+			}
+		}
+		// A service's state word and glyph, Sentence's verb and Signal's
+		// group summary take the state's colour; maintenance is
+		// --chart-maintenance, the colour of the lamp, the disc and the dot.
+		for _, s := range []string{"bg", "surface-1", "surface-2"} {
+			check("the maintenance word on --"+s, p["chart-maintenance"], p[s], 4.5)
+		}
+		// The lamp (Signal), the disc (Logbook), the mini lamp and the dots
+		// in every overall and service colour: a mark on the page and on a
+		// card, with the state's glyph inside in --on-status, also where
+		// the bulb's highlight lies under it.
+		for _, c := range []string{"status-up", "status-down", "status-flapping", "status-paused", "status-pending", "chart-maintenance"} {
+			check("--"+c+" lamp or dot on --bg", p[c], p["bg"], 3)
+			check("--"+c+" dot on --surface-1", p[c], p["surface-1"], 3)
+		}
+		for _, c := range []string{"status-up", "status-down", "status-flapping", "status-paused", "chart-maintenance"} {
+			check("the glyph on the --"+c+" lamp", p["on-status"], p[c], 3)
+			if theme != "terminal" { // Terminal's lamp is a flat block
+				check("the glyph on the --"+c+" lamp's highlight", p["on-status"], mix(t, p[c], "#ffffff", lampHighlight), 3)
+			}
+		}
+		// Heartline: a down row is tinted; its words, figure, dashed tail and
+		// end dot stay readable on it. The note band is tinted the same way.
+		row := mix(t, p["status-down"], p["surface-1"], downRowTint)
+		for _, fg := range []string{"text", "text-muted", "status-down"} {
+			check("--"+fg+" on a down row", p[fg], row, 4.5)
+		}
+		check("the down tail on a down row", p["status-down"], row, 3)
+		check("the pulse on its panel", p["chart-line"], p["surface-1"], 3)
+		band := mix(t, p["status-down"], p["bg"], noteBandTint)
+		for _, fg := range []string{"text", "status-down"} {
+			check("--"+fg+" on the note band", p[fg], band, 4.5)
+		}
+		// Logbook: today's ring and the opened day's ring on the card.
+		check("today's ring on the calendar card", p["text"], p["surface-1"], 3)
+		if theme == "terminal" {
+			partial := mix(t, p["status-down"], p["bg"], partialDayTint)
+			check("a partial calendar day on its card", partial, p["surface-1"], 3)
+		}
+	}
+}
+
+// The fractions above must be the ones the layout sheets paint.
+func TestLayoutMixesMatchCSS(t *testing.T) {
+	for file, wants := range map[string][]string{
+		"css/public_signal.css":    {"color-mix(in srgb, var(--lamp) 72%, #fff)"},
+		"css/public_heartline.css": {"color-mix(in srgb, var(--status-down) 6%, transparent)", "color-mix(in srgb, var(--status-down) 7%, transparent)"},
+		"css/public_logbook.css":   {"color-mix(in srgb, var(--status-down) 60%, var(--bg))"},
+	} {
+		raw, err := fs.ReadFile(Static, file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range wants {
+			if !strings.Contains(string(raw), want) {
+				t.Errorf("%s no longer paints %s; update the tints in TestStatusPageLayoutContrast with it", file, want)
+			}
+		}
+	}
+}

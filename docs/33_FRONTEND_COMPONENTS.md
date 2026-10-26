@@ -117,6 +117,7 @@ Layouts (SL, replaces the single M8-17 design; behaviour in `12_STATUS_PAGES.md`
   - `publicFooter`: the time zone note and "Powered by Sinjal"
   - `publicNote`: the ongoing note (service, time, text)
   - `publicIncident`: one incident with its notes
+  - `publicState`: a service's state glyph (`publicStateIcon`), word and Terminal tag, with the layout's suffix (" · 71 ms"); every layout's service row uses it (SL-08)
   - `DayBars` with the "Monitoring since" form that leaves out no-data days before the first day
   - `publicAxis`: the single "90 days ago … Today" axis
 - **Layout marks:**

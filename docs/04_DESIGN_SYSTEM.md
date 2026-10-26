@@ -143,6 +143,7 @@ Three marks belong to the status page layouts (`12_STATUS_PAGES.md` "Layouts"). 
 - **Glyph:** the hero lamp holds the state's glyph in `--on-status` (white in Daylight; black in Stark and Terminal, where white on the bright lamp colours would fall under 3:1): check (up), x (down), triangle (degraded), wrench (maintenance), dashed circle (none), the shapes of `publicStateIcon` plus the lamp's own mapping from the overall state (the M8-17 `overallIcon` and its `circle-dashed` icon went with the old hero in SL-04; Signal brought the mapping and the icon back in SL-05). The mini lamp is always next to the state word.
 - **Motion:** the halo breathes (opacity and a slight scale, 4.5 s, ease-in-out). It is the only looping motion in Signal. Under reduced motion the halo stays still at its middle opacity.
 - **Terminal:** a square phosphor block in the state colour: no gradients, no halo, no breathing. The glyph stays inside.
+- **Highlight** (SL-08): the highlight is the lamp colour at 72 % over white. The glyph's top edge sits on it, and at the first 55 % Daylight's white glyph fell to about 2.4:1 there; `web/tokens_test.go` keeps it at 3:1.
 
 ### Response pulse (Heartline)
 
