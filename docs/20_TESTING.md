@@ -321,7 +321,10 @@ The backup/restore confirmation test follows the backup UI (M9-01).
 - Demo data, made the way a user makes it: setup, nine monitors through the create form (HTTP, TCP, heartbeat; neutral names, local targets only), a public status page, a published note.
 - The past: with the server stopped, 90 days of history are written straight into SQLite (`monitors.created_at`, 7 days of `check_results`, five ended incidents with their events). The engine reads them back on restart, so beat bars, day bars and charts are full. The heartbeat monitor gets a week of nightly beats, so it is not overdue at the restart. `modernc.org/sqlite` is in the test module only.
 - The present: after the restart one target answers 503 (Search goes down live), the heartbeat gets a beat, and Staging API is paused.
-- Matrix: Stark with Ambient light on and off, Terminal and Daylight, each comfortable and compact, at 1440×900, 2560×1080 and 390×844; Home and the down monitor's detail, plus the list view on phones. Extras: the status page in its three themes (desktop, phone), the command palette, the phone menu open, sign-in. 65 shots in about 80 s. `prefers-reduced-motion` is emulated so no shot catches a transition.
+- The status page has the groups Platform and Website; every service but Website shows its latency, so Heartline shows both a pulse and the bars that replace it.
+- Matrix: Stark with Ambient light on and off, Terminal and Daylight, each comfortable and compact, at 1440×900, 2560×1080 and 390×844; Home and the down monitor's detail, plus the list view on phones. Extras: the command palette, the phone menu open, sign-in, and the monitor forms.
+- Status pages (SL-09): every layout in Daylight, Stark and Terminal at 1440 and 390 px, as whole-page shots (`status-<layout>-<theme>-<state>-<size>.png`): first during Search's live outage with its note, then calm once Search is back up. 48 shots.
+- About 150 s in all. `prefers-reduced-motion` is emulated so no shot catches a transition.
 
 ## Benchmarks
 

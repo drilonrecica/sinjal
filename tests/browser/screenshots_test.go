@@ -70,7 +70,7 @@ func TestScreenshots(t *testing.T) {
 
 	sh := &shooter{t: t, out: out}
 	sh.matrix(ctx, s, ids["Search"])
-	sh.statusPages(ctx, s, demo.page)
+	sh.statusPages(ctx, s, demo, ids["Search"])
 	sh.extras(ctx, s)
 	sh.forms(ctx, s, demo.targets["Billing"].URL+"/health", ids["Billing"])
 	sh.writeIndex()
@@ -209,24 +209,50 @@ func (d *demo) finish(t *testing.T, ctx context.Context, s *server, ids map[stri
 
 	steps := []chromedp.Action[chromedp.Void]{
 		chromedp.Navigate(s.base + "/status-pages/new"),
-		chromedp.SendKeys(chromedp.CSS("#title"), "Acme status"),
+		chromedp.SendKeys(chromedp.CSS("#title"), "Acme"),
 		chromedp.SendKeys(chromedp.CSS("#slug"), "acme"),
 		chromedp.SendKeys(chromedp.CSS("#description"), "Live status of Acme's public services."),
+		chromedp.SendKeys(chromedp.CSS("#groups"), "Platform\nWebsite"),
 		chromedp.Click(chromedp.CSS("#visibility-public")),
 	}
-	for name, public := range map[string]string{
-		"Checkout API": "Checkout", "Billing": "Billing", "Auth service": "Sign-in",
-		"Search": "Search", "Marketing site": "Website", "Image CDN": "Images",
-	} {
+	for _, m := range demoPublic {
 		steps = append(steps,
-			chromedp.Click(chromedp.CSS("#m_show_"+ids[name])),
-			chromedp.SendKeys(chromedp.CSS("#m_name_"+ids[name]), public))
+			chromedp.Click(chromedp.CSS("#m_show_"+ids[m.name])),
+			chromedp.SendKeys(chromedp.CSS("#m_name_"+ids[m.name]), m.public))
 	}
 	steps = append(steps,
 		chromedp.Click(chromedp.CSS(`form.monitor-form button[type="submit"]`)),
 		chromedp.WaitVisible(chromedp.CSS(".sp-list")))
 	do(t, ctx, "create the status page", steps...)
 	d.page = get(t, ctx, "read the edit link", chromedp.AttributeValue(chromedp.CSS(`.sp-list a[href$="/edit"]`), "href")).Value
+
+	// A group can be chosen only once the page has it.
+	steps = []chromedp.Action[chromedp.Void]{chromedp.Navigate(s.base + d.page)}
+	for _, m := range demoPublic {
+		steps = append(steps, chromedp.SetValue(chromedp.CSS("#m_group_"+ids[m.name]), m.group))
+		if m.latency {
+			steps = append(steps, chromedp.Click(chromedp.CSS("#m_latency_"+ids[m.name])))
+		}
+	}
+	steps = append(steps,
+		chromedp.Click(chromedp.CSS(`form.monitor-form button[type="submit"]`)),
+		chromedp.WaitVisible(chromedp.CSS(".sp-list")))
+	do(t, ctx, "group the status page", steps...)
+}
+
+// demoPublic is what the demo status page shows: each monitor's public
+// name, its group and whether its latency is shown. Website leaves latency
+// off, so Heartline shows its bars in place of a pulse.
+var demoPublic = []struct {
+	name, public, group string
+	latency             bool
+}{
+	{"Checkout API", "Checkout", "Platform", true},
+	{"Billing", "Billing", "Platform", true},
+	{"Auth service", "Sign-in", "Platform", true},
+	{"Search", "Search", "Platform", true},
+	{"Marketing site", "Website", "Website", false},
+	{"Image CDN", "Images", "Website", true},
 }
 
 // seedHistory writes the past into the stopped server's database: every
@@ -376,9 +402,11 @@ type shot struct {
 	Page    string `json:"page"`
 	Theme   string `json:"theme"`
 	Density string `json:"density,omitempty"`
+	State   string `json:"state,omitempty"` // calm or outage, on status pages
 	Size    string `json:"size"`
 	Width   int64  `json:"width"`
 	Height  int64  `json:"height"`
+	Full    bool   `json:"full,omitempty"` // the whole page, not the viewport
 }
 
 type shooter struct {
@@ -407,21 +435,34 @@ func (sh *shooter) matrix(ctx context.Context, s *server, down string) {
 	}
 }
 
-// statusPages shoots the public page in each of its themes, as a stranger.
-func (sh *shooter) statusPages(ctx context.Context, s *server, edit string) {
+// statusPages shoots the public page, as a stranger, in each layout and
+// theme at desktop and phone size, the whole page: first during Search's
+// live outage with its note, then calm once Search is back up.
+func (sh *shooter) statusPages(ctx context.Context, s *server, d *demo, search string) {
 	t := sh.t
 	v := visitor(t, ctx)
-	for _, theme := range []string{"daylight", "stark", "terminal"} {
-		do(t, ctx, "set the status page theme to "+theme,
-			chromedp.Navigate(s.base+edit),
-			chromedp.SetValue(chromedp.CSS("#theme"), theme),
-			chromedp.Click(chromedp.CSS(`form.monitor-form button[type="submit"]`)),
-			chromedp.WaitVisible(chromedp.CSS(".sp-list")),
-		)
-		for _, sz := range []size{desktop, phone} {
-			sh.take(v, s.base+"/status/acme", shot{Page: "status-page", Theme: theme, Size: sz.name}, sz)
+	shoot := func(state string) {
+		for _, layout := range []string{"signal", "sentence", "heartline", "logbook"} {
+			for _, theme := range []string{"daylight", "stark", "terminal"} {
+				do(t, ctx, "set the status page to "+layout+" in "+theme,
+					chromedp.Navigate(s.base+d.page),
+					chromedp.Click(chromedp.CSS(`label[for="layout-`+layout+`"]`)),
+					chromedp.SetValue(chromedp.CSS("#theme"), theme),
+					chromedp.Click(chromedp.CSS(`form.monitor-form button[type="submit"]`)),
+					chromedp.WaitVisible(chromedp.CSS(".sp-list")),
+				)
+				openLayout(t, v, s.base+"/status/acme", layout) // past the cached view
+				for _, sz := range []size{desktop, phone} {
+					sh.take(v, s.base+"/status/acme", shot{Page: "status-" + layout, Theme: theme, State: state, Size: sz.name, Full: true}, sz)
+				}
+			}
 		}
 	}
+	shoot("outage")
+	d.down.Store(false)
+	do(t, ctx, "open Search", chromedp.Navigate(s.base+"/monitors/"+search))
+	waitState(t, ctx, "header.monitor-header", "up", 60*time.Second)
+	shoot("calm")
 }
 
 // extras: the command palette, the phone menu open and the sign-in page,
@@ -487,11 +528,17 @@ func (sh *shooter) take(ctx context.Context, url string, sc shot, sz size, then 
 	}
 	steps = append(steps, then...)
 	do(t, ctx, "open "+url, steps...)
-	png := get(t, ctx, "screenshot "+url, chromedp.CaptureScreenshot())
+	capture := chromedp.CaptureScreenshot()
+	if sc.Full {
+		capture = chromedp.FullScreenshot(100)
+	}
+	png := get(t, ctx, "screenshot "+url, capture)
 
 	parts := []string{sc.Page, sc.Theme}
-	if sc.Density != "" {
-		parts = append(parts, sc.Density)
+	for _, p := range []string{sc.Density, sc.State} {
+		if p != "" {
+			parts = append(parts, p)
+		}
 	}
 	parts = append(parts, sc.Size)
 	sc.File = strings.Join(parts, "-") + ".png"

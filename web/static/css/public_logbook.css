@@ -457,7 +457,8 @@ a.cal-day:focus-visible {
 }
 
 /* Phones: a tighter hero and card, the legend under the title, each
- * service on two lines (name and state; group and figures). */
+ * service on two lines: the dot, name and state; then the group and the
+ * figures. The name's paragraph lends its parts to the row's grid. */
 @media (max-width: 40rem) {
   .logbook-hero {
     padding: var(--space-3) 0 var(--space-2);
@@ -472,29 +473,16 @@ a.cal-day:focus-visible {
     padding: var(--space-3) var(--space-4);
   }
   .logbook-service {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 9px auto minmax(0, 1fr) auto;
     gap: var(--space-1) var(--space-3);
-    align-items: start;
   }
   .logbook-service-name {
-    flex-wrap: wrap;
+    display: contents;
   }
-  .logbook-service-group {
-    flex-basis: 100%;
-    order: 1;
-    padding-left: calc(9px + var(--space-3));
-  }
-  .logbook-service-uptime,
-  .logbook-service-latency {
-    grid-row: 2;
-    text-align: left;
-  }
-  .logbook-service-uptime {
-    grid-column: 1;
-    padding-left: calc(9px + var(--space-3));
-  }
-  .logbook-service-latency {
-    grid-column: 2;
-    text-align: right;
-  }
+  .logbook-dot { grid-area: 1 / 1; }
+  .logbook-service-name > span:nth-child(2) { grid-area: 1 / 2 / 2 / 4; min-width: 0; }
+  .logbook-service-state { grid-area: 1 / 4; text-align: right; }
+  .logbook-service-group { grid-area: 2 / 2; }
+  .logbook-service-uptime { grid-area: 2 / 3; text-align: left; }
+  .logbook-service-latency { grid-area: 2 / 4; }
 }

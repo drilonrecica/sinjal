@@ -14,7 +14,7 @@ Sinjal is a small, fast, self-hosted uptime monitor. It is one Go binary with on
     <td width="50%"><img src="docs/screenshots/monitor-daylight.png" alt="The same monitor in the Daylight theme: black ink on white, with the latency chart of the last 24 hours"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/status-page.png" alt="A public status page: Partial outage: Search is down, a published note, and 90-day bars for each service"></td>
+    <td width="50%"><img src="docs/screenshots/status-page.png" alt="A public status page in the Sentence layout, Daylight: &quot;Search is down.&quot; in large type, the published note as a quote, then each service with its 90-day strip and downtime in words"></td>
     <td width="50%" align="center"><img src="docs/screenshots/phone-stark.png" alt="The monitor list on a phone, in Stark" width="60%"></td>
   </tr>
 </table>
@@ -44,6 +44,7 @@ Sinjal is a small, fast, self-hosted uptime monitor. It is one Go binary with on
 - **History:** response-time charts and uptime from 24 hours up to a year. Raw results are kept for 7 days, then rolled up (5-minute, hourly and daily buckets).
 - **Status pages:**
   - as many as you need
+  - four layouts, each in any theme: Sentence (the default, a plain-language headline), Signal (a large status lamp and service cards), Heartline (24-hour response pulses) and Logbook (a 90-day calendar and an incident log)
   - public, signed-in only, password-protected or unlisted
   - custom domains, a JSON endpoint and an incident feed
   - published notes
