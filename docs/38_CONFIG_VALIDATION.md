@@ -76,6 +76,7 @@ Built bounds: expected interval 10 s to 24 h; grace 0 to 24 h.
 - logo: PNG or JPEG only (sniffed), ≤ 512 KB, ≤ 1024 × 1024 px; SVG rejected
 - unlisted token generated server-side only, never user-supplied
 - a hostname cannot equal the instance's own base URL host
+- layout: one of `signal`, `sentence`, `heartline`, `logbook` (display order); empty means the default, `sentence`; any other value is a field error on the form and is rejected by the database `CHECK`
 
 Built (`internal/statuspage`): slug of lowercase letters, digits and inner hyphens, at most 64 characters; at most 10 hostnames per page, each a plain DNS name or IP address without scheme, port or path; page password 8–128 characters; public history 1–365 days.
 

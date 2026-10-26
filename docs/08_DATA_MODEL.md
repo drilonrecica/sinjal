@@ -281,6 +281,7 @@ Stored form: one row per attempt (`notification_deliveries`):
 - unlisted token hash (optional)
 - password hash (optional)
 - theme: stark | terminal | daylight, default daylight
+- layout: signal | sentence | heartline | logbook, default sentence (`12_STATUS_PAGES.md` "Layouts"); any layout with any theme; existing pages migrate to sentence (`011_status_page_layouts`)
 - accent
 - logo path/reference (optional)
 - incident_days, default 30

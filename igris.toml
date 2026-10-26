@@ -13,14 +13,13 @@ poll_interval = "2s"
 [columns]
 
 [claude]
-  command = "claude"
   extra_args = []
 
 [run]
   verify = "make lint && make test-race"
   verify_timeout = "15m0s"
   verify_max_attempts = 3
-  commit = "ask"
+  commit = "auto"
   commit_message = "{{.ID}}: {{.Title}}"
   prompt_template = ""
 

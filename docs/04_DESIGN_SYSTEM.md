@@ -95,6 +95,7 @@ Use:
 - clear hierarchy
 - theme-specific depth
 - one decorative gradient only: the **Ambient light** (below); chart area fills are the other gradient
+- exception (owner decision SL, 2026-10-26): the status page lamp is drawn with radial gradients ("Status page marks")
 
 ### Ambient light
 
@@ -108,7 +109,9 @@ A single soft radial light behind the status hero: a monitor's header, the Home 
 
 ## Motion
 
-Motion marks change and nothing else; nothing loops:
+Motion marks change and nothing else; nothing loops, except three marks on public status pages (owner decision SL, 2026-10-26; "Status page marks"): Signal's lamp breathing, Heartline's scan line and its live dot. They are CSS only and off under `prefers-reduced-motion`.
+
+In the app:
 - a new beat slides into its beat bar
 - a status badge or block settles when its state changes
 - rows that need attention move to the top of the list
@@ -126,6 +129,36 @@ Built (M8-11, M8-16):
 - one `prefers-reduced-motion` rule in `base.css` reduces every animation and transition to nothing; `toast.js` then removes a toast at once
 
 Not built yet: rows that need attention moving to the top of the list, panel expand/collapse and chart live update (charts draw once).
+
+## Status page marks
+
+Three marks belong to the status page layouts (`12_STATUS_PAGES.md` "Layouts"). Each is drawn with tokens from `tokens.css` and CSS only; public pages run no script. Each has the same two rules:
+- **Reduced motion:** every animation stops under `prefers-reduced-motion` and the mark shows its resting state. The global rule in `base.css` already does this; each mark's own rule also hides a moving overlay rather than freezing it mid-way.
+- **Not colour alone:** each state has its word next to the mark and a glyph or pattern that differs in shape, and the mark meets 3:1 contrast against its background (text 4.5:1). The contrast tests in `web/tokens_test.go` cover every new colour pair.
+
+### Status lamp (Signal)
+
+- **Look:** a round lamp, 128 px in the hero (96 px on phones), lit with radial gradients: a highlight upper left, the state colour, a deeper rim. A soft ring around it, and a halo behind that fades to nothing. The mini lamp of a service card is a 10 px dot with a faint ring.
+- **Colour:** up `--status-up`, down `--status-down`, degraded `--status-flapping`, maintenance `--chart-maintenance`, none `--status-paused`.
+- **Glyph:** the hero lamp holds the state's glyph in white: check (up), x (down), triangle (degraded), wrench (maintenance), dashed circle (none), the shapes of `publicStateIcon` and `overallIcon`. The mini lamp is always next to the state word.
+- **Motion:** the halo breathes (opacity and a slight scale, 4.5 s, ease-in-out). It is the only looping motion in Signal. Under reduced motion the halo stays still at its middle opacity.
+- **Terminal:** a square phosphor block in the state colour: no gradients, no halo, no breathing. The glyph stays inside.
+
+### Response pulse (Heartline)
+
+- **Look:** a line with a soft area fill under it, in a fixed viewBox with a non-scaling stroke. 64 px high on desktop and 48 px on phones. A dot at its right end marks now. Gaps where a bucket has no data stay empty: the line is not bridged.
+- **Colour:** the line is `--chart-line`, the fill the same at about 7 %. While a service is down, its line dims and the time since it went down is drawn dashed in `--status-down` along the floor, with the end dot in the down colour.
+- **Not colour alone:** the down part is dashed, not only red. The current figure reads "no reply" in words. Each pulse is `role="img"` with a text summary: "Response over 24 hours: min 41 ms, median 70 ms, max 312 ms". Min and max come from `LatencyStats`; the median is the middle bucket average.
+- **Motion:** a faint band (the scan line) sweeps across the pulses from left to right, 6 s, linear. The live dot in the hero sends out one ring every 2 s. Under reduced motion the scan line is hidden and the live dot stays still.
+- **Terminal:** an amber line without area fill or scan line; the live dot is a square block that does not pulse.
+
+### Calendar (Logbook)
+
+- **Look:** square cells with small rounded corners (Terminal square), one per day, with gaps between them. Desktop: months as rows, days 1–31 as columns. Phones: weeks as rows, Mon … Sun as columns, each cell at least 24 px. One list of cells is placed into either grid by classes (no `style` attributes under the CSP).
+- **Classes and colour:** the existing day classes. No issues is a new token `--calendar-up`, the up family lighter than a beat, so the few problem days stand out; some downtime `--status-warning`; outage `--status-down`; maintenance the hatched `--chart-maintenance` of the day bars; no data and days still to come are an empty cell with a dashed outline. A legend names each class.
+- **Today and the opened day:** today has a ring in the text colour with a gap. The opened day (`:target`, or the newest incident day without a target) has a thicker ring.
+- **Not colour alone:** each cell's date and state are in words for assistive technology ("Fri 23 Oct: some downtime, 1 incident"), and the opened day's panel spells them out. Classes differ by more than hue: outage cells carry a small inner mark, maintenance is hatched, and no-data and future cells are outlined, not filled. Cells meet 3:1 against the card, and a link cell shows a focus ring.
+- **Motion:** none. Opening a day is a jump to its anchor, so reduced motion needs no extra rule beyond `scroll-behavior: auto`.
 
 ## Components
 

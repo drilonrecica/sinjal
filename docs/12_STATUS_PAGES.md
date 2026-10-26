@@ -85,6 +85,8 @@ Implementation (M7-04): `internal/web/strip.go`, shared with a monitor's Overvie
 
 ## Rendering (M7-04)
 
+> **Replaced (SL, owner decision 2026-10-26).** The single page design below and under "Built (M8-17, Clear)" is replaced by the four layouts in "Layouts". It is not kept as a fifth layout. These rules still hold in every layout: the overall status and its words, which incidents are listed and what they never show, the refresh, the cache, the footer and the Daylight theme fallback. The parts that are replaced are marked.
+
 `GET /status/{slug}` renders with separate public templates (`web/templates/public.templ`, `css/public.css`): no admin shell, no script, the page's own theme (never the visitor's) and accent.
 
 Overall status, worst first; paused services are not counted:
@@ -96,7 +98,7 @@ Overall status, worst first; paused services are not counted:
 
 "No services are monitored" when nothing is counted.
 
-Services: each shows its public name, its state in words with a glyph (Operational, Down, Checking, Unstable, Not monitored, Maintenance), the 90-day strip, its 90-day adjusted uptime and, when "show latency" is on, the last check's duration.
+Services (replaced: each layout decides what a service shows, see "Layouts"): each shows its public name, its state in words with a glyph (Operational, Down, Checking, Unstable, Not monitored, Maintenance), the 90-day strip, its 90-day adjusted uptime and, when "show latency" is on, the last check's duration.
 
 Incidents:
 - Listed: incidents of the page's services that are active or ended within `incident_days`, newest first, at most 50.
@@ -112,12 +114,174 @@ Cache: the figures are kept in memory for 10 s per page and shared by its visito
 
 Footer: "Powered by sinjal" is a small low-contrast footer, removed with the page setting.
 
-Built (M8-17, Clear):
+Built (M8-17, Clear), **replaced by "Layouts"** except for the last bullet, the theme fallback, which still holds:
 - The page opens with its hero: the overall status as one sentence. It is the overall state's words (the strings above, unchanged for `api.json` and the feed) and, during an outage, the public names of the services that are down ("Partial outage: Checkout is down."; three names, then "and n more").
 - The Ambient light of the app's heroes sits behind it: red for an outage, amber when degraded, the accent otherwise; a faint halo in Daylight, none in Terminal.
 - The newest published note of an ongoing incident is shown right under the sentence (service, time, text), so visitors read the explanation first. The note box is as wide as the service list; its text keeps a readable measure. Every note also stays with its incident below.
 - Services draw the shared 90-day bars (`DayBars`, as on a monitor's Overview).
 - A page whose theme is unknown or empty renders in Daylight, the status page default (`templates.PublicDefaultTheme`), never Stark. New pages also start in Daylight (`statuspage.DefaultTheme`).
+
+## Layouts
+
+Owner decisions (2026-10-26, phase SL; `imp-docs/decisions.md` "SL").
+
+A status page has four layouts. Each page has a `layout` setting beside its `theme`, and any layout works with any theme (Daylight, Stark, Terminal), in comfortable and compact density, on desktop and on a phone.
+
+| Value | Name | For | One-line description (admin form) |
+|---|---|---|---|
+| `signal` | Signal | Visitors who only want to know "is it up?" | A large status lamp, then each service as a card. |
+| `sentence` | Sentence | Small teams and personal sites; the default | The status as a plain sentence, services as a quiet list. |
+| `heartline` | Heartline | Technical audiences who watch response times | A live 24-hour response pulse for each service. |
+| `logbook` | Logbook | Pages whose history matters | A 90-day calendar and a logbook of every incident. |
+
+The reference sketches are `imp-docs/status-layouts/{Signal,Sentence,Heartline,Logbook}.dc.html`. Each shows Daylight calm with example history and Stark during an outage. Follow their composition, hierarchy and copy style, but build with Sinjal's tokens, classes and templ partials, not the sketches' inline styles, runtime or script. Their data is invented. The phone compositions below have no sketch: they are specified here.
+
+### What every layout shares
+
+These rules hold in every layout. Shared parts are built once (SL-03) and each layout arranges them.
+
+- **Content.** Every layout shows only what "Content" allows. The incident rules of "Rendering (M7-04)" apply unchanged: which incidents are listed (`incident_days`, at most 50, newest first) and what they never show. `api.json` and `feed.xml` do not depend on the layout.
+- **No script.** The page is script-free under the same CSP and reloads itself with the meta refresh (60 s). The CSP allows one hashed `<style>` (the accent) and no `style` attributes, so the per-item placement a layout needs (calendar cells, pulse paths) uses classes and SVG attributes, never inline styles.
+- **Centred column.** The content column is centred in the window at every width. Column widths: Signal and Logbook 960 px, Sentence 880 px, Heartline 1000 px, each at most the window less the gutters. On a phone (below 640 px) every layout is one column with 16 px gutters and no horizontal scroll.
+- **Ambient light.** Where a layout shows it (Signal and Heartline), it fades out to nothing in every direction. It has no clipped or hard edges, it is not cut off by the column or the window, and it causes no horizontal scroll. Its colour follows the hero state, as before. Terminal draws none.
+- **Header.** From left to right: the logo when one is set, the title and the description (on its own line below the title, smaller and muted; left out when empty). On the right is a **Subscribe** link with the Lucide `rss` icon to the page's `feed.xml`, built from its access base: `/status/{slug}/feed.xml`, `/s/{token}/feed.xml`, or `/feed.xml` on a mapped hostname. On a phone the link keeps its icon and word and stays on the title's row; the description wraps below. Its touch target is at least 44 px.
+- **Headline.** The overall state as a short sentence, the same in the three layouts that show one (Signal, Heartline, Logbook):
+  - up: "All systems operational"
+  - outage (partial or major): the down services by public name, "Checkout is down" or "Checkout and API are down"; three names, then "and n more"
+  - degraded: the pending and flapping services the same way, "Checkout is unstable"
+  - maintenance: "Checkout is under maintenance" (the services a window covers now)
+  - none: "No services are monitored"
+  
+  The overall words of "Rendering (M7-04)" ("Partial outage" and the others) stay in `api.json`, the feed and the page `<title>`. Sentence writes its own longer form (below).
+- **Last issue line** (`LastIssue`): when nothing is wrong, the newest listed incident in words: "The last interruption was 3 days ago, 12 minutes on Scaneks.com." Without one: "No interruptions in the last 30 days." (the page's `incident_days`).
+- **Ongoing note.** During an incident, the newest published note of an ongoing incident is shown in the hero with its service and time, so visitors read the explanation first. Every note also stays with its incident further down.
+- **"Monitoring since".** A service whose first day with data falls inside the 90 days does not show its no-data days. Its strip shows a dashed line with "Monitoring since 25 Oct" over those days, and bars from that day on (`DayBars`). Its downtime line reads "No downtime since 25 Oct" when it has none. Days without data later on (a full day paused) still show as no-data bars.
+- **One axis.** "90 days ago … Today" appears once per page, under the last group of strips, not under every service.
+- **Downtime in human time** (`Downtime`), from the adjusted 90-day ratio: "Down 26 min in 90 days", "Down 1 h 5 min in 90 days" or "No downtime in 90 days". While a service is down: "Down now, for 18 min".
+- **States.** Every service state has its word and a glyph whose shape differs per state (the existing `publicStateIcon`); colour is never the only signal. Terminal adds its state tags.
+- **Footer.** "Times in CET. The page refreshes every minute." (the instance time zone's abbreviation), and "Powered by Sinjal" unless the page turns it off. On a phone the two lines stack.
+- **Touch targets** are at least 44 px. The calendar's day cells are at least 24 px, with spacing (WCAG 2.2 AA "Target size (minimum)").
+- **Motion** is CSS only, and only the three marks below move: Signal's lamp breathing, Heartline's scan line and its live dot. All three stop under `prefers-reduced-motion` (`04_DESIGN_SYSTEM.md` "Status page marks").
+
+### Signal (A)
+
+For visitors who want one answer at a glance. Sketch: `Signal.dc.html`.
+
+Desktop, top to bottom:
+1. Header, with Subscribe as a bordered button.
+2. Hero, centred, with the Ambient light behind it:
+   - the **status lamp** (128 px, `04` "Status lamp") with its glyph
+   - the headline (large)
+   - the meta line: calm "5 services · 99.91% uptime over 90 days · Updated 00:57 CET"; outage "4 of 5 services operational · Updated 14:10 CET"
+   - during an incident, the ongoing note as a card (at most 620 px wide, text left-aligned): "Update · 14:05 · Scaneks.com", then the text
+3. Groups. Each group has its name and, on the right, a summary in words: "All 3 operational", or "1 of 3 down" in the down colour (also "1 of 3 unstable", "1 of 3 in maintenance"; the worst one is named).
+4. Services as cards in two columns. A card holds:
+   - a mini lamp (10 px), the name, then "Operational · 71 ms" (the state in its colour; latency only when shown, "no response" while down)
+   - on the right, the 90-day uptime figure and "90-day uptime" under it
+   - the 90-day strip (26 px high), with "Monitoring since" where it applies
+   
+   A down service's card has a border tinted with the down colour.
+5. The single axis.
+6. "Incidents": each incident has its date and time, the service, a badge ("Ongoing" filled in the down colour, "Resolved" quiet), its duration ("Down for 12 min", "Down for 18 min so far") and its notes with their times.
+7. Footer, centred.
+
+Phone (390 px): the lamp shrinks to 96 px and the headline wraps, centred. The note card takes the full column. Group summaries stay on the group's row. Cards are one column; the uptime figure stays on the right of the name. Incidents stack: date, then the service with its badge, duration and notes.
+
+Calm: a green lamp with a check, "All systems operational" and calm group summaries. Outage: a red lamp with an x, the down services as headline, the note card, the down cards' tinted borders and "1 of 3 down". Degraded and maintenance use their own lamp colour and glyph (`04`).
+
+Shows: the uptime figure per service and latency where shown. Leaves out: the downtime sentence per service, the calendar and the response history.
+
+Terminal: the lamp is a square phosphor block without gradients or breathing, the cards have box rules, and states carry their tags.
+
+### Sentence (B, the default)
+
+For small teams and personal sites: the page reads like a short note. New pages start with it and existing pages move to it. Sketch: `Sentence.dc.html`.
+
+Desktop, top to bottom:
+1. A thin rule across the top of the page (4 px) in the overall status colour: up green, down red, degraded amber, maintenance blue, none neutral.
+2. A small header: logo, title, "Status" in muted text, the description; on the right "Subscribe to updates" as a plain link with the icon.
+3. The hero: a large editorial sentence (`h1`), then a smaller muted line.
+   - Calm: "Everything at <title> is working." Then `LastIssue`.
+   - Outage: the down services by name, "Scaneks.com **is down.**", "**are down.**" for several (three names, then "and n more"), with the verb in the down colour. Then "For 18 minutes so far. Everything else is working." The time is that of the longest ongoing outage; the second sentence is left out when every service is down. Then the newest ongoing note as a quote with a rule in the down colour, and "Update at 14:05" under it.
+   - Degraded and maintenance follow the outage form: "Checkout **is unstable.**", "Checkout **is under maintenance.**" in their own colour, with "Everything else is working."
+   - None: "Nothing is monitored on this page yet."
+4. A meta line: calm "Updated 00:57 CET · 5 services · 99.91% over 90 days"; outage "Updated 14:10 CET · 4 of 5 services operational".
+5. Groups as small-caps labels over a full rule in the text colour.
+6. Each service in two lines:
+   - its name, a dotted leader and its state in words and colour
+   - under it, a thin 90-day strip (8 px) and, on the right, its `Downtime`
+7. "The last N days" (N is `incident_days`): each incident as a sentence with its date on the left. "Scaneks.com was down for 12 minutes, from 09:14." or "Scaneks.com has been down since 13:52." Its notes follow as quotes with their times.
+8. The single axis sits under the last group (small, muted). The footer comes last.
+
+Phone (390 px): the sentence drops to about 40 px and wraps; the quote's rule stays. Each service keeps its name, leader and state on one row and wraps the name if it must; the downtime line goes under the strip, left-aligned. Incident dates go above their sentence.
+
+Shows: the downtime per service in human time. Leaves out: latency (it stays in `api.json`), per-service uptime figures, cards and the calendar.
+
+Terminal: everything in mono, the top rule in the state colour (amber when calm), box rules on groups and incidents, state tags in place of the coloured state word ("[DOWN]" as an inverse block).
+
+### Heartline (C)
+
+For technical audiences who want to see how a service is responding now. Sketch: `Heartline.dc.html`.
+
+Desktop, top to bottom:
+1. Header with Subscribe as a bordered button.
+2. Hero, with the Ambient light on the left:
+   - on the left, a live dot and a mono line "LIVE · UPDATED 14:10 CET", then the headline. The check interval is left out: it is monitor configuration.
+   - on the right, page figures in mono: "Uptime, 90 days" and "Response, median". The median is the median of the shown services' last response times; it is left out when no service shows latency or none has replied.
+3. During an incident, the ongoing note as a band across the column: "14:05 UPDATE" in mono in the down colour, then the text.
+4. A column legend in small mono caps: "SERVICE", "RESPONSE · 24 H AGO … NOW", "NOW".
+5. One panel per group, its name in the panel's head. Each service row has:
+   - on the left, the name and "Operational · 99.98% in 90 days" (the state in its colour; "Down since 13:52" while down)
+   - in the middle, the **pulse** (`04` "Response pulse"), for services whose "Show latency" is on
+   - on the right, the current response time in mono ("71 ms", "last check"), or "no reply" in the down colour
+   - under it, a thin 90-day strip (5 px)
+   
+   A down row has a faint down-tinted background.
+6. The single axis.
+7. "Incidents": mono date and time, the service, "down 12 min, resolved" or "down 18 min, ongoing" in the down colour, then its notes.
+8. Footer.
+
+**Heartline latency rule.** The pulse is shown only for services whose "Show latency" is on. A service without it shows its 90-day strip at full height (26 px) in place of the pulse, and no response figure. The pulse data comes from `store.LatencyHistory` over the last 24 hours in 96 buckets, read when the page view is built and cached with it (10 s). There is no new storage and no new query. The pulse is drawn on the server as SVG; the scan line passes over pulses only.
+
+Phone (390 px): the hero figures go under the headline, side by side. The column legend is left out. Each row becomes name and state, then the current figure on the right, then the pulse across the full width (48 px), then the strip.
+
+Calm: a green live dot and calm pulses. Outage: a red live dot, the note band, and the down service's pulse breaking off: the time since it went down is drawn dashed in the down colour. Its figure reads "no reply".
+
+Shows: 24-hour response history and the current response time. Leaves out: the calendar and the downtime sentence per service.
+
+Terminal: the pulse is an amber line without area fill or scan line, panels have box rules, and the live dot is a square block.
+
+### Logbook (D)
+
+For pages whose history matters: what happened, when and what was said. Sketch: `Logbook.dc.html`.
+
+Desktop, top to bottom:
+1. Header with Subscribe as a bordered button.
+2. Hero: a status disc (44 px) with the state glyph, the headline beside it, then one line under it:
+   - calm: `LastIssue` and "Updated 00:57 CET"
+   - outage: "Since 13:52, 18 minutes so far. The other 4 services are working. Updated 14:10 CET."
+3. **Calendar card**: "The last 90 days, all services", with a legend: No issues, Some downtime, Outage, Maintenance, No data. Months are rows and days 1–31 are columns; day numbers sit above (1, 5, 10, … 30). Each cell is the worst day class over the page's services (down, then partial, maintenance, up, no data). Today has a ring. The current month's remaining days are dashed outlines. Under the grid, the **opened day** panel (below).
+4. "Services" as a compact list: dot, name, group (muted), state, 90-day uptime or "Since 25 Oct, 100%", and latency where shown.
+5. "Logbook": a vertical timeline of the incidents within `incident_days`, ongoing first. Each entry has a dot (down colour while ongoing, partial colour when resolved), "Fri 23 Oct · 09:14 to 09:26", a sentence ("Scaneks.com was down for 12 minutes", "Scaneks.com is down") and its notes with times. When an incident has no published note it says "No note was published."
+6. Footer.
+
+**Opened day.** A day with a listed incident is a link to an anchor on the page (`#day-2026-10-23`). Its panel opens through `:target` CSS, with no script. The panel lists that day's incidents as sentences, each with its notes, and ends with "Every other service had no issues." when that is true. Without a target, the newest day with an incident is shown. Days whose incidents are older than `incident_days` are not links. Every cell has its date and state in words for assistive technology ("Fri 23 Oct: some downtime, 1 incident").
+
+Phone (390 px): the calendar turns: weeks are rows and weekdays (Mon … Sun) are columns, with cells of at least 24 px (about 40 px at 390 px). Each row is labelled with the week's first date. The same cells are placed by class, so there is one calendar in the markup. The legend wraps under the title. The services list puts the group and figures on a second line. The logbook keeps its timeline.
+
+Calm: a green disc with a check, a calendar with a few amber days, and the newest incident day opened. Outage: a red disc with an x, today in the outage class and opened, and the ongoing entry first in the logbook.
+
+Shows: the 90-day calendar for the whole page and the full incident history with notes. Leaves out: per-service strips (the calendar replaces them), the response history and the axis (the calendar has its own dates).
+
+Terminal: square cells with box rules, the legend in mono, state tags in the services list.
+
+### Default and migration
+
+- `status_pages.layout` holds `signal`, `sentence`, `heartline` or `logbook` (`08_DATA_MODEL.md`, `38_CONFIG_VALIDATION.md`).
+- New pages start in `sentence` (`statuspage.DefaultLayout`). Migration `011_status_page_layouts` adds the column with that default, so every existing page moves to Sentence.
+- A page whose layout is unknown or empty renders in Sentence, as an unknown theme renders in Daylight.
+- The admin form chooses it under Appearance, before Theme, as cards with the name and the one-line description above.
+- The M8-17 markup and styles are removed when Sentence replaces them (SL-04). Each layout's styles are in `css/public_<layout>.css`, linked only on its pages; `public.css` keeps the shared chrome.
 
 ## Groups
 
@@ -143,6 +307,7 @@ Per page:
 - logo (PNG or JPEG only; see Logo files)
 - accent
 - theme
+- layout (see "Layouts")
 - show/hide "Powered by Sinjal"
 
 Sinjal branding is slightly visible by default.

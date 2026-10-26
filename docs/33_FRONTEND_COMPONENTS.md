@@ -106,6 +106,27 @@ Built (M7-04, M8-17) in `web/templates/public.templ`:
 - view types in `public.go` carry public names and figures only
 - styles in `css/public.css`
 
+Layouts (SL, replaces the single M8-17 design; behaviour in `12_STATUS_PAGES.md` "Layouts"):
+- **View model** (`templates.PublicPage`, `PublicRow`, built in `internal/web/public.go`; public names and figures only, as before):
+  - page: `Layout`, `LastIssue`, `FeedURL` (from the access base) and `Calendar` (90 days, each with the worst day class over the page's services, a date in words and the incidents that touched it)
+  - row: `Since` (the "Monitoring since" label and the index of the first day with data) and `Downtime` (human time)
+  - Heartline only: the row's pulse (SVG paths and a text summary), built from `store.LatencyHistory` when "Show latency" is on
+- **Dispatch:** `PublicStatusPage` switches on `Layout` to one component per layout: `signalPage`, `sentencePage`, `heartlinePage`, `logbookPage`. An unknown layout renders `sentencePage`.
+- **Shared partials** (built once, arranged by each layout):
+  - `publicHeader`: logo, title, description, the Subscribe link (Lucide `rss`)
+  - `publicFooter`: the time zone note and "Powered by Sinjal"
+  - `publicNote`: the ongoing note (service, time, text)
+  - `publicIncident`: one incident with its notes
+  - `DayBars` with the "Monitoring since" form that leaves out no-data days before the first day
+  - `publicAxis`: the single "90 days ago … Today" axis
+- **Layout marks:**
+  - `statusLamp` (Signal): the large lamp with its glyph, and the mini lamp of a card
+  - `pulse` (Heartline): the 24-hour response line, `role="img"`
+  - `calendar` and `dayPanel` (Logbook): the 90-day calendar and its `:target` panels
+  - Their look and rules are in `04_DESIGN_SYSTEM.md` "Status page marks".
+- **Styles:** `css/public.css` keeps the shared chrome: centred column, Ambient light without clipped edges, header, footer, notes. Each layout has `css/public_<layout>.css`, linked only on its pages and kept under 6 KB gzip (`18_PERFORMANCE.md`).
+- **Admin form:** the Layout choice in Appearance, before Theme: radio cards with the name and one-line description, in the monitor form's type-card look.
+
 ## JavaScript responsibilities
 
 Allowed:
@@ -176,7 +197,7 @@ Since M8-05 there is no full-width list page. The monitors are the shell's list 
 - **Detail header:** 120 beats with `data-tip`s and `tabindex="0"`.
 - **`beats.js`:** one shared `role="tooltip"`; ←/→/Home/End move through a focused bar; focus survives a live swap; a bar slides by one beat when its `data-newest` grew.
 
-`DayBars` (same file) is the 90-day strip of the detail Overview and of the public status page (since M8-17). It is computed by `internal/web/strip.go`, shared by both.
+`DayBars` (same file) is the 90-day strip of the detail Overview and of the public status page (since M8-17; on the public page with the "Monitoring since" form, SL). It is computed by `internal/web/strip.go`, shared by both.
 
 ### Monitor detail
 
