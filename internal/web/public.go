@@ -183,13 +183,12 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	var ungrouped []templates.PublicRow
 	var total incident.Ratio
 	states := map[string]int{}
-	rows := make([]templates.PublicRow, 0, len(p.Monitors))
-	for _, pm := range p.Monitors {
-		row, adjusted, err := h.row(ctx, p.ID, pm, days, now)
-		if err != nil {
-			return v, err
-		}
-		rows = append(rows, row)
+	rows, ratios, err := h.rows(ctx, p, days, now)
+	if err != nil {
+		return v, err
+	}
+	for i, pm := range p.Monitors {
+		row, adjusted := rows[i], ratios[i]
 		total.Up += adjusted.Up
 		total.Den += adjusted.Den
 		states[row.State]++
@@ -211,6 +210,7 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	}
 	v.Uptime = total.Percent()
 	v.Services, v.Operational = len(p.Monitors), states[templates.StateUp]
+	v.MedianLatency = medianLatency(v.Groups)
 	v.Overall, v.OverallText = overall(states, len(p.Monitors))
 	v.Names, v.Verb = publicHeadline(v.Overall, v.Groups)
 	v.HeroState = publicHeroState(v.Overall)
@@ -250,9 +250,45 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	return v, nil
 }
 
+// publicRowWorkers is how many of a page's services are built at once:
+// the reader pool's least size (db.Open), so the reads never wait for a
+// connection.
+const publicRowWorkers = 4
+
+// rows builds every service of the page in the page's order, and the
+// adjusted ratio of each. The services are independent reads, so they run
+// publicRowWorkers at a time over the reader pool: a page of 25 services
+// with pulses reads 25 days of results, which one goroutine could not do
+// inside the 50 ms page budget (docs/18, SL-07). The first error wins.
+func (h *Public) rows(ctx context.Context, p store.StatusPageDetail, days []time.Time, now time.Time) ([]templates.PublicRow, []incident.Ratio, error) {
+	n := len(p.Monitors)
+	rows, ratios, errs := make([]templates.PublicRow, n), make([]incident.Ratio, n), make([]error, n)
+	pulses := p.Layout == templates.LayoutHeartline
+	sem := make(chan struct{}, publicRowWorkers)
+	var wg sync.WaitGroup
+	for i := range p.Monitors {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows[i], ratios[i], errs[i] = h.row(ctx, p.ID, p.Monitors[i], days, now, pulses)
+			<-sem
+		}()
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return rows, ratios, nil
+}
+
 // row builds one service: its state, latency and uptime strip, from one
-// read of its intervals over the strip's 90 days.
-func (h *Public) row(ctx context.Context, pageID string, pm store.StatusPageMonitor, days []time.Time, now time.Time) (templates.PublicRow, incident.Ratio, error) {
+// read of its intervals over the strip's 90 days. With pulse (a Heartline
+// page) a service that shows latency also reads its last 24 hours for the
+// pulse: the one read the layout adds, cached with the page.
+func (h *Public) row(ctx context.Context, pageID string, pm store.StatusPageMonitor, days []time.Time, now time.Time, pulse bool) (templates.PublicRow, incident.Ratio, error) {
 	row := templates.PublicRow{Name: pm.DisplayName, Key: h.opaqueKey(pageID, "component", pm.MonitorID)}
 	m, err := store.GetMonitor(ctx, h.db.Reader, pm.MonitorID)
 	if err != nil {
@@ -289,6 +325,23 @@ func (h *Public) row(ctx context.Context, pageID string, pm store.StatusPageMoni
 		downFor = downNow(iv, now)
 	}
 	row.Downtime = downtimeText(adjusted, since, downFor)
+	var downSince time.Time
+	if downFor > 0 {
+		downSince = now.Add(-downFor)
+		row.DownSince = downSince.In(h.loc).Format("15:04")
+	}
+	if pulse && pm.ShowLatency {
+		from := now.Add(-pulseHours * time.Hour)
+		stats, points, err := store.LatencyHistory(ctx, h.db.Reader, pm.MonitorID, from, now, pulseBuckets)
+		if err != nil {
+			return row, incident.Ratio{}, err
+		}
+		if row.State != templates.StateDown {
+			downSince = time.Time{}
+		}
+		p := pulseOf(points, stats, from, now, downSince)
+		row.Pulse = &p
+	}
 	return row, adjusted, nil
 }
 

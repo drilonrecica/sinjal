@@ -110,7 +110,7 @@ Layouts (SL, replaces the single M8-17 design; behaviour in `12_STATUS_PAGES.md`
 - **View model** (`templates.PublicPage`, `PublicRow`, built in `internal/web/public.go`; public names and figures only, as before):
   - page: `Layout`, `LastIssue`, `FeedURL` (from the access base) and `Calendar` (90 days, each with the worst day class over the page's services, a date in words and the incidents that touched it)
   - row: `Since` (the "Monitoring since" label and the index of the first day with data) and `Downtime` (human time)
-  - Heartline only: the row's pulse (SVG paths and a text summary), built from `store.LatencyHistory` when "Show latency" is on
+  - Heartline only: the row's pulse (`templates.Pulse`: SVG paths and a text summary, built by `pulseOf` in `internal/web/pulse.go` from `store.LatencyHistory` when "Show latency" is on), its `DownSince`, and the page's `MedianLatency`
 - **Dispatch:** `PublicStatusPage` switches on `Layout` to one component per layout: `signalPage`, `sentencePage`, `heartlinePage`, `logbookPage`. An unknown layout renders `sentencePage`.
 - **Shared partials** (built once, arranged by each layout):
   - `publicHeader`: logo, title, description, the Subscribe link (Lucide `rss`)
@@ -147,6 +147,12 @@ Built (SL-06, Logbook):
 - `logbookPage` is layout D (`12_STATUS_PAGES.md` "Logbook", built notes there): `logbookCalendar` (the one grid placed by attributes, with `logbookDayPanel` after each incident day's link), `logbookService` and `logbookEntry`. The incident sentence of `publicIncident` moved into `publicIncidentSentence`, shared with the day panels.
 - The view gained `DownSince`, `CalendarMonths`, `CalendarWeeks` and `CalendarUpcoming` on the page, `EndTime` on an incident, and `Long`, `OthersFine`, `Month`, `Dom`, `Week` and `Weekday` on a calendar day; `calendarOf` fills them from the rows and incidents the build already has.
 - `css/public_logbook.css` (3.6 KB gzip): `--disc` from `data-overall`, the two calendar grids (the weekly one below 60rem), the cell classes, rings and `:target` panel, the services list and the timeline. A new token, `--calendar-up`.
+
+Built (SL-07, Heartline):
+- `heartlinePage` is layout C (`12_STATUS_PAGES.md` "Heartline", built notes there): the hero with the live dot and the figures, `heartlinePanel` and `heartlineRow` (name and state, `pulse`, the figure, the thin strip), `heartlineIncident`.
+- `pulse` is the response pulse mark: an SVG `role="img"` in a fixed viewBox with the area, line, dashed tail and end dot as paths from `templates.Pulse`, and a span the stylesheet sweeps as the scan line. Every placement is path data or an attribute: no `style` attributes under the CSP.
+- The view gained `Pulse` and `DownSince` on a row and `MedianLatency` on the page; `internal/web/pulse.go` builds them (`pulseOf`, `medianLatency`) from `store.LatencyHistory`, read only for Heartline pages.
+- `css/public_heartline.css`: the hero, the note band, the legend, the panels and rows (a three-column grid, the strip across a second row; one column of name, figure, pulse and strip on phones), the pulse's strokes and scan line, the incidents, Terminal's amber line and box rules, reduced motion.
 
 ## JavaScript responsibilities
 

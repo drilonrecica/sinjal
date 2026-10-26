@@ -139,6 +139,9 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 	logbook := logbookCalm()
 	logbook.Calendar[89].Incidents = []int{0}
 	pages["publicLogbook"] = PublicStatusPage(logbook, "terminal")
+	heartline := heartlineCalm()
+	heartline.Groups[0].Rows[0].State, heartline.Groups[0].Rows[0].Pulse.Tail = StateDown, "M948 62H960"
+	pages["publicHeartline"] = PublicStatusPage(heartline, "daylight")
 	pages["publicPassword"] = PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "stark")
 	pages["publicMessage"] = PublicMessagePage("P", "m", "terminal")
 	pages["publicEmpty"] = PublicStatusPage(PublicPage{Title: "Empty", Overall: OverallNone, Uptime: "—", IncidentDays: 1}, "terminal")

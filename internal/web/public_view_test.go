@@ -64,9 +64,14 @@ func TestPublicViewFields(t *testing.T) {
 	if v.Layout != "logbook" || v.Zone != "UTC" {
 		t.Errorf("layout %q, zone %q", v.Layout, v.Zone)
 	}
+	// The rows are built in parallel and keep the page's order.
+	var order []string
 	rows := map[string]templates.PublicRow{}
 	for _, r := range v.Groups[0].Rows {
-		rows[r.Name] = r
+		rows[r.Name], order = r, append(order, r.Name)
+	}
+	if want := []string{"Old", "Fresh", "Paused", "Maint", "Down"}; !slices.Equal(order, want) {
+		t.Errorf("rows in order %v, want %v", order, want)
 	}
 	for _, c := range []struct {
 		name, state, since string
@@ -358,5 +363,99 @@ func TestPublicMachineFormsIgnoreLayout(t *testing.T) {
 	}
 	if strings.Contains(string(first[0]), "layout") || strings.Contains(string(first[0]), "calendar") {
 		t.Errorf("api.json carries layout fields: %s", first[0])
+	}
+}
+
+// A Heartline page reads each shown service's last 24 hours while it is
+// built (docs/12 "Heartline latency rule"): the row carries its pulse with
+// a gap where no check ran, a down service its tail and the time it went
+// down, a service without "Show latency" no pulse; the page's median is
+// over the services that replied. Another layout reads none of it.
+func TestHeartlineView(t *testing.T) {
+	e := newAppEnv(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 26, 14, 10, 0, 0, time.UTC)
+	add := func(name, state string) string {
+		id, err := store.CreateMonitor(ctx, e.db, store.MonitorInput{Name: name, Enabled: true,
+			HTTP: store.HTTPConfig{URL: "https://" + name + ".example.com/"}}, now.AddDate(0, 0, -120))
+		if err != nil {
+			t.Fatal(err)
+		}
+		e.exec(t, `UPDATE monitors SET current_state = ? WHERE id = ?`, state, id)
+		return id
+	}
+	api, shop, quiet := add("api", "up"), add("shop", "down"), add("quiet", "up")
+	// api: a check every 15 minutes over the day, none between 6 and 8
+	// hours ago, 40 ms rising to 80 ms; one slow check of 300 ms.
+	for i := 0; i < 96; i++ {
+		at := now.Add(-time.Duration(95-i) * 15 * time.Minute).Add(-time.Second)
+		if h := now.Sub(at).Hours(); h > 6 && h < 8 {
+			continue
+		}
+		e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, ?, 1)`, api, store.FormatTime(at), 40+i*40/95)
+	}
+	e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 300, 1)`, api, store.FormatTime(now.Add(-3*time.Hour)))
+	// shop: fine until it went down 18 minutes ago; its checks since then
+	// failed.
+	for i := 0; i < 90; i++ {
+		e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 60, 1)`, shop, store.FormatTime(now.Add(-time.Duration(95-i)*15*time.Minute)))
+	}
+	e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 5000, 0)`, shop, store.FormatTime(now.Add(-time.Minute)))
+	e.addIncident(t, "now", shop, now.Add(-18*time.Minute), nil, false)
+	e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 20, 1)`, quiet, store.FormatTime(now.Add(-time.Minute)))
+
+	page := func(layout string) templates.PublicPage {
+		id := e.addPage(t, store.StatusPageInput{Slug: layout, Title: "H", Layout: layout, Monitors: []store.StatusPageMonitorInput{
+			{MonitorID: api, DisplayName: "API", ShowLatency: true, Sort: 1}, {MonitorID: shop, DisplayName: "Shop", ShowLatency: true, Sort: 2},
+			{MonitorID: quiet, DisplayName: "Quiet", Sort: 3}}})
+		p, err := store.GetStatusPage(ctx, e.db.Reader, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := NewPublic(e.db, "", nil, time.UTC, quietLoggerOnly()).build(ctx, p, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+
+	v := page("heartline")
+	rows := v.Groups[0].Rows
+	if rows[0].Pulse == nil || rows[1].Pulse == nil || rows[2].Pulse != nil {
+		t.Fatalf("pulses: %v %v %v", rows[0].Pulse != nil, rows[1].Pulse != nil, rows[2].Pulse != nil)
+	}
+	api24 := *rows[0].Pulse
+	if want := "Response over 24 hours: min 40 ms, median 58 ms, max 300 ms"; api24.Text != want {
+		t.Errorf("API pulse text %q, want %q", api24.Text, want)
+	}
+	// The 96 checks less the 8 of the gap, in two runs; the line ends at
+	// the last bucket's centre, where the dot sits; no tail.
+	if n := strings.Count(api24.Line, "L") + strings.Count(api24.Line, "M"); n != 88 || strings.Count(api24.Line, "M") != 2 || strings.Count(api24.Area, "Z") != 2 {
+		t.Errorf("API line has %d points in %d runs, area %d runs: %s", n, strings.Count(api24.Line, "M"), strings.Count(api24.Area, "Z"), api24.Line)
+	}
+	if !strings.HasPrefix(api24.End, "M955 ") || api24.Tail != "" {
+		t.Errorf("API end %q, tail %q", api24.End, api24.Tail)
+	}
+	shop24 := *rows[1].Pulse
+	if shop24.Tail != "M948 62H960" || shop24.End != "M960 62h0" || rows[1].DownSince != "13:52" || rows[0].DownSince != "" {
+		t.Errorf("Shop tail %q, end %q, down since %q (API %q)", shop24.Tail, shop24.End, rows[1].DownSince, rows[0].DownSince)
+	}
+	if want := "Response over 24 hours: min 60 ms, median 60 ms, max 60 ms"; shop24.Text != want {
+		t.Errorf("Shop pulse text %q, want %q", shop24.Text, want)
+	}
+	// The median is over the newest checks, leaving out the down service
+	// and the one without latency.
+	if v.MedianLatency != "80 ms" {
+		t.Errorf("median %q", v.MedianLatency)
+	}
+
+	v = page("sentence")
+	for _, r := range v.Groups[0].Rows {
+		if r.Pulse != nil {
+			t.Errorf("%s has a pulse in Sentence", r.Name)
+		}
+	}
+	if v.MedianLatency != "80 ms" {
+		t.Errorf("median %q", v.MedianLatency)
 	}
 }

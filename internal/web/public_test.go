@@ -437,3 +437,60 @@ func TestPublicPageLogbookLayout(t *testing.T) {
 		}
 	}
 }
+
+// A page set to the Heartline layout renders heartlinePage through the
+// handler: the live line, the headline, the figures, each shown service's
+// pulse from its checks (the down one with its tail and "no reply"), the
+// strip alone for a service without latency, and none of the private
+// details (scenario 17 of docs/20).
+func TestPublicPageHeartlineLayout(t *testing.T) {
+	e := newAppEnv(t)
+	db := e.addMonitor(t, privateName, "https://"+privateHost+":5432/health")
+	api := e.addMonitor(t, "api-internal", "http://"+privateIP+"/healthz")
+	queue := e.addMonitor(t, "queue-internal", "http://"+privateIP+"/queue")
+	e.exec(t, `UPDATE monitors SET current_state = 'up'`)
+	e.exec(t, `UPDATE monitors SET current_state = 'down' WHERE id = ?`, db)
+	now := time.Now()
+	for i := 0; i < 96; i++ {
+		e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, ?, 1)`, api, store.FormatTime(now.Add(-time.Duration(95-i)*15*time.Minute)), 80+i%7)
+	}
+	e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 87, 1)`, api, store.FormatTime(now))
+	e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 60, 1)`, db, store.FormatTime(now.Add(-2*time.Hour)))
+	e.addFailure(t, db, now.Add(-time.Minute), "connect", privateSummary, privateSnippet)
+	e.addIncident(t, "inc1", db, now.Add(-time.Hour), nil, false)
+	e.addPage(t, store.StatusPageInput{Slug: "main", Title: "Acme status", Layout: "heartline", Groups: []string{"Web"},
+		Monitors: []store.StatusPageMonitorInput{
+			{MonitorID: api, Group: "Web", DisplayName: "Public API", ShowLatency: true, Sort: 1},
+			{MonitorID: db, Group: "Web", DisplayName: "Database", ShowLatency: true, Sort: 2},
+			{MonitorID: queue, DisplayName: "Queue", Sort: 3},
+		}})
+	rec := e.serve(req("GET", "/status/main", nil))
+	if rec.Code != 200 {
+		t.Fatalf("GET /status/main = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`data-layout="heartline" data-overall="partial"`, `<section class="public-hero heartline-hero" data-state="down" aria-labelledby="overall">`,
+		`<span class="heartline-dot" aria-hidden="true"></span>Live · Updated <time`, `<h1 id="overall">Database is down</h1>`,
+		`<dl class="heartline-figures"><div><dt>Uptime, 90 days</dt><dd>`, `<div><dt>Response, median</dt><dd>87 ms</dd></div></dl>`,
+		`<section class="heartline-panel" aria-label="Web"><h2 class="heartline-panel-head">Web</h2>`,
+		`<li class="heartline-row" data-state="up" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Public API</p>`,
+		`role="img" aria-label="Response over 24 hours: min 80 ms, median 83 ms, max 87 ms">`, `<path class="pulse-area" d="M5 `, `<path class="pulse-line" d="M5 `,
+		`<p class="heartline-figure"><span class="heartline-ms">87 ms</span><small>last check</small></p>`,
+		`<li class="heartline-row" data-state="down" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Database</p><p class="heartline-row-state"><span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span> since `,
+		`<path class="pulse-tail" d="M920 62H960" vector-effect="non-scaling-stroke"></path> <path class="pulse-end" d="M960 62h0"`,
+		`<p class="heartline-figure"><span class="heartline-ms">no reply</span><small>last check</small></p>`,
+		`<section class="heartline-panel" aria-label="Services"><h2 class="heartline-panel-head">Services</h2><ul class="heartline-rows" role="list"><li class="heartline-row" data-state="up"><div class="heartline-row-id"><p class="heartline-row-name">Queue</p>`,
+		`<span class="heartline-incident-duration">down 1 h, ongoing</span>`, "css/public_heartline"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("heartline page lacks %s", want)
+		}
+	}
+	if n := strings.Count(body, `class="pulse"`); n != 2 {
+		t.Errorf("%d pulses", n)
+	}
+	for _, secret := range []string{privateName, privateHost, privateIP, privateSummary, privateSnippet, "api-internal", "queue-internal", "style="} {
+		if strings.Contains(body, secret) {
+			t.Errorf("heartline page shows %q", secret)
+		}
+	}
+}

@@ -62,8 +62,12 @@ type PublicPage struct {
 	// up, for the meta line ("4 of 5 services operational").
 	Services    int
 	Operational int
-	Groups      []PublicGroup
-	Incidents   []PublicIncident
+	// MedianLatency is the median of the last response times of the
+	// services that show latency and have replied ("71 ms"; Heartline's
+	// "Response, median"); "" without any.
+	MedianLatency string
+	Groups        []PublicGroup
+	Incidents     []PublicIncident
 	// LastIssue is the newest ended incident in words, "The last
 	// interruption was 3 days ago, 12 minutes on Web.", or "No
 	// interruptions in the last 30 days." without one.
@@ -117,6 +121,12 @@ type PublicRow struct {
 	// 90 days", "No downtime since 25 Oct", "Down now, for 18 min"; ""
 	// without any data.
 	Downtime string
+	// DownSince is the clock time the service's open incident began
+	// ("13:52"); "" while it is not down, or without an open incident.
+	DownSince string
+	// Pulse is the service's 24-hour response pulse (Heartline); nil when
+	// the page does not show its latency, or in another layout.
+	Pulse *Pulse
 
 	// Not shown in HTML; for api.json (internal/web/publicfeed.go).
 	Key        string // opaque, stable per page; not an id
@@ -160,6 +170,19 @@ type PublicDay struct {
 	// on Monday) and its weekday (Monday 1 … Sunday 7) on phones.
 	Month, Dom    int
 	Week, Weekday int
+}
+
+// Pulse is a service's response over the last 24 hours as SVG paths in a
+// fixed 960 × 64 viewBox (docs/04 "Response pulse"): 96 quarter-hour
+// buckets, each at its centre, the floor at y 62. Every field but Text may
+// be "": a service with no sample in the range has no line, one that is
+// up has no tail.
+type Pulse struct {
+	Line string // the line through the buckets' average response times, broken where a bucket has no sample
+	Area string // the area under the line, one subpath per run of buckets
+	Tail string // the floor from the moment the service went down to now, drawn dashed
+	End  string // the dot at the right end: a zero-length path with round caps
+	Text string // "Response over 24 hours: min 41 ms, median 70 ms, max 312 ms"
 }
 
 // PublicNote is a published manual note. Service is set for the note
@@ -250,8 +273,8 @@ const (
 )
 
 // builtLayouts are the layouts with a component of their own in
-// PublicStatusPage. SL-07 adds Heartline.
-var builtLayouts = map[string]bool{LayoutSignal: true, LayoutSentence: true, LayoutLogbook: true}
+// PublicStatusPage.
+var builtLayouts = map[string]bool{LayoutSignal: true, LayoutSentence: true, LayoutHeartline: true, LayoutLogbook: true}
 
 // publicLayout is the layout a page renders in: its own when that one is
 // built, Sentence otherwise, as for an unknown or empty layout (docs/12
@@ -565,4 +588,44 @@ func logbookTitle(in PublicIncident) string {
 		return in.Service + " is down"
 	}
 	return in.Service + " was down for " + in.Long
+}
+
+// Heartline (docs/12 "Heartline").
+
+// heartlineStateSuffix follows the state word on a Heartline row: " since
+// 13:52" while the service is down with an open incident; otherwise its
+// 90-day uptime, " · 99.98% in 90 days" or " · 100.00% since 25 Oct" for
+// a service monitored for less; "" without data.
+func heartlineStateSuffix(row PublicRow) string {
+	switch {
+	case row.State == StateDown && row.DownSince != "":
+		return " since " + row.DownSince
+	case row.Uptime == "" || row.Uptime == "—":
+		return ""
+	case row.Since != "":
+		return " · " + row.Uptime + " since " + strings.TrimPrefix(row.Since, "Monitoring since ")
+	}
+	return " · " + row.Uptime + " in 90 days"
+}
+
+// heartlineFigure is the current figure beside a pulse and the small line
+// under it: "no reply" while the service is down, the last check's time
+// ("71 ms"), or a dash for a service without a check yet.
+func heartlineFigure(row PublicRow) (figure, sub string) {
+	switch {
+	case row.State == StateDown:
+		return "no reply", "last check"
+	case row.Latency == "":
+		return "—", "no check yet"
+	}
+	return row.Latency, "last check"
+}
+
+// heartlineDuration is an incident's duration in Heartline's words: "down
+// 12 min, resolved" or "down 18 min, ongoing".
+func heartlineDuration(in PublicIncident) string {
+	if in.Active {
+		return "down " + in.Short + ", ongoing"
+	}
+	return "down " + in.Short + ", resolved"
 }

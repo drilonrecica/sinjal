@@ -587,3 +587,113 @@ func TestLogbookCalendarWords(t *testing.T) {
 		t.Error("a one-service page speaks of other services")
 	}
 }
+
+func heartlineCalm() PublicPage {
+	v := signalCalm()
+	v.Layout, v.MedianLatency = LayoutHeartline, "71 ms"
+	v.Groups[0].Rows[0].LatencyMS, v.Groups[0].Rows[0].HasLatency = 71, true
+	v.Groups[0].Rows[0].Pulse = &Pulse{Line: "M5 35.9L15 9.8L25 22.9", Area: "M5 62L5 35.9L15 9.8L25 22.9L25 62Z", End: "M25 22.9h0",
+		Text: "Response over 24 hours: min 40 ms, median 60 ms, max 80 ms"}
+	v.Groups[0].Rows[1].Since, v.Groups[0].Rows[1].SinceDay, v.Groups[0].Rows[1].Uptime = "Monitoring since 25 Oct", 88, "100.00%"
+	v.Groups[1].Rows[0].Uptime = "99.95%"
+	return v
+}
+
+// The Heartline layout (docs/12 "Heartline"), calm: the live dot and the
+// mono line, the headline, the page figures, the column legend, one panel
+// per group, each service with its name and state, its pulse as an SVG
+// image with its summary, the current figure and a thin strip (a service
+// without latency shows the strip alone), one axis, the incidents and the
+// footer.
+func TestHeartlinePageCalm(t *testing.T) {
+	v := heartlineCalm()
+	html := renderToString(t, PublicStatusPage(v, "daylight"))
+	for _, want := range []string{
+		`<div class="public-page" data-layout="heartline" data-overall="up">`,
+		`<section class="public-hero heartline-hero" data-state="up" aria-labelledby="overall"><div class="heartline-hero-text"><p class="heartline-live"><span class="heartline-dot" aria-hidden="true"></span>Live · Updated <time datetime="2026-10-26T00:57:00+01:00">00:57 CET</time></p><h1 id="overall">All systems operational</h1></div>`,
+		`<dl class="heartline-figures"><div><dt>Uptime, 90 days</dt><dd>99.91%</dd></div><div><dt>Response, median</dt><dd>71 ms</dd></div></dl>`,
+		`<p class="heartline-legend" aria-hidden="true"><span>Service</span><span><span>Response · 24 h ago</span><span>Now</span></span><span>Now</span></p>`,
+		`<section class="heartline-panel" aria-label="POS Kosova"><h2 class="heartline-panel-head">POS Kosova</h2><ul class="heartline-rows" role="list">`,
+		`<li class="heartline-row" data-state="up" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Scaneks.com</p><p class="heartline-row-state"><span class="status-text">Operational</span><span class="status-tag" aria-hidden="true">UP</span> · 99.70% in 90 days</p></div>`,
+		`<div class="pulse"><svg class="pulse-svg" viewBox="0 0 960 64" preserveAspectRatio="none" role="img" aria-label="Response over 24 hours: min 40 ms, median 60 ms, max 80 ms"><path class="pulse-area" d="M5 62L5 35.9L15 9.8L25 22.9L25 62Z"></path> <path class="pulse-line" d="M5 35.9L15 9.8L25 22.9" vector-effect="non-scaling-stroke"></path> <path class="pulse-end" d="M25 22.9h0" vector-effect="non-scaling-stroke"></path></svg> <span class="pulse-scan" aria-hidden="true"></span></div>`,
+		`<p class="heartline-figure"><span class="heartline-ms">71 ms</span><small>last check</small></p><ol class="day-bars" role="img"`,
+		// A service without latency: the strip alone, with "Monitoring since".
+		`<li class="heartline-row" data-state="flapping"><div class="heartline-row-id"><p class="heartline-row-name">Checkout</p><p class="heartline-row-state"><span class="status-text">Unstable</span><span class="status-tag" aria-hidden="true">FLAP</span> · 100.00% since 25 Oct</p></div><ol class="day-bars" role="img" aria-label=""><li class="day-bars-since">Monitoring since 25 Oct</li>`,
+		`<section class="heartline-panel" aria-label="Services"><h2 class="heartline-panel-head">Services</h2>`,
+		`<span class="status-text">Maintenance</span><span class="status-tag" aria-hidden="true">MAINT</span> · 99.95% in 90 days</p>`,
+		`<p class="public-axis" aria-hidden="true">`,
+		`<h2 id="incidents">Incidents</h2>`,
+		`<li class="heartline-incident"><p class="heartline-incident-when"><time datetime="2026-10-23T09:14:00+02:00">Fri 23 Oct 09:14</time></p><div class="heartline-incident-body"><p class="heartline-incident-head"><span class="heartline-incident-service">Scaneks.com</span> · <span class="heartline-incident-duration">down 12 min, resolved</span></p>`,
+		`<p class="public-note"><q>A slow database query blocked the shop. It is fixed.</q> <time datetime="2026-10-23T09:31:00+02:00">09:31 CET</time></p>`,
+		`<footer class="public-footer"><p>Times in CET. The page refreshes every minute.</p>`,
+		"css/public_heartline",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("page lacks %s", want)
+		}
+	}
+	// Heartline leaves out the downtime sentence and the calendar; one h1,
+	// one pulse, two strips; one tail-less pulse.
+	for _, leak := range []string{"Down 6 h 16 min", "No downtime", "cal-day", "signal-", "sentence-", "logbook-", "pulse-tail"} {
+		if strings.Contains(html, leak) {
+			t.Errorf("page shows %s", leak)
+		}
+	}
+	if strings.Count(html, "<h1") != 1 || strings.Count(html, `class="pulse"`) != 1 || strings.Count(html, `class="day-bars"`) != 3 || strings.Count(html, "<h2") != 3 {
+		t.Errorf("%d h1, %d pulses, %d strips, %d h2", strings.Count(html, "<h1"), strings.Count(html, `class="pulse"`), strings.Count(html, `class="day-bars"`), strings.Count(html, "<h2"))
+	}
+	// Without a median (no service shows latency) the figure is left out; a
+	// service that shows latency but has no check yet says so.
+	v.MedianLatency, v.Groups[0].Rows[0].Latency, v.Groups[0].Rows[0].HasLatency = "", "", false
+	v.Groups[0].Rows[0].Pulse = &Pulse{Text: "No response data in the last 24 hours."}
+	html = renderToString(t, PublicStatusPage(v, "terminal"))
+	if strings.Contains(html, "Response, median") || !strings.Contains(html, `<dl class="heartline-figures"><div><dt>Uptime, 90 days</dt><dd>99.91%</dd></div></dl>`) ||
+		!strings.Contains(html, `<svg class="pulse-svg" viewBox="0 0 960 64" preserveAspectRatio="none" role="img" aria-label="No response data in the last 24 hours."></svg>`) ||
+		!strings.Contains(html, `<p class="heartline-figure"><span class="heartline-ms">—</span><small>no check yet</small></p>`) {
+		t.Errorf("page without latency:\n%s", html)
+	}
+}
+
+// Heartline during an outage: a red live dot (by data-state), the down
+// service as headline, the note as a band, the down row with "Down since
+// 13:52", its pulse broken off into the dashed tail, "no reply" as its
+// figure, and the ongoing incident first with its duration.
+func TestHeartlinePageOutage(t *testing.T) {
+	v := heartlineCalm()
+	v.HeroState = StateDown
+	v.Overall, v.OverallText, v.Names, v.Verb, v.DownFor, v.DownSince, v.Operational = OverallPartial, "Partial outage", "Scaneks.com", "is down", "18 minutes", "13:52", 3
+	v.Generated, v.GeneratedAt, v.MedianLatency = "14:10 CET", "2026-10-26T14:10:00+01:00", ""
+	v.Note = &PublicNote{Service: "Scaneks.com", Message: "Our hosting provider has network trouble.", Time: "14:05 CET", At: "2026-10-26T14:05:00+01:00"}
+	row := &v.Groups[0].Rows[0]
+	row.State, row.DownSince, row.Latency = StateDown, "13:52", "5000 ms"
+	row.Pulse = &Pulse{Line: "M5 35.9L15 9.8", Area: "M5 62L5 35.9L15 9.8L15 62Z", Tail: "M948 62H960", End: "M960 62h0",
+		Text: "Response over 24 hours: min 40 ms, median 60 ms, max 80 ms"}
+	v.Incidents = append([]PublicIncident{{Service: "Scaneks.com", Active: true, Date: "Today", Time: "13:52", StartedAt: "2026-10-26T13:52:00+01:00", Long: "18 minutes", Short: "18 min", Duration: "18m",
+		Notes: []PublicNote{{Message: "Our hosting provider has network trouble.", Time: "14:05 CET", At: "2026-10-26T14:05:00+01:00"}}}}, v.Incidents...)
+	html := renderToString(t, PublicStatusPage(v, "stark"))
+	for _, want := range []string{
+		`<div class="public-page" data-layout="heartline" data-overall="partial">`,
+		`<section class="public-hero heartline-hero" data-state="down" aria-labelledby="overall">`,
+		`Live · Updated <time datetime="2026-10-26T14:10:00+01:00">14:10 CET</time></p><h1 id="overall">Scaneks.com is down</h1>`,
+		`<blockquote class="public-hero-note"><p>Our hosting provider has network trouble.</p><p class="public-hero-note-meta">Update at <time datetime="2026-10-26T14:05:00+01:00">14:05 CET</time> · Scaneks.com</p></blockquote>`,
+		`<li class="heartline-row" data-state="down" data-pulse><div class="heartline-row-id"><p class="heartline-row-name">Scaneks.com</p><p class="heartline-row-state"><span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span> since 13:52</p></div>`,
+		`<path class="pulse-line" d="M5 35.9L15 9.8" vector-effect="non-scaling-stroke"></path> <path class="pulse-tail" d="M948 62H960" vector-effect="non-scaling-stroke"></path> <path class="pulse-end" d="M960 62h0" vector-effect="non-scaling-stroke"></path>`,
+		`<p class="heartline-figure"><span class="heartline-ms">no reply</span><small>last check</small></p>`,
+		`<li class="heartline-incident" data-active><p class="heartline-incident-when"><time datetime="2026-10-26T13:52:00+01:00">Today 13:52</time></p>`,
+		`<span class="heartline-incident-service">Scaneks.com</span> · <span class="heartline-incident-duration">down 18 min, ongoing</span></p>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("outage page lacks %s", want)
+		}
+	}
+	if strings.Contains(html, "5000 ms") || strings.Contains(html, "Response, median") {
+		t.Error("a down row shows its latency, or the page a median")
+	}
+	// Nothing monitored: the headline, the time, and no figures or legend.
+	v.Overall, v.Names, v.Verb, v.Services, v.Operational, v.Groups, v.Note, v.Uptime = OverallNone, "", "", 0, 0, nil, nil, "—"
+	html = renderToString(t, PublicStatusPage(v, "daylight"))
+	if !strings.Contains(html, `<h1 id="overall">No services are monitored</h1>`) || strings.Contains(html, "heartline-figures") ||
+		strings.Contains(html, "heartline-legend") || strings.Contains(html, "public-axis") {
+		t.Errorf("none:\n%s", html)
+	}
+}

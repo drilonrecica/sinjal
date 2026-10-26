@@ -53,6 +53,8 @@ templ PublicStatusPage(v PublicPage, theme string) {
 				@signalPage(v)
 			case LayoutSentence:
 				@sentencePage(v)
+			case LayoutHeartline:
+				@heartlinePage(v)
 			case LayoutLogbook:
 				@logbookPage(v)
 		}
@@ -420,6 +422,126 @@ templ logbookEntry(in PublicIncident) {
 		} else {
 			@publicNotes(in.Notes)
 		}
+	</li>
+}
+
+// heartlinePage is the Heartline layout (docs/12 "Heartline"): how each
+// service is responding now. data-state on the hero colours the Ambient
+// light and the live dot (public_heartline.css). It leaves out the
+// calendar and the downtime sentence; the pulse carries the last 24 hours.
+templ heartlinePage(v PublicPage) {
+	<div class="public-page" data-layout="heartline" data-overall={ v.Overall }>
+		@publicHeader(v)
+		<main>
+			<section class="public-hero heartline-hero" data-state={ v.HeroState } aria-labelledby="overall">
+				<div class="heartline-hero-text">
+					<p class="heartline-live"><span class="heartline-dot" aria-hidden="true"></span>Live · Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time></p>
+					<h1 id="overall">{ signalHeadline(v) }</h1>
+				</div>
+				if v.Overall != OverallNone {
+					<dl class="heartline-figures">
+						<div><dt>Uptime, 90 days</dt><dd>{ v.Uptime }</dd></div>
+						if v.MedianLatency != "" {
+							<div><dt>Response, median</dt><dd>{ v.MedianLatency }</dd></div>
+						}
+					</dl>
+				}
+			</section>
+			if v.Note != nil {
+				@publicNote(*v.Note)
+			}
+			if len(v.Groups) > 0 {
+				<p class="heartline-legend" aria-hidden="true"><span>Service</span><span><span>Response · 24 h ago</span><span>Now</span></span><span>Now</span></p>
+				for _, g := range v.Groups {
+					@heartlinePanel(g)
+				}
+				@publicAxis()
+			}
+			<section class="heartline-incidents" aria-labelledby="incidents">
+				<h2 id="incidents">Incidents</h2>
+				if len(v.Incidents) == 0 {
+					<p class="public-quiet">No incidents in the last { pluralDays(v.IncidentDays) }.</p>
+				} else {
+					<ol class="heartline-incident-list" role="list">
+						for _, in := range v.Incidents {
+							@heartlineIncident(in)
+						}
+					</ol>
+				}
+			</section>
+		</main>
+		@publicFooter(v)
+	</div>
+}
+
+// heartlinePanel is a group as a panel: its name in the head, then one
+// row per service.
+templ heartlinePanel(g PublicGroup) {
+	<section class="heartline-panel" aria-label={ groupLabel(g) }>
+		<h2 class="heartline-panel-head">{ groupLabel(g) }</h2>
+		<ul class="heartline-rows" role="list">
+			for _, row := range g.Rows {
+				@heartlineRow(row)
+			}
+		</ul>
+	</section>
+}
+
+// heartlineRow is one service: its name and state ("Operational · 99.98%
+// in 90 days", "Down since 13:52"), then, where the page shows its
+// latency, the pulse and the current figure ("71 ms", "no reply"), and
+// under them the thin 90-day strip. Without latency the strip stands in
+// the pulse's place at full height (data-pulse is absent).
+templ heartlineRow(row PublicRow) {
+	<li class="heartline-row" data-state={ row.State } data-pulse?={ row.Pulse != nil }>
+		<div class="heartline-row-id">
+			<p class="heartline-row-name">{ row.Name }</p>
+			<p class="heartline-row-state"><span class="status-text">{ publicStateLabel(row.State) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(row.State) }</span>{ heartlineStateSuffix(row) }</p>
+		</div>
+		if row.Pulse != nil {
+			{{ figure, sub := heartlineFigure(row) }}
+			@pulse(*row.Pulse)
+			<p class="heartline-figure"><span class="heartline-ms">{ figure }</span><small>{ sub }</small></p>
+		}
+		@PublicDayBars(row)
+	</li>
+}
+
+// pulse is a service's 24-hour response pulse (docs/04 "Response
+// pulse"): an SVG image with its summary as label, in a fixed viewBox that
+// stretches to its box while the strokes keep their width; the area, the
+// line, the dashed tail while down and the dot at the end. The scan line
+// that sweeps over it is a span the stylesheet moves.
+templ pulse(p Pulse) {
+	<div class="pulse">
+		<svg class="pulse-svg" viewBox="0 0 960 64" preserveAspectRatio="none" role="img" aria-label={ p.Text }>
+			if p.Area != "" {
+				<path class="pulse-area" d={ p.Area }></path>
+			}
+			if p.Line != "" {
+				<path class="pulse-line" d={ p.Line } vector-effect="non-scaling-stroke"></path>
+			}
+			if p.Tail != "" {
+				<path class="pulse-tail" d={ p.Tail } vector-effect="non-scaling-stroke"></path>
+			}
+			if p.End != "" {
+				<path class="pulse-end" d={ p.End } vector-effect="non-scaling-stroke"></path>
+			}
+		</svg>
+		<span class="pulse-scan" aria-hidden="true"></span>
+	</div>
+}
+
+// heartlineIncident is one listed incident: its day and time in mono, the
+// service with "down 12 min, resolved" or "down 18 min, ongoing", and its
+// notes.
+templ heartlineIncident(in PublicIncident) {
+	<li class="heartline-incident" data-active?={ in.Active }>
+		<p class="heartline-incident-when"><time datetime={ in.StartedAt }>{ in.Date } { in.Time }</time></p>
+		<div class="heartline-incident-body">
+			<p class="heartline-incident-head"><span class="heartline-incident-service">{ in.Service }</span> · <span class="heartline-incident-duration">{ heartlineDuration(in) }</span></p>
+			@publicNotes(in.Notes)
+		</div>
 	</li>
 }
 
