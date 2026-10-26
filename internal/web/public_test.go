@@ -390,3 +390,50 @@ func TestPublicPageSignalLayout(t *testing.T) {
 		}
 	}
 }
+
+// A page set to the Logbook layout renders logbookPage through the
+// handler: the disc, the calendar with today's incident day as a link to
+// its panel, the services list with the latency where shown, the
+// timeline, and none of the private details (scenario 17 of docs/20).
+func TestPublicPageLogbookLayout(t *testing.T) {
+	e := newAppEnv(t)
+	db := e.addMonitor(t, privateName, "https://"+privateHost+":5432/health")
+	api := e.addMonitor(t, "api-internal", "http://"+privateIP+"/healthz")
+	e.exec(t, `UPDATE monitors SET current_state = 'up'`)
+	e.exec(t, `UPDATE monitors SET current_state = 'down' WHERE id = ?`, db)
+	e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 87, 1)`, api, store.FormatTime(time.Now()))
+	e.addFailure(t, db, time.Now().Add(-time.Minute), "connect", privateSummary, privateSnippet)
+	e.addIncident(t, "inc1", db, time.Now().Add(-time.Hour), nil, false)
+	e.addPage(t, store.StatusPageInput{Slug: "main", Title: "Acme status", Layout: "logbook", Groups: []string{"Web"},
+		Monitors: []store.StatusPageMonitorInput{
+			{MonitorID: api, Group: "Web", DisplayName: "Public API", ShowLatency: true, Sort: 1},
+			{MonitorID: db, Group: "Web", DisplayName: "Database", ShowLatency: true, Sort: 2},
+		}})
+	rec := e.serve(req("GET", "/status/main", nil))
+	if rec.Code != 200 {
+		t.Fatalf("GET /status/main = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	today := time.Now().UTC().Format("2006-01-02")
+	for _, want := range []string{`data-layout="logbook" data-overall="partial"`, `<span class="logbook-disc" aria-hidden="true"><svg class="icon icon-octagon-x"`,
+		`<h1 id="overall">Database is down</h1>`, `<p class="logbook-sub">Since `, `, 1 hour so far. The other service is working. Updated <time`,
+		`<h2 id="calendar">The last 90 days, all services</h2>`, `<a class="cal-day" id="day-` + today + `" href="#day-` + today + `"`, `data-today data-newest title="`,
+		`<section class="cal-panel" data-newest aria-labelledby="day-` + today + `-title"><h3 id="day-` + today + `-title">Today, `,
+		`<p class="public-incident-text">Database has been down since <time`, `<p class="cal-panel-rest">Every other service had no issues.</p>`,
+		`<span>Public API</span> <span class="logbook-service-group">Web</span></p><p class="logbook-service-state"><span class="status-text">Operational</span>`,
+		`<p class="logbook-service-latency">87 ms</p>`, `<p class="logbook-service-latency">no reply</p>`,
+		`<li class="logbook-entry" data-active><p class="logbook-entry-when"><time datetime="`, `· since `, `<p class="logbook-entry-title">Database is down</p><p class="public-note logbook-no-note">No note was published.</p>`,
+		"css/public_logbook"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("logbook page lacks %s", want)
+		}
+	}
+	if n := strings.Count(body, `class="cal-day"`); n < 90 {
+		t.Errorf("%d calendar cells", n)
+	}
+	for _, secret := range []string{privateName, privateHost, privateIP, privateSummary, privateSnippet, "api-internal"} {
+		if strings.Contains(body, secret) {
+			t.Errorf("logbook page shows %q", secret)
+		}
+	}
+}

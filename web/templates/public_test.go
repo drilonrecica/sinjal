@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // publicSheet finds the public stylesheets by name, without their hash.
@@ -364,5 +365,225 @@ func TestSignalGroupSummary(t *testing.T) {
 		if text, state := signalGroupSummary(tt.g); text != tt.text || state != tt.state {
 			t.Errorf("%v: %q %q, want %q %q", tt.g, text, state, tt.text, tt.state)
 		}
+	}
+}
+
+// testCalendar is a page's calendar from Wed 29 Jul to Mon 26 Oct 2026,
+// placed as internal/web places it: every day up but those in classes,
+// with the incidents (indexes into the page's) on their days, and the
+// month and week labels and the rest of October.
+func testCalendar(classes map[int]string, incidents map[int][]int) (days []PublicDay, months, weeks []string, upcoming []PublicDay) {
+	first := time.Date(2026, 7, 29, 0, 0, 0, 0, time.UTC)
+	place := func(i int) PublicDay {
+		t := first.AddDate(0, 0, i)
+		wd := int(t.Weekday())
+		if wd == 0 {
+			wd = 7
+		}
+		return PublicDay{Date: t.Format("2006-01-02"), Label: t.Format("Mon 2 Jan"), Long: t.Format("Monday 2 January"),
+			Month: int(t.Month()) - int(first.Month()), Dom: t.Day(), Week: (i + 2) / 7, Weekday: wd}
+	}
+	for i := 0; i < 90; i++ {
+		d := place(i)
+		d.Class, d.Incidents, d.OthersFine = DayUp, incidents[i], true
+		if c, ok := classes[i]; ok {
+			d.Class = c
+		}
+		if i == 89 {
+			d.Long = "Today, " + d.Long
+		}
+		if d.Month == len(months) {
+			months = append(months, first.AddDate(0, 0, i).Format("Jan"))
+		}
+		if d.Week == len(weeks) {
+			weeks = append(weeks, first.AddDate(0, 0, i).Format("2 Jan"))
+		}
+		days = append(days, d)
+	}
+	for i := 90; i < 95; i++ {
+		upcoming = append(upcoming, place(i))
+	}
+	return days, months, weeks, upcoming
+}
+
+// logbookCalm is sentenceCalm as a Logbook page: a second, note-less
+// incident on 7 Oct, and the calendar with both incident days.
+func logbookCalm() PublicPage {
+	v := signalCalm()
+	v.Layout = LayoutLogbook
+	v.Incidents = append(v.Incidents, PublicIncident{Service: "POS Kosova", Date: "Wed 7 Oct", Time: "22:40", EndTime: "22:49",
+		StartedAt: "2026-10-07T22:40:00+02:00", EndedAt: "2026-10-07T22:49:00+02:00", Long: "9 minutes", Short: "9 min", Duration: "9m"})
+	v.Incidents[0].EndTime, v.Incidents[0].EndedAt = "09:26", "2026-10-23T09:26:00+02:00"
+	v.Groups[0].Rows[1].Since, v.Groups[0].Rows[1].SinceDay, v.Groups[0].Rows[1].Uptime, v.Groups[0].Rows[1].Downtime = "Monitoring since 25 Oct", 88, "100.00%", "No downtime since 25 Oct"
+	v.Groups[1].Rows[0].Uptime = "99.95%"
+	v.Calendar, v.CalendarMonths, v.CalendarWeeks, v.CalendarUpcoming = testCalendar(
+		map[int]string{70: DayPartial, 86: DayPartial, 40: DayMaintenance, 2: DayNoData}, map[int][]int{70: {1}, 86: {0}})
+	return v
+}
+
+// The Logbook layout (docs/12 "Logbook"), calm: the disc with the check
+// glyph, the headline with LastIssue and the time under it; the calendar
+// card with its legend, every day placed in both grids with its words,
+// incident days as links to their panels, the newest open by default,
+// today ringed and the rest of the month dashed; the services as a
+// compact list; and the logbook as a timeline, with "No note was
+// published." where an incident has none.
+func TestLogbookPageCalm(t *testing.T) {
+	v := logbookCalm()
+	html := renderToString(t, PublicStatusPage(v, "daylight"))
+	for _, want := range []string{
+		`<div class="public-page" data-layout="logbook" data-overall="up">`,
+		`<section class="logbook-hero" aria-labelledby="overall"><span class="logbook-disc" aria-hidden="true"><svg class="icon icon-check"`,
+		`<h1 id="overall">All systems operational</h1>`,
+		`<p class="logbook-sub">The last interruption was 3 days ago, 12 minutes on Scaneks.com. Updated <time datetime="2026-10-26T00:57:00+01:00">00:57 CET</time>.</p>`,
+		`<h2 id="calendar">The last 90 days, all services</h2>`,
+		`<li><span class="cal-swatch" data-day="up"></span>No issues</li><li><span class="cal-swatch" data-day="partial"></span>Some downtime</li><li><span class="cal-swatch" data-day="down"></span>Outage</li><li><span class="cal-swatch" data-day="maint"></span>Maintenance</li><li><span class="cal-swatch" data-day="none"></span>No data</li>`,
+		// The day-number header, the weekday header and both row labels.
+		`<span class="cal-dom" data-d="1" aria-hidden="true">1</span> <span class="cal-dom" data-d="5" aria-hidden="true">5</span>`,
+		`<span class="cal-dom" data-d="30" aria-hidden="true">30</span> <span class="cal-wd" data-wd="1" aria-hidden="true">Mon</span>`,
+		`<span class="cal-wd" data-wd="7" aria-hidden="true">Sun</span> <span class="cal-month" data-m="0" aria-hidden="true">Jul</span>`,
+		`<span class="cal-month" data-m="3" aria-hidden="true">Oct</span> <span class="cal-week" data-w="0" aria-hidden="true">29 Jul</span>`,
+		`<span class="cal-week" data-w="13" aria-hidden="true">26 Oct</span>`,
+		// Cells: a plain day, a no-data day, a maintenance day.
+		`<span class="cal-day" data-day="up" data-m="0" data-d="29" data-w="0" data-wd="3" title="Wed 29 Jul: no issues"><span class="visually-hidden">Wed 29 Jul: no issues</span></span>`,
+		`<span class="cal-day" data-day="none" data-m="0" data-d="31" data-w="0" data-wd="5" title="Fri 31 Jul: no data">`,
+		`<span class="cal-day" data-day="maint" data-m="2" data-d="7" data-w="6" data-wd="1" title="Mon 7 Sep: maintenance">`,
+		// An incident day is a link to itself, followed by its panel; the
+		// newest is marked so it shows without a target.
+		`<a class="cal-day" id="day-2026-10-07" href="#day-2026-10-07" data-day="partial" data-m="3" data-d="7" data-w="10" data-wd="3" title="Wed 7 Oct: some downtime, 1 incident"><span class="visually-hidden">Wed 7 Oct: some downtime, 1 incident</span></a><section class="cal-panel" aria-labelledby="day-2026-10-07-title">`,
+		`<a class="cal-day" id="day-2026-10-23" href="#day-2026-10-23" data-day="partial" data-m="3" data-d="23" data-w="12" data-wd="5" data-newest title="Fri 23 Oct: some downtime, 1 incident">`,
+		`<section class="cal-panel" data-newest aria-labelledby="day-2026-10-23-title"><h3 id="day-2026-10-23-title">Friday 23 October</h3>`,
+		`<p class="public-incident-text">Scaneks.com was down for 12 minutes, from <time datetime="2026-10-23T09:14:00+02:00">09:14</time>.</p>`,
+		`<q>A slow database query blocked the shop. It is fixed.</q> <time datetime="2026-10-23T09:31:00+02:00">09:31 CET</time>`,
+		`<p class="cal-panel-rest">Every other service had no issues.</p>`,
+		// Today, and the rest of the month dashed; the days after this week
+		// are marked so phones can leave them out.
+		`<span class="cal-day" data-day="up" data-m="3" data-d="26" data-w="13" data-wd="1" data-today title="Mon 26 Oct: no issues">`,
+		`<span class="cal-day" data-day="future" data-m="3" data-d="27" data-w="13" data-wd="2" title="Tue 27 Oct: still to come"><span class="visually-hidden">Tue 27 Oct: still to come</span></span>`,
+		`<span class="cal-day" data-day="future" data-m="3" data-d="31" data-w="13" data-wd="6" title="Sat 31 Oct: still to come">`,
+		// Services: dot, name, group, state, figure and latency.
+		`<h2 id="services">Services</h2>`,
+		`<li class="logbook-service" data-state="up"><p class="logbook-service-name"><span class="logbook-dot"></span><span>Scaneks.com</span> <span class="logbook-service-group">POS Kosova</span></p>`,
+		`<p class="logbook-service-state"><span class="status-text">Operational</span><span class="status-tag" aria-hidden="true">UP</span></p><p class="logbook-service-uptime">99.70% · 90 days</p><p class="logbook-service-latency">71 ms</p>`,
+		`<p class="logbook-service-uptime">Since 25 Oct, 100.00%</p>`,
+		`<li class="logbook-service" data-state="maintenance"><p class="logbook-service-name"><span class="logbook-dot"></span><span>Recica.dev</span> <span class="logbook-service-group"></span></p>`,
+		// The logbook: when, the sentence and the notes.
+		`<h2 id="logbook">Logbook</h2>`,
+		`<li class="logbook-entry"><p class="logbook-entry-when"><time datetime="2026-10-23T09:14:00+02:00">Fri 23 Oct · 09:14 to 09:26</time></p><p class="logbook-entry-title">Scaneks.com was down for 12 minutes</p>`,
+		`<p class="logbook-entry-title">POS Kosova was down for 9 minutes</p><p class="public-note logbook-no-note">No note was published.</p>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("page lacks %s", want)
+		}
+	}
+	// Logbook leaves out the strips, the axis and the downtime sentence.
+	for _, leak := range []string{"day-bars", "public-axis", "Monitoring since", "Down 6 h 16 min", "No downtime", "signal-", "sentence-"} {
+		if strings.Contains(html, leak) {
+			t.Errorf("page shows %s", leak)
+		}
+	}
+	// 90 days and 5 to come; one h1, three h2, one h3 per incident day;
+	// the panel of the newest day marked once.
+	if n := strings.Count(html, `class="cal-day"`); n != 95 {
+		t.Errorf("%d cells", n)
+	}
+	if strings.Count(html, "<h1") != 1 || strings.Count(html, "<h2") != 3 || strings.Count(html, "<h3") != 2 || strings.Count(html, "data-newest") != 2 || strings.Count(html, "data-later") != 0 {
+		t.Errorf("%d h1, %d h2, %d h3, %d newest, %d later", strings.Count(html, "<h1"), strings.Count(html, "<h2"), strings.Count(html, "<h3"), strings.Count(html, "data-newest"), strings.Count(html, "data-later"))
+	}
+	// Without incidents: no links, no panels, the quiet line.
+	v.Incidents, v.Groups[0].Rows[0].Latency = nil, ""
+	for i := range v.Calendar {
+		v.Calendar[i].Incidents = nil
+	}
+	html = renderToString(t, PublicStatusPage(v, "terminal"))
+	if strings.Contains(html, `<a class="cal-day"`) || strings.Contains(html, "cal-panel") || !strings.Contains(html, `<p class="public-quiet">No incidents in the last 30 days.</p>`) ||
+		strings.Contains(html, "logbook-service-latency") {
+		t.Errorf("quiet page:\n%s", html)
+	}
+}
+
+// Logbook during an outage: the disc with the x glyph, "Since 13:52, 18
+// minutes so far. The other 4 services are working.", today in the outage
+// class, a link and opened, the down service with "no reply", and the
+// ongoing entry first in the logbook with "Today · since 13:52".
+func TestLogbookPageOutage(t *testing.T) {
+	v := logbookCalm()
+	v.Overall, v.OverallText, v.Names, v.Verb, v.DownFor, v.DownSince, v.Operational = OverallPartial, "Partial outage", "Scaneks.com", "is down", "18 minutes", "13:52", 4
+	v.Generated, v.GeneratedAt = "14:10 CET", "2026-10-26T14:10:00+01:00"
+	v.Note = &PublicNote{Service: "Scaneks.com", Message: "Our hosting provider has network trouble.", Time: "14:05 CET", At: "2026-10-26T14:05:00+01:00"}
+	v.Groups[0].Rows[0].State = StateDown
+	// The ongoing incident is listed after a newer resolved one, so the
+	// logbook has to put it first itself.
+	v.Incidents = append(v.Incidents, PublicIncident{Service: "Scaneks.com", Active: true, Date: "Today", Time: "13:52", StartedAt: "2026-10-26T13:52:00+01:00", Long: "18 minutes", Short: "18 min", Duration: "18m",
+		Notes: []PublicNote{{Message: "Our hosting provider has network trouble.", Time: "14:05 CET", At: "2026-10-26T14:05:00+01:00"}}})
+	v.Calendar[89].Class, v.Calendar[89].Incidents = DayDown, []int{2}
+	html := renderToString(t, PublicStatusPage(v, "stark"))
+	for _, want := range []string{
+		`<div class="public-page" data-layout="logbook" data-overall="partial">`,
+		`<span class="logbook-disc" aria-hidden="true"><svg class="icon icon-octagon-x"`,
+		`<h1 id="overall">Scaneks.com is down</h1>`,
+		`<p class="logbook-sub">Since 13:52, 18 minutes so far. The other 4 services are working. Updated <time datetime="2026-10-26T14:10:00+01:00">14:10 CET</time>.</p>`,
+		`<a class="cal-day" id="day-2026-10-26" href="#day-2026-10-26" data-day="down" data-m="3" data-d="26" data-w="13" data-wd="1" data-today data-newest title="Mon 26 Oct: outage, 1 incident">`,
+		`<section class="cal-panel" data-newest aria-labelledby="day-2026-10-26-title"><h3 id="day-2026-10-26-title">Today, Monday 26 October</h3>`,
+		`<p class="public-incident-text">Scaneks.com has been down since <time datetime="2026-10-26T13:52:00+01:00">13:52</time>.</p>`,
+		`<li class="logbook-service" data-state="down"><p class="logbook-service-name"><span class="logbook-dot"></span><span>Scaneks.com</span> <span class="logbook-service-group">POS Kosova</span></p><p class="logbook-service-state"><span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span></p><p class="logbook-service-uptime">99.70% · 90 days</p><p class="logbook-service-latency">no reply</p>`,
+		`<ol class="logbook-entries" role="list"><li class="logbook-entry" data-active><p class="logbook-entry-when"><time datetime="2026-10-26T13:52:00+01:00">Today · since 13:52</time></p><p class="logbook-entry-title">Scaneks.com is down</p><p class="public-note"><q>Our hosting provider has network trouble.</q>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("outage page lacks %s", want)
+		}
+	}
+	// The 23 Oct panel is no longer the default one.
+	if strings.Count(html, "data-newest") != 2 || strings.Contains(html, `data-wd="5" data-newest`) || strings.Contains(html, "The last interruption") || strings.Contains(html, "public-hero-note") {
+		t.Errorf("outage page:\n%s", html)
+	}
+	// Every service down: no "other services" line; degraded and
+	// maintenance say the rest is working; nothing monitored says only
+	// when.
+	v.Overall, v.Names, v.Verb, v.Operational = OverallMajor, "Scaneks.com, Checkout and Recica.dev", "are down", 0
+	if html := renderToString(t, PublicStatusPage(v, "daylight")); !strings.Contains(html, `<p class="logbook-sub">Since 13:52, 18 minutes so far. Updated <time`) {
+		t.Errorf("major:\n%s", html)
+	}
+	v.Overall, v.Names, v.Verb, v.DownFor, v.DownSince, v.Operational = OverallDegraded, "Checkout", "is unstable", "", "", 4
+	if html := renderToString(t, PublicStatusPage(v, "daylight")); !strings.Contains(html, `icon-triangle-alert`) || !strings.Contains(html, `<h1 id="overall">Checkout is unstable</h1>`) ||
+		!strings.Contains(html, `<p class="logbook-sub">The other 4 services are working. Updated <time`) {
+		t.Errorf("degraded:\n%s", html)
+	}
+	v.Operational = 1
+	if html := renderToString(t, PublicStatusPage(v, "daylight")); !strings.Contains(html, `<p class="logbook-sub">The other service is working. Updated <time`) {
+		t.Errorf("one other:\n%s", html)
+	}
+	v.Overall, v.Names, v.Verb, v.Services, v.Operational, v.Groups, v.Note = OverallNone, "", "", 0, 0, nil, nil
+	if html := renderToString(t, PublicStatusPage(v, "terminal")); !strings.Contains(html, `icon-circle-dashed`) || !strings.Contains(html, `<h1 id="overall">No services are monitored</h1>`) ||
+		!strings.Contains(html, `<p class="logbook-sub">Updated <time datetime="2026-10-26T14:10:00+01:00">14:10 CET</time>.</p>`) || strings.Contains(html, "logbook-service") {
+		t.Errorf("none:\n%s", html)
+	}
+}
+
+// The calendar's words for a day, and the cells after this week marked
+// for phones; a day whose incidents are not all listed does not claim
+// the others were fine.
+func TestLogbookCalendarWords(t *testing.T) {
+	v := logbookCalm()
+	v.Calendar[86].Incidents, v.Calendar[86].OthersFine = []int{0, 1}, false
+	v.Calendar[70].OthersFine = false
+	v.CalendarUpcoming = append(v.CalendarUpcoming, PublicDay{Date: "2026-11-02", Label: "Mon 2 Nov", Month: 4, Dom: 2, Week: 14, Weekday: 1})
+	html := renderToString(t, PublicStatusPage(v, "daylight"))
+	for _, want := range []string{
+		`title="Fri 23 Oct: some downtime, 2 incidents"`,
+		`<span class="cal-day" data-day="future" data-m="4" data-d="2" data-w="14" data-wd="1" data-later title="Mon 2 Nov: still to come">`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("page lacks %s", want)
+		}
+	}
+	if strings.Contains(html, "Every other service") {
+		t.Error("the panel claims the other services were fine")
+	}
+	// A single-service page never speaks of other services.
+	v = logbookCalm()
+	v.Services = 1
+	if html := renderToString(t, PublicStatusPage(v, "daylight")); strings.Contains(html, "Every other service") {
+		t.Error("a one-service page speaks of other services")
 	}
 }

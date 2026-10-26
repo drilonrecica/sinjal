@@ -18,6 +18,7 @@ var colorTokens = []string{
 	"status-up", "status-warning", "status-down", "status-paused", "status-pending", "status-flapping",
 	"chart-grid", "chart-line", "chart-outage", "chart-maintenance",
 	"on-status", "beat-up", "beat-down", "beat-none", "ambient-up", "ambient-down", "ambient-flapping",
+	"calendar-up",
 }
 var otherTokens = []string{"shadow-1", "shadow-2", "radius-sm", "radius-md", "radius-lg"}
 
@@ -167,6 +168,12 @@ func TestThemeContrast(t *testing.T) {
 		for _, b := range []string{"beat-up", "beat-down"} {
 			check(b, "surface-1", 3)
 			check(b, "surface-2", 3)
+		}
+		// Logbook's calendar cells on their card (docs/04 "Calendar"): the
+		// quiet green, and the warning, down and maintenance colours that
+		// the other classes use.
+		for _, c := range []string{"calendar-up", "status-warning", "status-down", "chart-maintenance"} {
+			check(c, "surface-1", 3)
 		}
 		// Decorative separators only need to be visible, not strong.
 		check("border", "bg", 1.15)

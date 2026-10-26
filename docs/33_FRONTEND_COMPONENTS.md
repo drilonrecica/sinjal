@@ -143,6 +143,11 @@ Built (SL-05, Signal):
 - An incident's notes moved into `publicNotes`, shared by `publicIncident` (Sentence) and `signalIncident`. `PublicIncident.Short` ("12 min") joins `Long` and `Duration`.
 - `css/public_signal.css` (2.7 KB gzip): `--lamp` from `data-overall`, the lamp's gradients and breathing with its reduced-motion rest, the note card, the group heads, the two-column cards (one on phones), the incident rows, the Terminal block and box rules.
 
+Built (SL-06, Logbook):
+- `logbookPage` is layout D (`12_STATUS_PAGES.md` "Logbook", built notes there): `logbookCalendar` (the one grid placed by attributes, with `logbookDayPanel` after each incident day's link), `logbookService` and `logbookEntry`. The incident sentence of `publicIncident` moved into `publicIncidentSentence`, shared with the day panels.
+- The view gained `DownSince`, `CalendarMonths`, `CalendarWeeks` and `CalendarUpcoming` on the page, `EndTime` on an incident, and `Long`, `OthersFine`, `Month`, `Dom`, `Week` and `Weekday` on a calendar day; `calendarOf` fills them from the rows and incidents the build already has.
+- `css/public_logbook.css` (3.6 KB gzip): `--disc` from `data-overall`, the two calendar grids (the weekly one below 60rem), the cell classes, rings and `:target` panel, the services list and the timeline. A new token, `--calendar-up`.
+
 ## JavaScript responsibilities
 
 Allowed:

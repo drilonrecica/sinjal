@@ -183,13 +183,13 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	var ungrouped []templates.PublicRow
 	var total incident.Ratio
 	states := map[string]int{}
-	strips := make([][]templates.Day, 0, len(p.Monitors))
+	rows := make([]templates.PublicRow, 0, len(p.Monitors))
 	for _, pm := range p.Monitors {
 		row, adjusted, err := h.row(ctx, p.ID, pm, days, now)
 		if err != nil {
 			return v, err
 		}
-		strips = append(strips, row.Days)
+		rows = append(rows, row)
 		total.Up += adjusted.Up
 		total.Den += adjusted.Den
 		states[row.State]++
@@ -231,7 +231,7 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 			Date: dateText(in.StartedAt, now, h.loc), Time: in.StartedAt.In(h.loc).Format("15:04"), StartedAt: rfc3339(in.StartedAt),
 			Long: longDuration(end.Sub(in.StartedAt)), Short: shortDuration(end.Sub(in.StartedAt)), Duration: formatSince(end.Sub(in.StartedAt))}
 		if in.EndedAt != nil {
-			pi.EndedAt = rfc3339(*in.EndedAt)
+			pi.EndedAt, pi.EndTime = rfc3339(*in.EndedAt), in.EndedAt.In(h.loc).Format("15:04")
 		}
 		for _, n := range in.Notes {
 			pi.Notes = append(pi.Notes, templates.PublicNote{Message: n.Message, Time: clockText(n.At, now, h.loc), At: rfc3339(n.At)})
@@ -243,9 +243,10 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	}
 	v.LastIssue = lastIssue(incidents, p.IncidentDays, now, h.loc)
 	if !oldest.IsZero() && (v.Overall == templates.OverallMajor || v.Overall == templates.OverallPartial) {
-		v.DownFor = longDuration(now.Sub(oldest))
+		v.DownFor, v.DownSince = longDuration(now.Sub(oldest)), oldest.In(h.loc).Format("15:04")
 	}
-	v.Calendar = calendarOf(strips, days, incidents, now)
+	cal := calendarOf(rows, days, incidents, now)
+	v.Calendar, v.CalendarMonths, v.CalendarWeeks, v.CalendarUpcoming = cal.days, cal.months, cal.weeks, cal.upcoming
 	return v, nil
 }
 
@@ -440,33 +441,104 @@ func dateText(t, now time.Time, loc *time.Location) string {
 var dayRank = map[string]int{templates.DayNoData: 0, templates.DayUp: 1, templates.DayMaintenance: 2,
 	templates.DayPartial: 3, templates.DayDown: 4}
 
+// calendar is a page's Calendar with its row labels and the rest of the
+// current month (templates.PublicPage).
+type calendar struct {
+	days, upcoming []templates.PublicDay
+	months, weeks  []string
+}
+
 // calendarOf is the page's Calendar: for each of the strips' days (days
 // are their bounds, stripBounds), the worst class over the services'
-// strips and the listed incidents that touched it. incidents are in the
-// order of PublicPage.Incidents.
-func calendarOf(strips [][]templates.Day, days []time.Time, incidents []store.PageIncident, now time.Time) []templates.PublicDay {
-	cal := make([]templates.PublicDay, len(days)-1)
-	for i := range cal {
-		d := templates.PublicDay{Class: templates.DayNoData, Date: days[i].Format("2006-01-02"), Label: days[i].Format("Mon 2 Jan")}
-		for _, s := range strips {
-			if dayRank[s[i].Class] > dayRank[d.Class] {
-				d.Class = s[i].Class
+// strips, the listed incidents that touched it and whether every other
+// service was fine; each day placed in the month and week grids
+// (placeDay), with the rows' labels; and the days left in the current
+// month after today. incidents are in the order of PublicPage.Incidents.
+func calendarOf(rows []templates.PublicRow, days []time.Time, incidents []store.PageIncident, now time.Time) calendar {
+	var cal calendar
+	cal.days = make([]templates.PublicDay, len(days)-1)
+	first := days[0]
+	for i := range cal.days {
+		d := templates.PublicDay{Class: templates.DayNoData, Date: days[i].Format("2006-01-02"), Label: days[i].Format("Mon 2 Jan"), Long: days[i].Format("Monday 2 January")}
+		if i == len(cal.days)-1 {
+			d.Long = "Today, " + d.Long
+		}
+		for _, r := range rows {
+			if dayRank[r.Days[i].Class] > dayRank[d.Class] {
+				d.Class = r.Days[i].Class
 			}
 		}
-		cal[i] = d
+		placeDay(&d, days[i], first, i)
+		if d.Month == len(cal.months) {
+			cal.months = append(cal.months, days[i].Format("Jan"))
+		}
+		if d.Week == len(cal.weeks) {
+			cal.weeks = append(cal.weeks, days[i].Format("2 Jan"))
+		}
+		cal.days[i] = d
 	}
 	for j, in := range incidents {
 		end := now
 		if in.EndedAt != nil {
 			end = *in.EndedAt
 		}
-		for i := range cal {
+		for i := range cal.days {
 			if in.StartedAt.Before(days[i+1]) && end.After(days[i]) {
-				cal[i].Incidents = append(cal[i].Incidents, j)
+				cal.days[i].Incidents = append(cal.days[i].Incidents, j)
 			}
 		}
 	}
+	for i := range cal.days {
+		cal.days[i].OthersFine = othersFine(rows, i, cal.days[i].Incidents, incidents)
+	}
+	// The rest of the current month, from tomorrow (the last bound).
+	today := days[len(days)-1].AddDate(0, 0, -1)
+	for i, t := len(days)-1, days[len(days)-1]; t.Month() == today.Month(); i, t = i+1, t.AddDate(0, 0, 1) {
+		d := templates.PublicDay{Date: t.Format("2006-01-02"), Label: t.Format("Mon 2 Jan"), Long: t.Format("Monday 2 January")}
+		placeDay(&d, t, first, i)
+		cal.upcoming = append(cal.upcoming, d)
+	}
 	return cal
+}
+
+// placeDay sets where day t, the i-th day from first, sits in the
+// calendar's grids: its month's row and its day of the month; its week's
+// row (weeks start on Monday) and its weekday.
+func placeDay(d *templates.PublicDay, t, first time.Time, i int) {
+	d.Month = (t.Year()*12 + int(t.Month())) - (first.Year()*12 + int(first.Month()))
+	d.Dom = t.Day()
+	d.Week = (i + mondayFirst(first) - 1) / 7
+	d.Weekday = mondayFirst(t)
+}
+
+// mondayFirst is t's weekday counted from Monday as 1 to Sunday as 7.
+func mondayFirst(t time.Time) int {
+	if wd := int(t.Weekday()); wd != 0 {
+		return wd
+	}
+	return 7
+}
+
+// othersFine reports whether every service with downtime on day i is
+// named by one of the day's listed incidents (idx into incidents), so the
+// opened day can say "Every other service had no issues."
+func othersFine(rows []templates.PublicRow, i int, idx []int, incidents []store.PageIncident) bool {
+	for _, r := range rows {
+		if c := r.Days[i].Class; c != templates.DayPartial && c != templates.DayDown {
+			continue
+		}
+		named := false
+		for _, j := range idx {
+			if incidents[j].DisplayName == r.Name {
+				named = true
+				break
+			}
+		}
+		if !named {
+			return false
+		}
+	}
+	return true
 }
 
 // feedURL is the page's feed.xml under base, the address it is served at

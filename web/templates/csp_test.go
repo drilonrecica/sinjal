@@ -136,6 +136,9 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 	signal := testPublicPage
 	signal.Layout, signal.AccentCSS = LayoutSignal, ""
 	pages["publicSignal"] = PublicStatusPage(signal, "stark")
+	logbook := logbookCalm()
+	logbook.Calendar[89].Incidents = []int{0}
+	pages["publicLogbook"] = PublicStatusPage(logbook, "terminal")
 	pages["publicPassword"] = PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "stark")
 	pages["publicMessage"] = PublicMessagePage("P", "m", "terminal")
 	pages["publicEmpty"] = PublicStatusPage(PublicPage{Title: "Empty", Overall: OverallNone, Uptime: "—", IncidentDays: 1}, "terminal")

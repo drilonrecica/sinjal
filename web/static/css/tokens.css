@@ -6,7 +6,9 @@
  * text-subtle is for incidental text only (>= 3:1), never essential information.
  * on-status is the text on a filled status block. beat-* colour beat-bar
  * marks (3:1, they are marks, not text). ambient-* colour the Ambient light
- * behind a status hero (docs/04 "Ambient light"). */
+ * behind a status hero (docs/04 "Ambient light"). calendar-up is a day
+ * without issues in Logbook's calendar, quieter than a beat so the few
+ * problem days stand out (docs/04 "Calendar"; 3:1 on surface-1). */
 
 /* Comfortable is the default density; compact scales spacing down. */
 :root {
@@ -47,6 +49,7 @@
   --ambient-up: #3d93ff;
   --ambient-down: #ff4f4f;
   --ambient-flapping: #ffb224;
+  --calendar-up: #1f7a46;
 
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.6);
   --shadow-2: 0 8px 24px rgb(0 0 0 / 0.7);
@@ -90,6 +93,7 @@
   --ambient-up: #ffbe55;
   --ambient-down: #ff7a45;
   --ambient-flapping: #ffe39a;
+  --calendar-up: #9c7430;
 
   --shadow-1: none;
   --shadow-2: 0 0 0 1px #8f6a2c;
@@ -133,6 +137,7 @@
   --ambient-up: #3d93ff;
   --ambient-down: #e23b3b;
   --ambient-flapping: #f59e0b;
+  --calendar-up: #22a85c;
 
   --shadow-1: 0 1px 2px rgb(9 9 11 / 0.06);
   --shadow-2: 0 8px 24px rgb(9 9 11 / 0.12);

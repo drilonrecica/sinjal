@@ -47,8 +47,10 @@ type PublicPage struct {
 	Names string
 	Verb  string
 	// DownFor is how long the longest ongoing outage has lasted, in words
-	// ("18 minutes"); "" without one, or outside an outage.
-	DownFor string
+	// ("18 minutes"), and DownSince the clock time it began ("13:52"); ""
+	// without one, or outside an outage.
+	DownFor   string
+	DownSince string
 	// HeroState (up, down, flapping) colours the Ambient light of the
 	// layouts that show one.
 	HeroState string
@@ -67,8 +69,14 @@ type PublicPage struct {
 	// interruptions in the last 30 days." without one.
 	LastIssue string
 	// Calendar is the page's 90 days, oldest first: each day's worst
-	// class over the page's services (Logbook).
-	Calendar []PublicDay
+	// class over the page's services (Logbook). CalendarMonths and
+	// CalendarWeeks label its rows (a month per row on desktop, a week on
+	// phones; docs/12 "Logbook"), and CalendarUpcoming holds the rest of
+	// the current month, drawn dashed.
+	Calendar         []PublicDay
+	CalendarMonths   []string // "Jul", "Aug", …
+	CalendarWeeks    []string // the first date of each week row, "28 Jul"
+	CalendarUpcoming []PublicDay
 	// FeedURL is the page's feed.xml under the address it is served at
 	// (/status/{slug}, /s/{token} or a mapped hostname's /). The view is
 	// shared by those addresses, so it is set per request, not cached.
@@ -123,6 +131,7 @@ type PublicIncident struct {
 	Date      string // the day it started: "Today", "Yesterday", "Fri 23 Oct"
 	Time      string // the clock time it started, "09:14"
 	StartedAt string // RFC 3339
+	EndTime   string // the clock time it ended, "09:26"; "" while active
 	Long      string // how long it was, or has been, down, in words: "12 minutes"
 	Short     string // the same in short units, "12 min", "1 h 5 min" (Signal)
 	Duration  string // the same in compact units, "12m"; for the feed
@@ -133,14 +142,24 @@ type PublicIncident struct {
 	EndedAt string // RFC 3339, "" while active
 }
 
-// PublicDay is one day of a page's calendar.
+// PublicDay is one day of a page's calendar (docs/12 "Logbook").
 type PublicDay struct {
-	Class string // the worst Day… of the page's services that day
+	Class string // the worst Day… of the page's services that day; "" for a day still to come
 	Date  string // 2026-10-23, for anchors
 	Label string // "Fri 23 Oct"
+	Long  string // "Friday 23 October", "Today, Monday 26 October"; the opened day's title
 	// Incidents are the indexes in PublicPage.Incidents of the listed
 	// incidents that touched the day.
 	Incidents []int
+	// OthersFine is set when every service without a listed incident that
+	// day had no downtime, so the opened day can say so.
+	OthersFine bool
+	// Where the day sits in the calendar's two grids: the row of its
+	// month (0 for the first month of the 90 days) and its day of the
+	// month on desktop; the row of its week (0 for the first, weeks start
+	// on Monday) and its weekday (Monday 1 … Sunday 7) on phones.
+	Month, Dom    int
+	Week, Weekday int
 }
 
 // PublicNote is a published manual note. Service is set for the note
@@ -231,8 +250,8 @@ const (
 )
 
 // builtLayouts are the layouts with a component of their own in
-// PublicStatusPage. SL-06 and SL-07 add the others.
-var builtLayouts = map[string]bool{LayoutSignal: true, LayoutSentence: true}
+// PublicStatusPage. SL-07 adds Heartline.
+var builtLayouts = map[string]bool{LayoutSignal: true, LayoutSentence: true, LayoutLogbook: true}
 
 // publicLayout is the layout a page renders in: its own when that one is
 // built, Sentence otherwise, as for an unknown or empty layout (docs/12
@@ -412,4 +431,138 @@ func signalGroupSummary(g PublicGroup) (text, state string) {
 		return fmt.Sprintf("All %d operational", n), ""
 	}
 	return fmt.Sprintf("%d of %d operational", up, n), ""
+}
+
+// Logbook (docs/12 "Logbook").
+
+// logbookSub opens the line under Logbook's headline, before "Updated
+// 14:10 CET.": calm, LastIssue; during an outage "Since 13:52, 18 minutes
+// so far." and, while some services are up, "The other 4 services are
+// working."; degraded or under maintenance, the latter alone; nothing
+// when nothing is monitored.
+func logbookSub(v PublicPage) string {
+	var parts []string
+	switch v.Overall {
+	case OverallNone:
+		return ""
+	case OverallUp:
+		return v.LastIssue + " "
+	case OverallMajor, OverallPartial:
+		if v.DownSince != "" {
+			parts = append(parts, "Since "+v.DownSince+", "+v.DownFor+" so far.")
+		}
+	}
+	switch v.Operational {
+	case 0:
+	case 1:
+		parts = append(parts, "The other service is working.")
+	default:
+		parts = append(parts, fmt.Sprintf("The other %d services are working.", v.Operational))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " ") + " "
+}
+
+// calendarDoms are the day numbers written over the desktop calendar.
+var calendarDoms = []int{1, 5, 10, 15, 20, 25, 30}
+
+// calendarWeekdays head the phone calendar's columns, Monday first.
+var calendarWeekdays = []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+
+// calendarLegend names each day class, in the legend's order.
+var calendarLegend = []struct{ Class, Word string }{
+	{DayUp, "No issues"}, {DayPartial, "Some downtime"}, {DayDown, "Outage"}, {DayMaintenance, "Maintenance"}, {DayNoData, "No data"},
+}
+
+// calendarWords is a day's date and state in words, for assistive
+// technology and the tooltip: "Fri 23 Oct: some downtime, 1 incident". A
+// day still to come (Class "") reads "still to come".
+func calendarWords(d PublicDay) string {
+	state := "still to come"
+	for _, l := range calendarLegend {
+		if l.Class == d.Class {
+			state = strings.ToLower(l.Word)
+		}
+	}
+	switch n := len(d.Incidents); n {
+	case 0:
+		return d.Label + ": " + state
+	case 1:
+		return d.Label + ": " + state + ", 1 incident"
+	default:
+		return fmt.Sprintf("%s: %s, %d incidents", d.Label, state, n)
+	}
+}
+
+// newestIncidentDay is the index of the last calendar day with a listed
+// incident, the day opened without a target; -1 without one.
+func newestIncidentDay(cal []PublicDay) int {
+	for i := len(cal) - 1; i >= 0; i-- {
+		if len(cal[i].Incidents) > 0 {
+			return i
+		}
+	}
+	return -1
+}
+
+// logbookFigure is a service's uptime in the services list: "99.98% · 90
+// days", or "Since 25 Oct, 100.00%" for a service monitored for less;
+// "" for one without data.
+func logbookFigure(row PublicRow) string {
+	switch {
+	case row.Uptime == "" || row.Uptime == "—":
+		return ""
+	case row.Since != "":
+		return "Since " + strings.TrimPrefix(row.Since, "Monitoring since ") + ", " + row.Uptime
+	}
+	return row.Uptime + " · 90 days"
+}
+
+// logbookLatency is the last response time where the page shows it, "no
+// reply" while the service is down, "" otherwise.
+func logbookLatency(row PublicRow) string {
+	switch {
+	case row.Latency == "":
+		return ""
+	case row.State == StateDown:
+		return "no reply"
+	}
+	return row.Latency
+}
+
+// logbookOrder lists the incidents ongoing first, each group in the
+// page's order (newest first).
+func logbookOrder(incidents []PublicIncident) []PublicIncident {
+	out := make([]PublicIncident, 0, len(incidents))
+	for _, in := range incidents {
+		if in.Active {
+			out = append(out, in)
+		}
+	}
+	for _, in := range incidents {
+		if !in.Active {
+			out = append(out, in)
+		}
+	}
+	return out
+}
+
+// logbookWhen is an entry's time: "Fri 23 Oct · 09:14 to 09:26", or
+// "Today · since 13:52" while ongoing.
+func logbookWhen(in PublicIncident) string {
+	if in.Active {
+		return in.Date + " · since " + in.Time
+	}
+	return in.Date + " · " + in.Time + " to " + in.EndTime
+}
+
+// logbookTitle is an entry's sentence: "Scaneks.com was down for 12
+// minutes", or "Scaneks.com is down" while ongoing.
+func logbookTitle(in PublicIncident) string {
+	if in.Active {
+		return in.Service + " is down"
+	}
+	return in.Service + " was down for " + in.Long
 }

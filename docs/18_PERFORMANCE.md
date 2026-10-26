@@ -206,3 +206,10 @@ Signal layout (SL-05): `web.BenchmarkStatusPage` (the page in its default layout
 - Cached visit: 1.0–1.2 ms; the HTML is 215 KB.
 - `api.json` 0.29–0.40 ms (10.1 KB) and `feed.xml` 0.39–0.44 ms (14.5 KB), unchanged.
 - CSS, gzip -9: `public_signal.css` 2.7 KB, under the 6 KB per layout sheet. The lamp is CSS only: no image, no script.
+
+Logbook layout (SL-06): `web.BenchmarkStatusPage` (the page in Sentence; the view is shared), load average 2.6–3.6, three runs.
+
+- Cold build: 19.3–23.2 ms, 4.5 MB, 25,410 allocations. The calendar's placement, row labels, upcoming days, long titles and "others fine" flags come from the rows and incidents the build already has; no new query.
+- Cached visit: 1.2–1.6 ms; the HTML is 215 KB. The same 25-service page in Logbook is 54 KB (4.6 KB gzip, against Sentence's 4.3 KB): the calendar's 95 cells with their words replace 2,250 strip bars.
+- `api.json` 0.30–0.43 ms (10.1 KB) and `feed.xml` 0.40–0.46 ms (14.5 KB), unchanged.
+- CSS, gzip -9: `public_logbook.css` 3.6 KB, under the 6 KB per layout sheet; a third of it is the 56 attribute-to-grid-line rules that place the cells without inline styles.

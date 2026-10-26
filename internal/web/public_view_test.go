@@ -126,6 +126,42 @@ func TestPublicViewFields(t *testing.T) {
 	if first.Class != templates.DayUp || len(first.Incidents) != 0 {
 		t.Errorf("the first day = %+v", first)
 	}
+	// Logbook's calendar grid (docs/12 "Logbook"): each day's month row and
+	// day of the month, its week row (Monday first) and weekday, its long
+	// title, and whether every service outside its incidents was fine.
+	// 29 Jul 2026 is a Wednesday; 26 Oct a Monday.
+	for _, c := range []struct {
+		i, month, dom, week, weekday int
+		long                         string
+		othersFine                   bool
+	}{
+		{0, 0, 29, 0, 3, "Wednesday 29 July", true},
+		{3, 1, 1, 0, 6, "Saturday 1 August", true},
+		{86, 3, 23, 12, 5, "Friday 23 October", true},
+		{89, 3, 26, 13, 1, "Today, Monday 26 October", true},
+	} {
+		d := v.Calendar[c.i]
+		if d.Month != c.month || d.Dom != c.dom || d.Week != c.week || d.Weekday != c.weekday || d.Long != c.long || d.OthersFine != c.othersFine {
+			t.Errorf("day %d = %+v, want month %d, day %d, week %d, weekday %d, %q, others fine %v", c.i, d, c.month, c.dom, c.week, c.weekday, c.long, c.othersFine)
+		}
+	}
+	if !slices.Equal(v.CalendarMonths, []string{"Jul", "Aug", "Sep", "Oct"}) {
+		t.Errorf("months = %q", v.CalendarMonths)
+	}
+	if len(v.CalendarWeeks) != 14 || v.CalendarWeeks[0] != "29 Jul" || v.CalendarWeeks[1] != "3 Aug" || v.CalendarWeeks[13] != "26 Oct" {
+		t.Errorf("weeks = %q", v.CalendarWeeks)
+	}
+	// The rest of the current month: 27 to 31 Oct, all in today's week.
+	if len(v.CalendarUpcoming) != 5 {
+		t.Fatalf("upcoming = %+v", v.CalendarUpcoming)
+	}
+	if u := v.CalendarUpcoming[4]; u.Date != "2026-10-31" || u.Label != "Sat 31 Oct" || u.Month != 3 || u.Dom != 31 || u.Week != 13 || u.Weekday != 6 || u.Class != "" {
+		t.Errorf("31 Oct = %+v", u)
+	}
+	// The hero's "Since 11:42" and the logbook's "09:14 to 09:40".
+	if v.DownSince != "11:42" || v.Incidents[0].EndTime != "" || v.Incidents[1].EndTime != "09:40" {
+		t.Errorf("down since %q, end times %q and %q", v.DownSince, v.Incidents[0].EndTime, v.Incidents[1].EndTime)
+	}
 
 	// A page without incidents.
 	quietID := e.addPage(t, store.StatusPageInput{Slug: "q", Title: "Q", Monitors: []store.StatusPageMonitorInput{{MonitorID: fresh, DisplayName: "Fresh"}}})
@@ -136,7 +172,7 @@ func TestPublicViewFields(t *testing.T) {
 	if v, err = h.build(ctx, q, now); err != nil {
 		t.Fatal(err)
 	}
-	if v.LastIssue != "No interruptions in the last 30 days." || v.Layout != statuspage.DefaultLayout || v.DownFor != "" || v.Names != "" || v.Services != 1 || v.Operational != 1 {
+	if v.LastIssue != "No interruptions in the last 30 days." || v.Layout != statuspage.DefaultLayout || v.DownFor != "" || v.DownSince != "" || v.Names != "" || v.Services != 1 || v.Operational != 1 {
 		t.Errorf("quiet page: LastIssue %q, layout %q, down for %q, names %q, %d services, %d operational", v.LastIssue, v.Layout, v.DownFor, v.Names, v.Services, v.Operational)
 	}
 	for i, d := range v.Calendar {
@@ -229,23 +265,38 @@ func TestCalendarOf(t *testing.T) {
 		}
 		return s
 	}
-	a := strip(map[int]string{10: templates.DayMaintenance, 11: templates.DayPartial, 12: templates.DayNoData})
-	b := strip(map[int]string{10: templates.DayPartial, 11: templates.DayDown, 12: templates.DayNoData})
+	a := strip(map[int]string{10: templates.DayMaintenance, 11: templates.DayPartial, 12: templates.DayNoData, 87: templates.DayPartial})
+	b := strip(map[int]string{10: templates.DayPartial, 11: templates.DayDown, 12: templates.DayNoData, 86: templates.DayPartial, 87: templates.DayPartial})
 	start := days[87].Add(-time.Hour)
 	end := start.Add(2 * time.Hour)
-	cal := calendarOf([][]templates.Day{a, b}, days, []store.PageIncident{{StartedAt: start, EndedAt: &end}}, now)
+	rows := []templates.PublicRow{{Name: "A", Days: a}, {Name: "B", Days: b}}
+	cal := calendarOf(rows, days, []store.PageIncident{{DisplayName: "B", StartedAt: start, EndedAt: &end}}, now)
 	for i, want := range map[int]string{10: templates.DayPartial, 11: templates.DayDown, 12: templates.DayNoData, 13: templates.DayUp} {
-		if cal[i].Class != want {
-			t.Errorf("day %d = %s, want %s", i, cal[i].Class, want)
+		if cal.days[i].Class != want {
+			t.Errorf("day %d = %s, want %s", i, cal.days[i].Class, want)
 		}
 	}
-	for i, d := range cal {
+	for i, d := range cal.days {
 		if touched := i == 86 || i == 87; touched != slices.Equal(d.Incidents, []int{0}) {
 			t.Errorf("day %d incidents = %v", i, d.Incidents)
 		}
 	}
-	if empty := calendarOf(nil, days, nil, now); empty[0].Class != templates.DayNoData {
-		t.Errorf("a page without services = %s", empty[0].Class)
+	// "Every other service had no issues." holds on day 86 (B's incident,
+	// A fine) but not on 87 (A had downtime without a listed incident), nor
+	// on 11, where both had downtime and nothing is listed.
+	for i, want := range map[int]bool{86: true, 87: false, 11: false, 13: true} {
+		if cal.days[i].OthersFine != want {
+			t.Errorf("day %d others fine = %v, want %v", i, cal.days[i].OthersFine, want)
+		}
+	}
+	if empty := calendarOf(nil, days, nil, now); empty.days[0].Class != templates.DayNoData || len(empty.months) != 4 || len(empty.upcoming) != 5 {
+		t.Errorf("a page without services = %s, %d months, %d upcoming", empty.days[0].Class, len(empty.months), len(empty.upcoming))
+	}
+	// On the last day of a month nothing is upcoming; the first week row
+	// starts with the first day.
+	last := calendarOf(nil, stripBounds(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC), time.UTC), nil, now)
+	if len(last.upcoming) != 0 || last.months[0] != "Aug" || last.weeks[0] != "3 Aug" || last.days[0].Week != 0 || last.days[0].Weekday != 1 {
+		t.Errorf("31 Oct: upcoming %d, months %q, weeks %q, first day %+v", len(last.upcoming), last.months, last.weeks, last.days[0])
 	}
 }
 

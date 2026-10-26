@@ -53,6 +53,8 @@ templ PublicStatusPage(v PublicPage, theme string) {
 				@signalPage(v)
 			case LayoutSentence:
 				@sentencePage(v)
+			case LayoutLogbook:
+				@logbookPage(v)
 		}
 	}
 }
@@ -246,6 +248,181 @@ templ publicRow(row PublicRow) {
 	</li>
 }
 
+// logbookPage is the Logbook layout (docs/12 "Logbook"): what happened,
+// when and what was said. data-overall colours the hero's disc
+// (public_logbook.css). It leaves out the strips and the axis: the
+// calendar carries the 90 days for every service.
+templ logbookPage(v PublicPage) {
+	<div class="public-page" data-layout="logbook" data-overall={ v.Overall }>
+		@publicHeader(v)
+		<main>
+			<section class="logbook-hero" aria-labelledby="overall">
+				<span class="logbook-disc" aria-hidden="true">@Icon(overallIcon(v.Overall))</span>
+				<div class="logbook-hero-text">
+					<h1 id="overall">{ signalHeadline(v) }</h1>
+					<p class="logbook-sub">{ logbookSub(v) }Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time>.</p>
+				</div>
+			</section>
+			@logbookCalendar(v)
+			if len(v.Groups) > 0 {
+				<section class="logbook-services" aria-labelledby="services">
+					<h2 id="services">Services</h2>
+					<ul class="logbook-service-list" role="list">
+						for _, g := range v.Groups {
+							for _, row := range g.Rows {
+								@logbookService(g, row)
+							}
+						}
+					</ul>
+				</section>
+			}
+			<section class="logbook-log" aria-labelledby="logbook">
+				<h2 id="logbook">Logbook</h2>
+				if len(v.Incidents) == 0 {
+					<p class="public-quiet">No incidents in the last { pluralDays(v.IncidentDays) }.</p>
+				} else {
+					<ol class="logbook-entries" role="list">
+						for _, in := range logbookOrder(v.Incidents) {
+							@logbookEntry(in)
+						}
+					</ol>
+				}
+			</section>
+		</main>
+		@publicFooter(v)
+	</div>
+}
+
+// logbookCalendar is the calendar card (docs/04 "Calendar"): the legend,
+// then one grid of cells placed by attributes into either the month rows
+// of desktop (data-m, data-d) or the week rows of phones (data-w,
+// data-wd), with both sets of row and column labels. A day with a listed
+// incident is a link to itself, followed by its panel, which its :target
+// opens; the newest such day is marked and open without a target. The
+// rest of the current month follows, dashed; the days after this week
+// are marked so phones leave them out.
+templ logbookCalendar(v PublicPage) {
+	{{ newest := newestIncidentDay(v.Calendar) }}
+	{{ todayWeek := 0 }}
+	if n := len(v.Calendar); n > 0 {
+		{{ todayWeek = v.Calendar[n-1].Week }}
+	}
+	<section class="logbook-card" aria-labelledby="calendar">
+		<div class="logbook-card-head">
+			<h2 id="calendar">The last 90 days, all services</h2>
+			<ul class="cal-legend" role="list">
+				for _, l := range calendarLegend {
+					<li><span class="cal-swatch" data-day={ l.Class }></span>{ l.Word }</li>
+				}
+			</ul>
+		</div>
+		<div class="cal">
+			for _, n := range calendarDoms {
+				<span class="cal-dom" data-d={ strconv.Itoa(n) } aria-hidden="true">{ strconv.Itoa(n) }</span>
+			}
+			for i, w := range calendarWeekdays {
+				<span class="cal-wd" data-wd={ strconv.Itoa(i + 1) } aria-hidden="true">{ w }</span>
+			}
+			for i, m := range v.CalendarMonths {
+				<span class="cal-month" data-m={ strconv.Itoa(i) } aria-hidden="true">{ m }</span>
+			}
+			for i, w := range v.CalendarWeeks {
+				<span class="cal-week" data-w={ strconv.Itoa(i) } aria-hidden="true">{ w }</span>
+			}
+			for i, d := range v.Calendar {
+				if len(d.Incidents) > 0 {
+					<a
+						class="cal-day"
+						id={ "day-" + d.Date }
+						href={ templ.SafeURL("#day-" + d.Date) }
+						data-day={ d.Class }
+						data-m={ strconv.Itoa(d.Month) }
+						data-d={ strconv.Itoa(d.Dom) }
+						data-w={ strconv.Itoa(d.Week) }
+						data-wd={ strconv.Itoa(d.Weekday) }
+						data-today?={ i == len(v.Calendar)-1 }
+						data-newest?={ i == newest }
+						title={ calendarWords(d) }
+					><span class="visually-hidden">{ calendarWords(d) }</span></a>
+					@logbookDayPanel(v, d, i == newest)
+				} else {
+					<span
+						class="cal-day"
+						data-day={ d.Class }
+						data-m={ strconv.Itoa(d.Month) }
+						data-d={ strconv.Itoa(d.Dom) }
+						data-w={ strconv.Itoa(d.Week) }
+						data-wd={ strconv.Itoa(d.Weekday) }
+						data-today?={ i == len(v.Calendar)-1 }
+						title={ calendarWords(d) }
+					><span class="visually-hidden">{ calendarWords(d) }</span></span>
+				}
+			}
+			for _, d := range v.CalendarUpcoming {
+				<span
+					class="cal-day"
+					data-day="future"
+					data-m={ strconv.Itoa(d.Month) }
+					data-d={ strconv.Itoa(d.Dom) }
+					data-w={ strconv.Itoa(d.Week) }
+					data-wd={ strconv.Itoa(d.Weekday) }
+					data-later?={ d.Week > todayWeek }
+					title={ calendarWords(d) }
+				><span class="visually-hidden">{ calendarWords(d) }</span></span>
+			}
+		</div>
+	</section>
+}
+
+// logbookDayPanel is an opened day: its title, the day's incidents as
+// sentences with their notes, and that every other service was fine
+// when it was (and there is another service).
+templ logbookDayPanel(v PublicPage, d PublicDay, newest bool) {
+	<section class="cal-panel" data-newest?={ newest } aria-labelledby={ "day-" + d.Date + "-title" }>
+		<h3 id={ "day-" + d.Date + "-title" }>{ d.Long }</h3>
+		for _, j := range d.Incidents {
+			<div class="cal-panel-incident">
+				@publicIncidentSentence(v.Incidents[j])
+				@publicNotes(v.Incidents[j].Notes)
+			</div>
+		}
+		if d.OthersFine && v.Services > 1 {
+			<p class="cal-panel-rest">Every other service had no issues.</p>
+		}
+	</section>
+}
+
+// logbookService is one row of the services list: a dot, the name with
+// its group muted beside it (an empty span, hidden, for a service outside
+// any group), the state, the uptime figure (or since when) and the
+// latency where shown.
+templ logbookService(g PublicGroup, row PublicRow) {
+	<li class="logbook-service" data-state={ row.State }>
+		<p class="logbook-service-name"><span class="logbook-dot"></span><span>{ row.Name }</span> <span class="logbook-service-group">{ g.Name }</span></p>
+		<p class="logbook-service-state"><span class="status-text">{ publicStateLabel(row.State) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(row.State) }</span></p>
+		if f := logbookFigure(row); f != "" {
+			<p class="logbook-service-uptime">{ f }</p>
+		}
+		if l := logbookLatency(row); l != "" {
+			<p class="logbook-service-latency">{ l }</p>
+		}
+	</li>
+}
+
+// logbookEntry is one entry of the timeline: when, the sentence and the
+// notes, or that none was published.
+templ logbookEntry(in PublicIncident) {
+	<li class="logbook-entry" data-active?={ in.Active }>
+		<p class="logbook-entry-when"><time datetime={ in.StartedAt }>{ logbookWhen(in) }</time></p>
+		<p class="logbook-entry-title">{ logbookTitle(in) }</p>
+		if len(in.Notes) == 0 {
+			<p class="public-note logbook-no-note">No note was published.</p>
+		} else {
+			@publicNotes(in.Notes)
+		}
+	</li>
+}
+
 // The partials every layout shares (docs/12 "What every layout shares").
 
 // publicHeader is the logo, the title, the description and the Subscribe
@@ -297,16 +474,23 @@ templ publicIncident(in PublicIncident) {
 	<li class="public-incident" data-active?={ in.Active }>
 		<p class="public-incident-date"><time datetime={ in.StartedAt }>{ in.Date }</time></p>
 		<div class="public-incident-body">
-			<p class="public-incident-text">
-				if in.Active {
-					{ in.Service } has been down since <time datetime={ in.StartedAt }>{ in.Time }</time>.
-				} else {
-					{ in.Service } was down for { in.Long }, from <time datetime={ in.StartedAt }>{ in.Time }</time>.
-				}
-			</p>
+			@publicIncidentSentence(in)
 			@publicNotes(in.Notes)
 		</div>
 	</li>
+}
+
+// publicIncidentSentence is an incident in one sentence, with its start
+// time: "Scaneks.com was down for 12 minutes, from 09:14." or "Scaneks.com
+// has been down since 13:52."
+templ publicIncidentSentence(in PublicIncident) {
+	<p class="public-incident-text">
+		if in.Active {
+			{ in.Service } has been down since <time datetime={ in.StartedAt }>{ in.Time }</time>.
+		} else {
+			{ in.Service } was down for { in.Long }, from <time datetime={ in.StartedAt }>{ in.Time }</time>.
+		}
+	</p>
 }
 
 // publicNotes are an incident's published notes, each a quote with its

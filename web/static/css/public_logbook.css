@@ -1,0 +1,498 @@
+/* Logbook, the status page layout for pages whose history matters
+ * (docs/12 "Logbook", docs/04 "Calendar"). --disc is the overall state's
+ * colour on the hero's disc. The calendar is one grid of cells placed by
+ * attributes: months as rows and days 1–31 as columns on desktop, weeks
+ * as rows and weekdays as columns below 60rem, where 31 columns would
+ * leave the cells under 24 px. */
+
+.public-page[data-layout="logbook"] {
+  --public-width: 60rem;
+  --disc: var(--status-paused);
+}
+[data-layout="logbook"][data-overall="up"] { --disc: var(--status-up); }
+[data-layout="logbook"][data-overall="partial"],
+[data-layout="logbook"][data-overall="major"] { --disc: var(--status-down); }
+[data-layout="logbook"][data-overall="degraded"] { --disc: var(--status-flapping); }
+[data-layout="logbook"][data-overall="maintenance"] { --disc: var(--chart-maintenance); }
+
+/* Header: Subscribe as a bordered button. */
+[data-layout="logbook"] .public-subscribe {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+[data-layout="logbook"] h2 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* The hero: the disc with the state's glyph, the headline beside it and
+ * one line under it. */
+.logbook-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4) 0 var(--space-3);
+}
+.logbook-disc {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-top: 2px;
+  border-radius: 50%;
+  color: var(--on-status);
+  background: var(--disc);
+}
+.logbook-disc .icon {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.75;
+}
+.logbook-hero-text {
+  min-width: 0;
+}
+.logbook-hero h1 {
+  font-size: clamp(1.75rem, 1.25rem + 1.75vw, 2.5rem);
+  line-height: 1.1;
+  font-weight: 650;
+  letter-spacing: -0.028em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.logbook-sub {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+/* The calendar card: title and legend, the grid, the opened day. */
+.logbook-card {
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.logbook-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.cal-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cal-swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+/* Desktop: a label column and 31 day columns; a header row and a row per
+ * month. The week labels and weekday header wait for phones. */
+.cal {
+  display: grid;
+  grid-template-columns: 2.5rem repeat(31, minmax(0, 1fr));
+  grid-template-rows: auto repeat(4, auto);
+  gap: 4px;
+  align-items: center;
+}
+.cal-dom,
+.cal-wd {
+  grid-row: 1;
+  padding-bottom: 2px;
+  text-align: center;
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.cal-month,
+.cal-week {
+  grid-column: 1;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.cal-wd,
+.cal-week {
+  display: none;
+}
+.cal > [data-d="1"] { grid-column: 2; }
+.cal > [data-d="2"] { grid-column: 3; }
+.cal > [data-d="3"] { grid-column: 4; }
+.cal > [data-d="4"] { grid-column: 5; }
+.cal > [data-d="5"] { grid-column: 6; }
+.cal > [data-d="6"] { grid-column: 7; }
+.cal > [data-d="7"] { grid-column: 8; }
+.cal > [data-d="8"] { grid-column: 9; }
+.cal > [data-d="9"] { grid-column: 10; }
+.cal > [data-d="10"] { grid-column: 11; }
+.cal > [data-d="11"] { grid-column: 12; }
+.cal > [data-d="12"] { grid-column: 13; }
+.cal > [data-d="13"] { grid-column: 14; }
+.cal > [data-d="14"] { grid-column: 15; }
+.cal > [data-d="15"] { grid-column: 16; }
+.cal > [data-d="16"] { grid-column: 17; }
+.cal > [data-d="17"] { grid-column: 18; }
+.cal > [data-d="18"] { grid-column: 19; }
+.cal > [data-d="19"] { grid-column: 20; }
+.cal > [data-d="20"] { grid-column: 21; }
+.cal > [data-d="21"] { grid-column: 22; }
+.cal > [data-d="22"] { grid-column: 23; }
+.cal > [data-d="23"] { grid-column: 24; }
+.cal > [data-d="24"] { grid-column: 25; }
+.cal > [data-d="25"] { grid-column: 26; }
+.cal > [data-d="26"] { grid-column: 27; }
+.cal > [data-d="27"] { grid-column: 28; }
+.cal > [data-d="28"] { grid-column: 29; }
+.cal > [data-d="29"] { grid-column: 30; }
+.cal > [data-d="30"] { grid-column: 31; }
+.cal > [data-d="31"] { grid-column: 32; }
+.cal > [data-m="0"] { grid-row: 2; }
+.cal > [data-m="1"] { grid-row: 3; }
+.cal > [data-m="2"] { grid-row: 4; }
+.cal > [data-m="3"] { grid-row: 5; }
+
+/* Cells: square, one per day. No issues is the quiet green; some
+ * downtime the warning colour; an outage the down colour with a small
+ * inner mark; maintenance hatched; no data and days to come an empty
+ * cell with a dashed outline. */
+.cal-day,
+.cal-swatch {
+  display: block;
+  border-radius: 5px;
+  background: var(--calendar-up);
+}
+.cal-day {
+  position: relative;
+  aspect-ratio: 1;
+}
+.cal-day[data-day="partial"],
+.cal-swatch[data-day="partial"] { background: var(--status-warning); }
+.cal-day[data-day="down"],
+.cal-swatch[data-day="down"] {
+  background: radial-gradient(circle, var(--on-status) 1.5px, transparent 2.5px) var(--status-down);
+}
+.cal-day[data-day="maint"],
+.cal-swatch[data-day="maint"] {
+  background: repeating-linear-gradient(135deg, var(--chart-maintenance) 0 2px, transparent 2px 4px);
+  outline: 1px solid var(--chart-maintenance);
+  outline-offset: -1px;
+}
+.cal-day[data-day="none"],
+.cal-day[data-day="future"],
+.cal-swatch[data-day="none"] {
+  background: transparent;
+  outline: 1px dashed var(--border-strong);
+  outline-offset: -1px;
+}
+/* Today has a ring in the text colour with a gap; the opened day (the
+ * target, or the newest incident day without one) a thicker ring. */
+.cal-day[data-today] {
+  box-shadow: 0 0 0 1.5px var(--surface-1), 0 0 0 3px var(--text);
+}
+.cal-day:target,
+.cal:not(:has(.cal-day:target)) > .cal-day[data-newest] {
+  box-shadow: 0 0 0 1px var(--surface-1), 0 0 0 4px var(--text);
+}
+a.cal-day:hover {
+  filter: brightness(1.12);
+}
+a.cal-day:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--surface-1), 0 0 0 3.5px var(--accent);
+}
+
+/* The opened day's panel follows its cell in the markup and spans the
+ * grid under the last row. Its cell's :target opens it; without a target
+ * the newest incident day's panel shows. */
+.cal-panel {
+  display: none;
+  grid-column: 1 / -1;
+  grid-row: 6;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+.cal-day:target + .cal-panel,
+.cal:not(:has(.cal-day:target)) > .cal-panel[data-newest] {
+  display: grid;
+}
+.cal-panel h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.cal-panel-incident .public-incident-text {
+  overflow-wrap: anywhere;
+}
+.cal-panel-rest {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Services: a compact list of rows. */
+.logbook-services h2 {
+  margin-bottom: var(--space-2);
+}
+.logbook-service-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.logbook-service {
+  --dot: var(--status-pending);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9rem 11rem 5rem;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-1);
+  border-top: 1px solid var(--border);
+}
+.logbook-service[data-state="up"] { --dot: var(--status-up); }
+.logbook-service[data-state="down"] { --dot: var(--status-down); }
+.logbook-service[data-state="flapping"] { --dot: var(--status-flapping); }
+.logbook-service[data-state="paused"] { --dot: var(--status-paused); }
+.logbook-service[data-state="maintenance"] { --dot: var(--chart-maintenance); }
+.logbook-service-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.logbook-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--dot);
+}
+.logbook-service-group {
+  color: var(--text-subtle);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+.logbook-service-group:empty {
+  display: none;
+}
+.logbook-service-state {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.logbook-service-state .status-text {
+  color: var(--dot);
+}
+.logbook-service-uptime,
+.logbook-service-latency {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.logbook-service-uptime { grid-column: 3; }
+.logbook-service-latency { grid-column: 4; }
+
+/* The logbook: a vertical timeline, a dot per entry (the down colour
+ * while ongoing, the warning colour once resolved). The list keeps its
+ * left padding for the dots despite base.css's list reset. */
+.logbook-log .logbook-entries {
+  position: relative;
+  display: grid;
+  gap: var(--space-5);
+  margin: var(--space-4) 0 0;
+  padding: 0 0 0 2rem;
+}
+.logbook-entries::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 6px;
+  border-left: 2px solid var(--border);
+}
+.logbook-entry {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+}
+.logbook-entry::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: -2rem;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--status-warning);
+  box-shadow: 0 0 0 4px var(--bg);
+}
+.logbook-entry[data-active]::before {
+  background: var(--status-down);
+}
+.logbook-entry-when {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.logbook-entry-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+[data-layout="logbook"] .public-note {
+  margin-top: var(--space-1);
+}
+.logbook-no-note {
+  color: var(--text-subtle);
+}
+[data-layout="logbook"] .public-footer {
+  justify-content: center;
+  padding-top: var(--space-4);
+  text-align: center;
+}
+
+/* Terminal: square disc, cells and dots, box rules on the card, the
+ * legend already in mono, tags in place of the coloured state word
+ * ([DOWN] and [FLAP] inverse, components.css); colour only for problems
+ * in the calendar, as in the day bars. */
+[data-theme="terminal"] .logbook-disc,
+[data-theme="terminal"] .cal-day,
+[data-theme="terminal"] .cal-swatch,
+[data-theme="terminal"] .logbook-dot,
+[data-theme="terminal"] .logbook-entry::before,
+[data-theme="terminal"] .cal-panel {
+  border-radius: 0;
+}
+[data-theme="terminal"] .logbook-hero h1 {
+  font-size: clamp(1.375rem, 1rem + 1.25vw, 1.875rem);
+  letter-spacing: -0.02em;
+}
+[data-theme="terminal"] .logbook-card {
+  border: 3px double var(--border);
+  border-radius: 0;
+}
+[data-theme="terminal"] .cal-panel {
+  border: 1px solid var(--border);
+}
+[data-theme="terminal"] .cal-day[data-day="partial"],
+[data-theme="terminal"] .cal-swatch[data-day="partial"] {
+  background: color-mix(in srgb, var(--status-down) 60%, var(--bg));
+}
+[data-theme="terminal"] .logbook-service-state .status-text {
+  color: var(--text);
+}
+[data-theme="terminal"] .logbook-service[data-state="down"] .status-tag,
+[data-theme="terminal"] .logbook-service[data-state="flapping"] .status-tag {
+  color: var(--on-status);
+  background: var(--status-down);
+}
+[data-theme="terminal"] .logbook-service[data-state="flapping"] .status-tag {
+  background: var(--status-flapping);
+}
+
+/* Below 60rem the calendar turns: a week per row, Monday to Sunday, cells
+ * from 24 px up to 44 px; the days after this week are left out. */
+@media (max-width: 60rem) {
+  .cal {
+    grid-template-columns: 3.25rem repeat(7, minmax(24px, 2.75rem));
+    grid-template-rows: auto repeat(14, auto);
+  }
+  .cal-dom,
+  .cal-month,
+  .cal-day[data-later] {
+    display: none;
+  }
+  .cal-wd,
+  .cal-week {
+    display: block;
+  }
+  .cal-panel {
+    grid-row: 16;
+  }
+  .cal > [data-wd="1"] { grid-column: 2; }
+  .cal > [data-wd="2"] { grid-column: 3; }
+  .cal > [data-wd="3"] { grid-column: 4; }
+  .cal > [data-wd="4"] { grid-column: 5; }
+  .cal > [data-wd="5"] { grid-column: 6; }
+  .cal > [data-wd="6"] { grid-column: 7; }
+  .cal > [data-wd="7"] { grid-column: 8; }
+  .cal > [data-w="0"] { grid-row: 2; }
+  .cal > [data-w="1"] { grid-row: 3; }
+  .cal > [data-w="2"] { grid-row: 4; }
+  .cal > [data-w="3"] { grid-row: 5; }
+  .cal > [data-w="4"] { grid-row: 6; }
+  .cal > [data-w="5"] { grid-row: 7; }
+  .cal > [data-w="6"] { grid-row: 8; }
+  .cal > [data-w="7"] { grid-row: 9; }
+  .cal > [data-w="8"] { grid-row: 10; }
+  .cal > [data-w="9"] { grid-row: 11; }
+  .cal > [data-w="10"] { grid-row: 12; }
+  .cal > [data-w="11"] { grid-row: 13; }
+  .cal > [data-w="12"] { grid-row: 14; }
+  .cal > [data-w="13"] { grid-row: 15; }
+}
+
+/* Phones: a tighter hero and card, the legend under the title, each
+ * service on two lines (name and state; group and figures). */
+@media (max-width: 40rem) {
+  .logbook-hero {
+    padding: var(--space-3) 0 var(--space-2);
+  }
+  .logbook-sub {
+    font-size: var(--text-base);
+  }
+  .logbook-card {
+    padding: var(--space-4) var(--space-3) var(--space-3);
+  }
+  .cal-panel {
+    padding: var(--space-3) var(--space-4);
+  }
+  .logbook-service {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-1) var(--space-3);
+    align-items: start;
+  }
+  .logbook-service-name {
+    flex-wrap: wrap;
+  }
+  .logbook-service-group {
+    flex-basis: 100%;
+    order: 1;
+    padding-left: calc(9px + var(--space-3));
+  }
+  .logbook-service-uptime,
+  .logbook-service-latency {
+    grid-row: 2;
+    text-align: left;
+  }
+  .logbook-service-uptime {
+    grid-column: 1;
+    padding-left: calc(9px + var(--space-3));
+  }
+  .logbook-service-latency {
+    grid-column: 2;
+    text-align: right;
+  }
+}
