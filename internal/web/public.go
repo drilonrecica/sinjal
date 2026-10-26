@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -124,14 +125,15 @@ func (h *Public) byToken(w http.ResponseWriter, r *http.Request) {
 	h.serve(w, r, p, pageAccess{base: "/s/" + token})
 }
 
-// render writes the page. Its CSP admits the page's accent style by hash
-// and nothing else inline.
-func (h *Public) render(w http.ResponseWriter, r *http.Request, p store.StatusPageDetail) {
+// render writes the page served at at. Its CSP admits the page's accent
+// style by hash and nothing else inline.
+func (h *Public) render(w http.ResponseWriter, r *http.Request, p store.StatusPageDetail, at pageAccess) {
 	v, err := h.view(r.Context(), p)
 	if err != nil {
 		h.fail(w, r, "building a status page", err)
 		return
 	}
+	v.FeedURL = feedURL(at.base)
 	if v.AccentCSS != "" {
 		w.Header().Set("Content-Security-Policy", middleware.CSPWithStyleHash(styleHash(v.AccentCSS)))
 	}
@@ -162,6 +164,7 @@ func (h *Public) view(ctx context.Context, p store.StatusPageDetail) (templates.
 // build reads the figures of a page as of now.
 func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.Time) (templates.PublicPage, error) {
 	v := templates.PublicPage{
+		Layout: p.Layout, Zone: now.In(h.loc).Format("MST"),
 		Title: p.Title, Description: p.Description, IncidentDays: p.IncidentDays, PoweredBy: p.ShowPoweredBy,
 		Generated: clockText(now, now, h.loc), GeneratedAt: rfc3339(now), AccentCSS: accentCSS(p.Accent),
 		NoIndex: p.Visibility == statuspage.Unlisted,
@@ -179,11 +182,13 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	var ungrouped []templates.PublicRow
 	var total incident.Ratio
 	states := map[string]int{}
+	strips := make([][]templates.Day, 0, len(p.Monitors))
 	for _, pm := range p.Monitors {
 		row, adjusted, err := h.row(ctx, p.ID, pm, days, now)
 		if err != nil {
 			return v, err
 		}
+		strips = append(strips, row.Days)
 		total.Up += adjusted.Up
 		total.Den += adjusted.Den
 		states[row.State]++
@@ -229,6 +234,8 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 	if n, ok := latestPublicNote(incidents); ok {
 		v.Note = &templates.PublicNote{Service: n.Service, Message: n.Message, Time: clockText(n.At, now, h.loc), At: rfc3339(n.At)}
 	}
+	v.LastIssue = lastIssue(incidents, p.IncidentDays, now, h.loc)
+	v.Calendar = calendarOf(strips, days, incidents, now)
 	return v, nil
 }
 
@@ -260,7 +267,181 @@ func (h *Public) row(ctx context.Context, pageID string, pm store.StatusPageMoni
 	var adjusted incident.Ratio
 	row.Days, adjusted, row.StripText = stripOf(iv, days, now)
 	row.Uptime = adjusted.Percent()
+	since := ""
+	since, row.SinceDay = sinceOf(row.Days, days)
+	if since != "" {
+		row.Since = "Monitoring since " + since
+		row.StripText += ". " + row.Since
+	}
+	var downFor time.Duration
+	if row.State == templates.StateDown {
+		downFor = downNow(iv, now)
+	}
+	row.Downtime = downtimeText(adjusted, since, downFor)
 	return row, adjusted, nil
+}
+
+// sinceOf is the date ("25 Oct") and index of a strip's first day with
+// data when days before it have none; "" and 0 when the strip starts with
+// data, or has none at all. Days without data later on (paused all day)
+// stay in the strip.
+func sinceOf(bars []templates.Day, days []time.Time) (string, int) {
+	for i, d := range bars {
+		if d.Class != templates.DayNoData {
+			if i == 0 {
+				return "", 0
+			}
+			return days[i].Format("2 Jan"), i
+		}
+	}
+	return "", 0
+}
+
+// downNow is how long the monitor's open incident has lasted, 0 without
+// one.
+func downNow(iv store.Intervals, now time.Time) time.Duration {
+	for _, s := range iv.Down {
+		if s.To.IsZero() {
+			return now.Sub(s.From)
+		}
+	}
+	return 0
+}
+
+// downtimeText is a row's Downtime (docs/12 "Downtime in human time"):
+// the adjusted downtime of the strip's days, counted from since ("25
+// Oct") when the strip starts later; "Down now, for 18 min" while down
+// (downFor > 0); "" without any data.
+func downtimeText(adjusted incident.Ratio, since string, downFor time.Duration) string {
+	switch {
+	case downFor > 0:
+		return "Down now, for " + shortDuration(downFor)
+	case !adjusted.OK():
+		return ""
+	}
+	span := fmt.Sprintf(" in %d days", stripDays)
+	if since != "" {
+		span = " since " + since
+	}
+	down := time.Duration(adjusted.Den-adjusted.Up) * time.Second
+	if down <= 0 {
+		return "No downtime" + span
+	}
+	return "Down " + shortDuration(down) + span
+}
+
+// shortDuration is d in the units of a downtime line: "under 1 min",
+// "26 min", "1 h 5 min", "2 d 3 h".
+func shortDuration(d time.Duration) string {
+	m := int(d / time.Minute)
+	switch {
+	case m < 1:
+		return "under 1 min"
+	case m < 60:
+		return fmt.Sprintf("%d min", m)
+	case m < 24*60:
+		if m%60 == 0 {
+			return fmt.Sprintf("%d h", m/60)
+		}
+		return fmt.Sprintf("%d h %d min", m/60, m%60)
+	}
+	if h := m / 60 % 24; h > 0 {
+		return fmt.Sprintf("%d d %d h", m/(24*60), h)
+	}
+	return fmt.Sprintf("%d d", m/(24*60))
+}
+
+// longDuration is d in words: "less than a minute", "12 minutes", "1
+// hour 5 minutes", "2 days 3 hours".
+func longDuration(d time.Duration) string {
+	m := int(d / time.Minute)
+	switch {
+	case m < 1:
+		return "less than a minute"
+	case m < 60:
+		return plural(m, "minute")
+	case m < 24*60:
+		if m%60 == 0 {
+			return plural(m/60, "hour")
+		}
+		return plural(m/60, "hour") + " " + plural(m%60, "minute")
+	}
+	if h := m / 60 % 24; h > 0 {
+		return plural(m/(24*60), "day") + " " + plural(h, "hour")
+	}
+	return plural(m/(24*60), "day")
+}
+
+// lastIssue is the page's LastIssue: the newest listed incident that has
+// ended, in words, or the quiet line for the page's incident_days.
+func lastIssue(incidents []store.PageIncident, incidentDays int, now time.Time, loc *time.Location) string {
+	for _, in := range incidents {
+		if in.EndedAt == nil {
+			continue
+		}
+		return fmt.Sprintf("The last interruption was %s, %s on %s.", daysAgo(in.StartedAt, now, loc),
+			longDuration(in.EndedAt.Sub(in.StartedAt)), in.DisplayName)
+	}
+	if incidentDays == 1 {
+		return "No interruptions in the last day."
+	}
+	return "No interruptions in the last " + plural(incidentDays, "day") + "."
+}
+
+// daysAgo counts the local calendar days from t to now: "today",
+// "yesterday", "3 days ago".
+func daysAgo(t, now time.Time, loc *time.Location) string {
+	date := func(t time.Time) time.Time {
+		y, m, d := t.In(loc).Date()
+		return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+	}
+	switch n := int(date(now).Sub(date(t)).Hours() / 24); n {
+	case 0:
+		return "today"
+	case 1:
+		return "yesterday"
+	default:
+		return strconv.Itoa(n) + " days ago"
+	}
+}
+
+// dayRank orders the day classes from best to worst for the calendar.
+var dayRank = map[string]int{templates.DayNoData: 0, templates.DayUp: 1, templates.DayMaintenance: 2,
+	templates.DayPartial: 3, templates.DayDown: 4}
+
+// calendarOf is the page's Calendar: for each of the strips' days (days
+// are their bounds, stripBounds), the worst class over the services'
+// strips and the listed incidents that touched it. incidents are in the
+// order of PublicPage.Incidents.
+func calendarOf(strips [][]templates.Day, days []time.Time, incidents []store.PageIncident, now time.Time) []templates.PublicDay {
+	cal := make([]templates.PublicDay, len(days)-1)
+	for i := range cal {
+		d := templates.PublicDay{Class: templates.DayNoData, Date: days[i].Format("2006-01-02"), Label: days[i].Format("Mon 2 Jan")}
+		for _, s := range strips {
+			if dayRank[s[i].Class] > dayRank[d.Class] {
+				d.Class = s[i].Class
+			}
+		}
+		cal[i] = d
+	}
+	for j, in := range incidents {
+		end := now
+		if in.EndedAt != nil {
+			end = *in.EndedAt
+		}
+		for i := range cal {
+			if in.StartedAt.Before(days[i+1]) && end.After(days[i]) {
+				cal[i].Incidents = append(cal[i].Incidents, j)
+			}
+		}
+	}
+	return cal
+}
+
+// feedURL is the page's feed.xml under base, the address it is served at
+// (pageAccess.base).
+func feedURL(base string) string {
+	return strings.TrimSuffix(base, "/") + "/feed.xml"
 }
 
 // inMaintenance reports whether a maintenance window covers the monitor

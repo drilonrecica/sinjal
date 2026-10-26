@@ -42,53 +42,58 @@ templ PublicLayout(page Page, accentCSS string, noIndex bool, refresh bool) {
 	</html>
 }
 
-// PublicStatusPage is a status page as its visitors see it (docs/12,
-// docs/33 "Status page components").
+// PublicStatusPage is a status page as its visitors see it (docs/12
+// "Layouts", docs/33 "Status page components"): one component per layout,
+// each arranging the shared partials below, and that layout's stylesheet.
 templ PublicStatusPage(v PublicPage, theme string) {
-	@PublicLayout(publicPage(v.Title, theme), v.AccentCSS, v.NoIndex, true) {
-		<div class="public-page">
-			@publicHeader(v)
-			<main>
-				<section class={ "public-hero", "public-overall-" + v.Overall } data-state={ v.HeroState } aria-labelledby="overall">
-					<h2 id="overall"><span class="public-glyph">@Icon(overallIcon(v.Overall))</span> { v.Sentence }</h2>
-					<p class="public-overall-meta">
-						<span>{ v.Uptime } uptime over 90 days</span>
-						<span>Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time></span>
-					</p>
-					if v.Note != nil {
-						<div class="public-hero-note">
-							<p class="public-hero-note-head">
-								<span>{ v.Note.Service }</span>
-								<time datetime={ v.Note.At }>{ v.Note.Time }</time>
-							</p>
-							<p>{ v.Note.Message }</p>
-						</div>
-					}
-				</section>
-				for _, g := range v.Groups {
-					@publicGroup(g)
-				}
-				@publicIncidents(v)
-			</main>
-			if v.PoweredBy {
-				<footer class="public-footer">Powered by <a href="https://github.com/drilonrecica/sinjal">sinjal</a></footer>
-			}
-		</div>
+	{{ layout := publicLayout(v.Layout) }}
+	@PublicLayout(publicPage(v.Title, theme, layout), v.AccentCSS, v.NoIndex, true) {
+		switch layout {
+			case LayoutSentence:
+				@sentencePage(v)
+		}
 	}
 }
 
-templ publicHeader(v PublicPage) {
-	<header class="public-header">
-		if v.Logo != "" {
-			<img class="public-logo" src={ v.Logo } alt=""/>
-		}
-		<div>
-			<h1>{ v.Title }</h1>
-			if v.Description != "" {
-				<p class="public-description">{ v.Description }</p>
+// sentencePage is the Sentence layout (docs/12 "Sentence"). Until SL-04 it
+// is the M8-17 page, made of the shared partials.
+templ sentencePage(v PublicPage) {
+	<div class="public-page" data-layout="sentence">
+		@publicHeader(v)
+		<main>
+			<section class={ "public-hero", "public-overall-" + v.Overall } data-state={ v.HeroState } aria-labelledby="overall">
+				<h2 id="overall"><span class="public-glyph">@Icon(overallIcon(v.Overall))</span> { v.Sentence }</h2>
+				<p class="public-overall-meta">
+					<span>{ v.Uptime } uptime over 90 days</span>
+					<span>Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time></span>
+				</p>
+				if v.Note != nil {
+					@publicNote(*v.Note)
+				} else if v.Overall == OverallUp {
+					<p class="public-last-issue">{ v.LastIssue }</p>
+				}
+			</section>
+			for _, g := range v.Groups {
+				@publicGroup(g)
 			}
-		</div>
-	</header>
+			if len(v.Groups) > 0 {
+				@publicAxis()
+			}
+			<section class="public-incidents" aria-labelledby="incidents">
+				<h2 id="incidents">Incidents</h2>
+				if len(v.Incidents) == 0 {
+					<p class="public-quiet">No incidents in the last { pluralDays(v.IncidentDays) }.</p>
+				} else {
+					<ol class="public-incident-list" role="list">
+						for _, in := range v.Incidents {
+							@publicIncident(in)
+						}
+					</ol>
+				}
+			</section>
+		</main>
+		@publicFooter(v)
+	</div>
 }
 
 templ publicGroup(g PublicGroup) {
@@ -113,64 +118,110 @@ templ publicRow(row PublicRow) {
 				{ publicStateLabel(row.State) }
 			</span>
 		</div>
-		// The shared 90-day bars (also on a monitor's Overview): one
-		// role="img" with the strip's summary; each bar's words are its
-		// tooltip.
-		@DayBars(row.Days, row.StripText)
+		@PublicDayBars(row)
 		<p class="public-service-meta">
-			<span>90 days ago</span>
+			<span>{ row.Downtime }</span>
 			<span>
 				{ row.Uptime } uptime
 				if row.Latency != "" {
 					· { row.Latency }
 				}
 			</span>
-			<span>Today</span>
 		</p>
 	</li>
 }
 
-templ publicIncidents(v PublicPage) {
-	<section class="public-incidents" aria-labelledby="incidents">
-		<h2 id="incidents">Incidents</h2>
-		if len(v.Incidents) == 0 {
-			<p class="public-quiet">No incidents in the last { pluralDays(v.IncidentDays) }.</p>
-		} else {
-			<ol class="public-incident-list" role="list">
-				for _, in := range v.Incidents {
-					<li class="public-incident" data-active?={ in.Active }>
-						<p class="public-incident-head">
-							<span class="public-incident-service">{ in.Service }</span>
-							if in.Active {
-								<span class="public-incident-state">Ongoing</span>
-							} else {
-								<span class="public-incident-state">Resolved</span>
-							}
-						</p>
-						<p class="public-incident-when">
-							Started <time datetime={ in.StartedAt }>{ in.Started }</time>,
-							if in.Active {
-								down for { in.Duration } so far
-							} else {
-								down for { in.Duration }
-							}
-						</p>
-						for _, n := range in.Notes {
-							<div class="public-note">
-								<time datetime={ n.At }>{ n.Time }</time>
-								<p>{ n.Message }</p>
-							</div>
-						}
-					</li>
-				}
-			</ol>
+// The partials every layout shares (docs/12 "What every layout shares").
+
+// publicHeader is the logo, the title, the description and the Subscribe
+// link to the page's feed.
+templ publicHeader(v PublicPage) {
+	<header class="public-header">
+		if v.Logo != "" {
+			<img class="public-logo" src={ v.Logo } alt=""/>
 		}
-	</section>
+		<div class="public-title">
+			<h1>{ v.Title }</h1>
+			if v.Description != "" {
+				<p class="public-description">{ v.Description }</p>
+			}
+		</div>
+		if v.FeedURL != "" {
+			<a class="public-subscribe" href={ templ.SafeURL(v.FeedURL) }>
+				@Icon("rss")
+				<span>Subscribe</span>
+			</a>
+		}
+	</header>
+}
+
+// publicFooter is the time zone note and "Powered by Sinjal", which the
+// page may turn off.
+templ publicFooter(v PublicPage) {
+	<footer class="public-footer">
+		<p>Times in { v.Zone }. The page refreshes every minute.</p>
+		if v.PoweredBy {
+			<p>Powered by <a href="https://github.com/drilonrecica/sinjal">Sinjal</a></p>
+		}
+	</footer>
+}
+
+// publicNote is the newest published note of an ongoing incident, shown
+// in the hero with its service and time.
+templ publicNote(n PublicNote) {
+	<div class="public-hero-note">
+		<p class="public-hero-note-head">
+			<span>{ n.Service }</span>
+			<time datetime={ n.At }>{ n.Time }</time>
+		</p>
+		<p>{ n.Message }</p>
+	</div>
+}
+
+// publicIncident is one listed incident with its published notes.
+templ publicIncident(in PublicIncident) {
+	<li class="public-incident" data-active?={ in.Active }>
+		<p class="public-incident-head">
+			<span class="public-incident-service">{ in.Service }</span>
+			if in.Active {
+				<span class="public-incident-state">Ongoing</span>
+			} else {
+				<span class="public-incident-state">Resolved</span>
+			}
+		</p>
+		<p class="public-incident-when">
+			Started <time datetime={ in.StartedAt }>{ in.Started }</time>,
+			if in.Active {
+				down for { in.Duration } so far
+			} else {
+				down for { in.Duration }
+			}
+		</p>
+		for _, n := range in.Notes {
+			<div class="public-note">
+				<time datetime={ n.At }>{ n.Time }</time>
+				<p>{ n.Message }</p>
+			</div>
+		}
+	</li>
+}
+
+// PublicDayBars is a service's 90-day strip in the "Monitoring since"
+// form: the days before its first day with data are a dashed line, with
+// the label over it when there is room (sinceFits).
+templ PublicDayBars(row PublicRow) {
+	@DayBarsSince(row.Days, row.SinceDay, sinceText(row), row.StripText)
+}
+
+// publicAxis is the page's one "90 days ago … Today" axis, under the last
+// strips. The strips' own labels carry their dates.
+templ publicAxis() {
+	<p class="public-axis" aria-hidden="true"><span>90 days ago</span><span>Today</span></p>
 }
 
 // PublicPasswordPage asks for a page's password (docs/12 "Password-protected").
 templ PublicPasswordPage(v PublicPasswordView, theme string) {
-	@PublicLayout(publicPage(v.Title, theme), "", false, false) {
+	@PublicLayout(publicPage(v.Title, theme, ""), "", false, false) {
 		<div class="public-page public-locked">
 			<main>
 				<h1>{ v.Title }</h1>
@@ -202,7 +253,7 @@ templ PublicPasswordPage(v PublicPasswordView, theme string) {
 
 // PublicMessagePage explains why a page cannot be shown here.
 templ PublicMessagePage(title, message, theme string) {
-	@PublicLayout(publicPage(title, theme), "", false, false) {
+	@PublicLayout(publicPage(title, theme, ""), "", false, false) {
 		<div class="public-page public-locked">
 			<main>
 				<h1>{ title }</h1>

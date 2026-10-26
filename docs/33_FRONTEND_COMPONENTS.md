@@ -127,6 +127,12 @@ Layouts (SL, replaces the single M8-17 design; behaviour in `12_STATUS_PAGES.md`
 - **Styles:** `css/public.css` keeps the shared chrome: centred column, Ambient light without clipped edges, header, footer, notes. Each layout has `css/public_<layout>.css`, linked only on its pages and kept under 6 KB gzip (`18_PERFORMANCE.md`).
 - **Admin form:** the Layout choice in Appearance, before Theme: radio cards with the name and one-line description, in the monitor form's type-card look.
 
+Built (SL-03, the shared foundation):
+- The view fields above are filled in `internal/web/public.go` (`sinceOf`, `downtimeText`, `lastIssue`, `calendarOf`). `FeedURL` is set per request in `render` from the address the page is served at, because the cached view is shared by all of a page's addresses. The page also carries `Zone`, the time zone abbreviation of the footer.
+- `PublicStatusPage` renders `publicLayout(v.Layout)`: the page's layout when it is in `builtLayouts`, Sentence otherwise. The rendered component sets `data-layout` on `.public-page`, and `publicPage` links `css/public.css` plus `css/public_<layout>.css` of that layout. The password and message pages link `public.css` alone. Each layout task adds its layout to `builtLayouts`, its component and its sheet.
+- `PublicDayBars(row)` is `DayBarsSince` (`bars.templ`): the cells before `SinceDay` are `data-day="before"` (a dashed line, no tooltip), and the "Monitoring since" label is drawn over them when they are at least 40 days (`sinceLabelDays`), so it fits at 390 px; with fewer, the dashed line stands alone and the row's `Downtime` and the strip's label name the day. The strip's label ends with "Monitoring since 25 Oct". All 90 cells stay, so the bars keep their place without a `style` attribute.
+- Until SL-04, `sentencePage` is the M8-17 page made of the shared partials, with `LastIssue` in a calm hero and `Downtime` under each strip.
+
 ## JavaScript responsibilities
 
 Allowed:

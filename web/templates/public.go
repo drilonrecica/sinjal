@@ -28,6 +28,9 @@ const StateMaintenance = "maintenance"
 
 // PublicPage is one rendered status page.
 type PublicPage struct {
+	// Layout is the page's layout (statuspage.Layouts); an unknown or
+	// empty one renders as the default, Sentence (publicLayout).
+	Layout      string
 	Title       string
 	Description string
 	Logo        string // URL of the logo, or ""
@@ -44,11 +47,23 @@ type PublicPage struct {
 	Uptime    string // 90-day adjusted uptime of all services, "—" without data
 	Groups    []PublicGroup
 	Incidents []PublicIncident
+	// LastIssue is the newest ended incident in words, "The last
+	// interruption was 3 days ago, 12 minutes on Web.", or "No
+	// interruptions in the last 30 days." without one.
+	LastIssue string
+	// Calendar is the page's 90 days, oldest first: each day's worst
+	// class over the page's services (Logbook).
+	Calendar []PublicDay
+	// FeedURL is the page's feed.xml under the address it is served at
+	// (/status/{slug}, /s/{token} or a mapped hostname's /). The view is
+	// shared by those addresses, so it is set per request, not cached.
+	FeedURL string
 	// IncidentDays is how far back incidents are listed.
 	IncidentDays int
 	PoweredBy    bool
 	Generated    string // when the figures were read, instance time zone
 	GeneratedAt  string // RFC 3339
+	Zone         string // the instance time zone's abbreviation, "CET"
 	// AccentCSS is the custom accent as CSS (from a checked #rrggbb only),
 	// or "". The response's CSP allows exactly this text by its hash.
 	AccentCSS string
@@ -70,6 +85,15 @@ type PublicRow struct {
 	Uptime    string // 90-day adjusted
 	Days      []Day
 	StripText string // a text summary of the strip for screen readers
+	// Since is "Monitoring since 25 Oct" when the 90 days start before
+	// the service's first day with data, and SinceDay that day's index;
+	// "" and 0 otherwise. The strip leaves out the days before it.
+	Since    string
+	SinceDay int
+	// Downtime is the 90-day adjusted downtime in words: "Down 26 min in
+	// 90 days", "No downtime since 25 Oct", "Down now, for 18 min"; ""
+	// without any data.
+	Downtime string
 
 	// Not shown in HTML; for api.json (internal/web/publicfeed.go).
 	Key        string // opaque, stable per page; not an id
@@ -89,6 +113,16 @@ type PublicIncident struct {
 	// Not shown in HTML; for api.json and feed.xml.
 	Key     string // opaque, stable per page; not an id
 	EndedAt string // RFC 3339, "" while active
+}
+
+// PublicDay is one day of a page's calendar.
+type PublicDay struct {
+	Class string // the worst Day… of the page's services that day
+	Date  string // 2026-10-23, for anchors
+	Label string // "Fri 23 Oct"
+	// Incidents are the indexes in PublicPage.Incidents of the listed
+	// incidents that touched the day.
+	Incidents []int
 }
 
 // PublicNote is a published manual note. Service is set for the note
@@ -135,22 +169,59 @@ func publicStateIcon(state string) string {
 	return stateIcon(state)
 }
 
-// publicPage is the Page of a public status page: its own theme, never
-// the visitor's, and only the public stylesheet.
 // publicPage is the page a status page renders in: its own theme, or
 // Daylight, the status page default (docs/05), for an unknown one; never
-// the visitor's.
-func publicPage(title, theme string) Page {
+// the visitor's. layout adds that layout's stylesheet to the shared one;
+// "" is a page without a layout (the password form, a message).
+func publicPage(title, theme, layout string) Page {
 	if !themes[theme] {
 		theme = PublicDefaultTheme
 	}
 	p := NewPage(title, theme, DefaultDensity)
 	p.Styles = []string{"css/public.css"}
+	if layout != "" {
+		p.Styles = append(p.Styles, "css/public_"+layout+".css")
+	}
 	return p
+}
+
+// Layouts of a status page (statuspage.Layouts).
+const (
+	LayoutSignal    = "signal"
+	LayoutSentence  = "sentence"
+	LayoutHeartline = "heartline"
+	LayoutLogbook   = "logbook"
+)
+
+// builtLayouts are the layouts with a component of their own in
+// PublicStatusPage. SL-05 to SL-07 add the others.
+var builtLayouts = map[string]bool{LayoutSentence: true}
+
+// publicLayout is the layout a page renders in: its own when that one is
+// built, Sentence otherwise, as for an unknown or empty layout (docs/12
+// "Default and migration").
+func publicLayout(layout string) string {
+	if builtLayouts[layout] {
+		return layout
+	}
+	return LayoutSentence
 }
 
 // PublicDefaultTheme is a status page's theme when it has none it knows.
 const PublicDefaultTheme = "daylight"
+
+// sinceLabelDays is the fewest days before a strip's first day with data
+// that leave room for the "Monitoring since" label over them, at 390 px
+// too; with fewer the dashed line stands alone and the row's Downtime and
+// the strip's label still name the day.
+const sinceLabelDays = 40
+
+func sinceText(row PublicRow) string {
+	if row.SinceDay < sinceLabelDays {
+		return ""
+	}
+	return row.Since
+}
 
 func groupLabel(g PublicGroup) string {
 	if g.Name == "" {

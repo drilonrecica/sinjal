@@ -112,7 +112,7 @@ func (h *Public) serve(w http.ResponseWriter, r *http.Request, p store.StatusPag
 	case kindFeed:
 		h.writeFeed(w, r, p, at)
 	default:
-		h.render(w, r, p)
+		h.render(w, r, p, at)
 	}
 }
 

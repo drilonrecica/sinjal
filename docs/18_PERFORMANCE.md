@@ -184,3 +184,11 @@ Status page redesign (M8-17): the redesigned page was measured against the code 
 - Cached visit: 2.8–3.8 ms against 5.5–7.1 ms.
 - HTML: 212 KB against 255 KB. The shared day bars carry `data-day` instead of two classes per bar.
 - The hero sentence and the note use what the build already reads.
+
+Status page layouts, shared foundation (SL-03): `web.BenchmarkStatusPage`, load average 3.5–5, three runs.
+
+- Cold build: 20–31 ms, 4.5 MB, 25,100 allocations (M7-04: 24,000). The new fields (`Since`, `Downtime`, `LastIssue`, `Calendar`) are computed from the strips and incidents the build already reads: no new query. The calendar walks 90 days × 25 services once, and each listed incident over the 90 days.
+- Cached visit: 1.3–1.5 ms; the HTML is 213 KB.
+- `api.json` 0.27 ms (10.1 KB) and `feed.xml` 0.39 ms (14.5 KB), unchanged; their bytes do not depend on the layout (`TestPublicMachineFormsIgnoreLayout`).
+- CSS, gzip -9: the shared `public.css` 1.8 KB and `public_sentence.css` 1.0 KB, together 2.8 KB against the old single `public.css` of 1.5 KB (the split repeats a little and adds the "Monitoring since" and footer rules).
+- Inside the 50 ms page budget, cold and cached.

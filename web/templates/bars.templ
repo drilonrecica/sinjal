@@ -43,3 +43,22 @@ templ DayBars(days []Day, label string) {
 		}
 	</ol>
 }
+
+// DayBarsSince is DayBars whose first since days come before the first day
+// with data: they are drawn as a dashed line, labelled sinceLabel when that
+// is not "" (docs/12 "Monitoring since"). The cells stay, so the bars keep
+// their place on the 90-day axis without a style attribute.
+templ DayBarsSince(days []Day, since int, sinceLabel, label string) {
+	<ol class="day-bars" role="img" aria-label={ label }>
+		if sinceLabel != "" {
+			<li class="day-bars-since">{ sinceLabel }</li>
+		}
+		for i, d := range days {
+			if i < since {
+				<li data-day="before"></li>
+			} else {
+				<li data-day={ d.Class } title={ d.Label }></li>
+			}
+		}
+	</ol>
+}

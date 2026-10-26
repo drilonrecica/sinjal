@@ -292,7 +292,8 @@
 }
 
 /* Ambient light (docs/04): one soft radial light behind the status hero
- * (a monitor's header, Home's sentence), coloured by state, off with
+ * (a monitor's header, Home's sentence; public.css draws the status
+ * page's), coloured by state, off with
  * data-ambient="off". It stays inside the content's padding (--hero-bleed,
  * set where the padding is narrower), so it never widens the page. */
 /* Registered so the light's colour can transition between states. */
@@ -315,7 +316,6 @@
 .public-hero[data-state="flapping"],
 .home-hero[data-state="flapping"],
 .monitor-header[data-state="flapping"] { --ambient: var(--ambient-flapping); }
-[data-ambient="on"] .public-hero::before,
 [data-ambient="on"] .home-hero::before,
 [data-ambient="on"] .monitor-header::before {
   content: "";
@@ -327,7 +327,6 @@
   background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 26%, transparent), transparent);
   pointer-events: none;
 }
-[data-theme="daylight"][data-ambient="on"] .public-hero::before,
 [data-theme="daylight"][data-ambient="on"] .home-hero::before,
 [data-theme="daylight"][data-ambient="on"] .monitor-header::before {
   background: radial-gradient(48% 50% at 40% 40%, color-mix(in srgb, var(--ambient) 12%, transparent), transparent);
@@ -463,7 +462,6 @@
 [data-theme="terminal"] .status[data-state="flapping"] .icon {
   color: inherit;
 }
-[data-theme="terminal"] .public-hero::before,
 [data-theme="terminal"] .home-hero::before,
 [data-theme="terminal"] .monitor-header::before {
   display: none;
