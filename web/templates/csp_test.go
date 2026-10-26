@@ -133,6 +133,9 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 	withData.Monitor.Beats = BeatBarView{Beats: []Beat{{Result: BeatUp, Tip: "t"}, {Result: BeatDown, Tip: "u"}, {}}, Newest: 1, Label: "l", Focusable: true}
 	pages["detail-history-data"] = MonitorDetail(page, withData)
 	pages["public"] = PublicStatusPage(testPublicPage, "daylight")
+	signal := testPublicPage
+	signal.Layout, signal.AccentCSS = LayoutSignal, ""
+	pages["publicSignal"] = PublicStatusPage(signal, "stark")
 	pages["publicPassword"] = PublicPasswordPage(PublicPasswordView{Title: "P", Action: "/status/p", Error: "e", CSRFToken: "t"}, "stark")
 	pages["publicMessage"] = PublicMessagePage("P", "m", "terminal")
 	pages["publicEmpty"] = PublicStatusPage(PublicPage{Title: "Empty", Overall: OverallNone, Uptime: "—", IncidentDays: 1}, "terminal")

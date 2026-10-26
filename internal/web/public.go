@@ -229,7 +229,7 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 		}
 		pi := templates.PublicIncident{Key: h.opaqueKey(p.ID, "incident", in.ID), Service: in.DisplayName, Active: in.EndedAt == nil,
 			Date: dateText(in.StartedAt, now, h.loc), Time: in.StartedAt.In(h.loc).Format("15:04"), StartedAt: rfc3339(in.StartedAt),
-			Long: longDuration(end.Sub(in.StartedAt)), Duration: formatSince(end.Sub(in.StartedAt))}
+			Long: longDuration(end.Sub(in.StartedAt)), Short: shortDuration(end.Sub(in.StartedAt)), Duration: formatSince(end.Sub(in.StartedAt))}
 		if in.EndedAt != nil {
 			pi.EndedAt = rfc3339(*in.EndedAt)
 		}

@@ -124,7 +124,8 @@ type PublicIncident struct {
 	Time      string // the clock time it started, "09:14"
 	StartedAt string // RFC 3339
 	Long      string // how long it was, or has been, down, in words: "12 minutes"
-	Duration  string // the same in short units, "12m"; for the feed
+	Short     string // the same in short units, "12 min", "1 h 5 min" (Signal)
+	Duration  string // the same in compact units, "12m"; for the feed
 	Notes     []PublicNote
 
 	// Not shown in HTML; for api.json and feed.xml.
@@ -230,8 +231,8 @@ const (
 )
 
 // builtLayouts are the layouts with a component of their own in
-// PublicStatusPage. SL-05 to SL-07 add the others.
-var builtLayouts = map[string]bool{LayoutSentence: true}
+// PublicStatusPage. SL-06 and SL-07 add the others.
+var builtLayouts = map[string]bool{LayoutSignal: true, LayoutSentence: true}
 
 // publicLayout is the layout a page renders in: its own when that one is
 // built, Sentence otherwise, as for an unknown or empty layout (docs/12
@@ -307,4 +308,108 @@ func pluralServices(n int) string {
 		return "1 service"
 	}
 	return strconv.Itoa(n) + " services"
+}
+
+// Signal (docs/12 "Signal").
+
+// overallIcon is the glyph inside Signal's lamp, one shape per overall
+// state (docs/04 "Status lamp"): the shapes of publicStateIcon, a triangle
+// for degraded and a dashed circle when nothing is monitored.
+func overallIcon(overall string) string {
+	switch overall {
+	case OverallUp:
+		return "check"
+	case OverallMajor, OverallPartial:
+		return "octagon-x"
+	case OverallDegraded:
+		return "triangle-alert"
+	case OverallMaintenance:
+		return "wrench"
+	}
+	return "circle-dashed"
+}
+
+// signalHeadline is Signal's h1 (docs/12 "Headline"): "All systems
+// operational", the services that are down with their verb ("Checkout and
+// API are down"), or "No services are monitored".
+func signalHeadline(v PublicPage) string {
+	switch v.Overall {
+	case OverallNone:
+		return "No services are monitored"
+	case OverallUp:
+		return "All systems operational"
+	}
+	if v.Names == "" {
+		return v.OverallText
+	}
+	return v.Names + " " + v.Verb
+}
+
+// signalMeta opens Signal's meta line, before "Updated 00:57 CET": calm
+// "5 services · 99.91% uptime over 90 days · ", otherwise "4 of 5
+// services operational · "; nothing when nothing is monitored.
+func signalMeta(v PublicPage) string {
+	switch v.Overall {
+	case OverallNone:
+		return ""
+	case OverallUp:
+		return pluralServices(v.Services) + " · " + v.Uptime + " uptime over 90 days · "
+	}
+	return fmt.Sprintf("%d of %s operational · ", v.Operational, pluralServices(v.Services))
+}
+
+// signalLatency follows the state on a service card: " · 71 ms", the
+// last check's duration, when the page shows it; " · no response" while
+// the service is down; "" when latency is not shown.
+func signalLatency(row PublicRow) string {
+	switch {
+	case row.Latency == "":
+		return ""
+	case row.State == StateDown:
+		return " · no response"
+	}
+	return " · " + row.Latency
+}
+
+// signalBadge is an incident's badge: "Ongoing" or "Resolved".
+func signalBadge(active bool) string {
+	if active {
+		return "Ongoing"
+	}
+	return "Resolved"
+}
+
+// signalGroupSummary sums up a group's services in words, naming the
+// worst state: "1 of 3 down", "1 of 3 unstable" (pending or flapping), "1
+// of 3 in maintenance"; otherwise "All 3 operational", or "2 of 3
+// operational" when one is not monitored. state (StateDown, StateFlapping,
+// StateMaintenance or "") colours it.
+func signalGroupSummary(g PublicGroup) (text, state string) {
+	n := len(g.Rows)
+	var down, unstable, maint, up int
+	for _, r := range g.Rows {
+		switch r.State {
+		case StateDown:
+			down++
+		case StatePending, StateFlapping:
+			unstable++
+		case StateMaintenance:
+			maint++
+		case StateUp:
+			up++
+		}
+	}
+	switch {
+	case down > 0:
+		return fmt.Sprintf("%d of %d down", down, n), StateDown
+	case unstable > 0:
+		return fmt.Sprintf("%d of %d unstable", unstable, n), StateFlapping
+	case maint > 0:
+		return fmt.Sprintf("%d of %d in maintenance", maint, n), StateMaintenance
+	case up == n && n == 1:
+		return "Operational", ""
+	case up == n:
+		return fmt.Sprintf("All %d operational", n), ""
+	}
+	return fmt.Sprintf("%d of %d operational", up, n), ""
 }

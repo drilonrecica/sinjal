@@ -224,3 +224,145 @@ func TestDayBarsSince(t *testing.T) {
 		t.Errorf("without Since the no-data days stay:\n%s", html)
 	}
 }
+
+// signalCalm is sentenceCalm as a Signal page, with its own copy of the
+// groups and incidents, so a test may change a row.
+func signalCalm() PublicPage {
+	v := sentenceCalm
+	v.Layout, v.HeroState = LayoutSignal, StateUp
+	v.Groups = make([]PublicGroup, len(sentenceCalm.Groups))
+	for i, g := range sentenceCalm.Groups {
+		v.Groups[i] = PublicGroup{Name: g.Name, Rows: append([]PublicRow(nil), g.Rows...)}
+	}
+	v.Groups[0].Rows[0].State = StateUp // the Sentence outage test takes it down in place
+	v.Incidents = append([]PublicIncident(nil), sentenceCalm.Incidents...)
+	v.Incidents[0].Short = "12 min"
+	return v
+}
+
+// The Signal layout (docs/12 "Signal"), calm: the lamp with the check
+// glyph, "All systems operational", the meta line, each group with its
+// summary, each service as a card with the state, the latency where
+// shown, the uptime figure and the strip, one axis, and the incidents with
+// their badge, duration and notes.
+func TestSignalPageCalm(t *testing.T) {
+	v := signalCalm()
+	v.Groups[0].Rows[1].State = StateUp
+	html := renderToString(t, PublicStatusPage(v, "daylight"))
+	for _, want := range []string{
+		`<div class="public-page" data-layout="signal" data-overall="up">`,
+		`<section class="public-hero signal-hero" data-state="up" aria-labelledby="overall">`,
+		`<div class="signal-lamp" aria-hidden="true"><span class="signal-halo"></span><span class="signal-bulb"><svg class="icon icon-check"`,
+		`<h1 id="overall">All systems operational</h1>`,
+		`<p class="signal-meta">5 services · 99.91% uptime over 90 days · Updated <time datetime="2026-10-26T00:57:00+01:00">00:57 CET</time></p>`,
+		`<h2 class="signal-group-name">POS Kosova</h2><p class="signal-group-summary">All 2 operational</p>`,
+		`<h2 class="signal-group-name">Services</h2><p class="signal-group-summary" data-state="maintenance">1 of 1 in maintenance</p>`,
+		`<li class="signal-card" data-state="up">`,
+		`<p class="signal-card-name"><span class="signal-dot"></span>Scaneks.com</p>`,
+		`<span class="status-text">Operational</span><span class="status-tag" aria-hidden="true">UP</span> · 71 ms</p>`,
+		`<span class="status-text">Maintenance</span><span class="status-tag" aria-hidden="true">MAINT</span></p>`,
+		`<p class="signal-card-figure"><span class="signal-card-uptime">99.70%</span><small>90-day uptime</small></p>`,
+		`<ol class="day-bars" role="img"`,
+		`<h2 id="incidents">Incidents</h2>`,
+		`<p class="signal-incident-when"><time datetime="2026-10-23T09:14:00+02:00">Fri 23 Oct, 09:14</time></p>`,
+		`<span class="signal-incident-service">Scaneks.com</span><span class="signal-badge">Resolved</span>`,
+		`<p class="signal-incident-duration">Down for 12 min</p>`,
+		`<q>A slow database query blocked the shop. It is fixed.</q> <time datetime="2026-10-23T09:31:00+02:00">09:31 CET</time>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("page lacks %s", want)
+		}
+	}
+	// Signal leaves out the downtime sentence per service and LastIssue.
+	for _, leak := range []string{"Down 6 h 16 min", "No downtime", "The last interruption", "sentence-", "Ongoing"} {
+		if strings.Contains(html, leak) {
+			t.Errorf("calm page shows %s", leak)
+		}
+	}
+	if strings.Count(html, "<h1") != 1 || strings.Count(html, "<h2") != 3 || strings.Count(html, `class="public-axis"`) != 1 {
+		t.Errorf("%d h1, %d h2, %d axes", strings.Count(html, "<h1"), strings.Count(html, "<h2"), strings.Count(html, `class="public-axis"`))
+	}
+	v.Incidents = nil
+	if html := renderToString(t, PublicStatusPage(v, "terminal")); !strings.Contains(html, `<p class="public-quiet">No incidents in the last 30 days.</p>`) {
+		t.Error("no quiet line without incidents")
+	}
+}
+
+// Signal during an outage: the lamp in the down colour with the x glyph,
+// the down services as headline, the counts on the meta line, the note as
+// a card, the group summary in words, the down card with "no response",
+// and the ongoing incident with its badge and "so far".
+func TestSignalPageOutage(t *testing.T) {
+	v := signalCalm()
+	v.HeroState = StateDown
+	v.Overall, v.OverallText, v.Names, v.Verb, v.DownFor, v.Operational = OverallPartial, "Partial outage", "Scaneks.com", "is down", "18 minutes", 3
+	v.Generated, v.GeneratedAt = "14:10 CET", "2026-10-26T14:10:00+01:00"
+	v.Note = &PublicNote{Service: "Scaneks.com", Message: "Our hosting provider has network trouble.", Time: "14:05 CET", At: "2026-10-26T14:05:00+01:00"}
+	v.Groups[0].Rows[0].State = StateDown
+	v.Incidents = append([]PublicIncident{{Service: "Scaneks.com", Active: true, Date: "Today", Time: "13:52", StartedAt: "2026-10-26T13:52:00+01:00", Long: "18 minutes", Short: "18 min", Duration: "18m",
+		Notes: []PublicNote{{Message: "Our hosting provider has network trouble.", Time: "14:05 CET", At: "2026-10-26T14:05:00+01:00"}}}}, v.Incidents...)
+	html := renderToString(t, PublicStatusPage(v, "stark"))
+	for _, want := range []string{
+		`<div class="public-page" data-layout="signal" data-overall="partial">`,
+		`<section class="public-hero signal-hero" data-state="down" aria-labelledby="overall">`,
+		`<span class="signal-bulb"><svg class="icon icon-octagon-x"`,
+		`<h1 id="overall">Scaneks.com is down</h1>`,
+		`<p class="signal-meta">3 of 5 services operational · Updated <time datetime="2026-10-26T14:10:00+01:00">14:10 CET</time></p>`,
+		`<blockquote class="public-hero-note"><p>Our hosting provider has network trouble.</p><p class="public-hero-note-meta">Update at <time datetime="2026-10-26T14:05:00+01:00">14:05 CET</time> · Scaneks.com</p></blockquote>`,
+		`<p class="signal-group-summary" data-state="down">1 of 2 down</p>`,
+		`<li class="signal-card" data-state="down">`,
+		`<span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span> · no response</p>`,
+		`<span class="status-text">Unstable</span><span class="status-tag" aria-hidden="true">FLAP</span></p>`,
+		`<li class="signal-incident" data-active>`,
+		`<time datetime="2026-10-26T13:52:00+01:00">Today, 13:52</time>`,
+		`<span class="signal-badge">Ongoing</span>`,
+		`<p class="signal-incident-duration">Down for 18 min so far</p>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("outage page lacks %s", want)
+		}
+	}
+	if strings.Contains(html, "71 ms") || strings.Contains(html, "99.91%") {
+		t.Error("a down card shows its latency, or the page its uptime figure")
+	}
+	// Degraded, maintenance and nothing monitored each have their glyph.
+	for overall, want := range map[string]string{OverallDegraded: "triangle-alert", OverallMaintenance: "wrench", OverallMajor: "octagon-x"} {
+		v.Overall = overall
+		if html := renderToString(t, PublicStatusPage(v, "daylight")); !strings.Contains(html, `<span class="signal-bulb"><svg class="icon icon-`+want+`"`) {
+			t.Errorf("%s lamp lacks %s", overall, want)
+		}
+	}
+	v.Overall, v.Names, v.Verb, v.Services, v.Operational, v.Groups, v.Note = OverallNone, "", "", 0, 0, nil, nil
+	html = renderToString(t, PublicStatusPage(v, "daylight"))
+	if !strings.Contains(html, `<svg class="icon icon-circle-dashed"`) || !strings.Contains(html, `<h1 id="overall">No services are monitored</h1>`) ||
+		!strings.Contains(html, `<p class="signal-meta">Updated <time datetime="2026-10-26T14:10:00+01:00">14:10 CET</time></p>`) || strings.Contains(html, "public-axis") {
+		t.Errorf("none:\n%s", html)
+	}
+}
+
+// A group's summary names its worst state, and reads "Operational" for a
+// single service that is up.
+func TestSignalGroupSummary(t *testing.T) {
+	rows := func(states ...string) PublicGroup {
+		var g PublicGroup
+		for _, s := range states {
+			g.Rows = append(g.Rows, PublicRow{State: s})
+		}
+		return g
+	}
+	for _, tt := range []struct {
+		g           PublicGroup
+		text, state string
+	}{
+		{rows(StateUp, StateUp, StateUp), "All 3 operational", ""},
+		{rows(StateUp), "Operational", ""},
+		{rows(StateUp, StatePaused, StateUp), "2 of 3 operational", ""},
+		{rows(StateUp, StateDown, StateFlapping), "1 of 3 down", StateDown},
+		{rows(StateUp, StatePending, StateFlapping), "2 of 3 unstable", StateFlapping},
+		{rows(StateUp, StateMaintenance, StateUp), "1 of 3 in maintenance", StateMaintenance},
+	} {
+		if text, state := signalGroupSummary(tt.g); text != tt.text || state != tt.state {
+			t.Errorf("%v: %q %q, want %q %q", tt.g, text, state, tt.text, tt.state)
+		}
+	}
+}

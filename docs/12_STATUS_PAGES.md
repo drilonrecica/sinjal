@@ -193,6 +193,17 @@ Shows: the uptime figure per service and latency where shown. Leaves out: the do
 
 Terminal: the lamp is a square phosphor block without gradients or breathing, the cards have box rules, and states carry their tags.
 
+Built (SL-05, `signalPage` in `web/templates/public.templ`, `css/public_signal.css`):
+- `data-overall` on `.public-page` sets `--lamp`, the overall state's colour, which the lamp, its ring and its halo take; `data-state` (`HeroState`) on the hero colours the shared Ambient light behind it.
+- `statusLamp` draws the lamp: a halo that breathes (4.5 s; still at its middle opacity under reduced motion), a bulb lit by radial gradients from `--lamp` and the overall state's glyph (`overallIcon`: check, `octagon-x`, `triangle-alert`, `wrench`, `circle-dashed`). The lamp is `aria-hidden`: the headline carries the words.
+- The headline (`signalHeadline`) is the page's `h1`: "All systems operational", the down services with their verb ("Scaneks.com is down", the shared `Names` and `Verb`), or "No services are monitored". The meta line reads "5 services · 99.91% uptime over 90 days · Updated 00:57 CET" when calm, "4 of 5 services operational · Updated 14:10 CET" otherwise and "Updated 14:10 CET" alone with nothing monitored (`signalMeta`).
+- The ongoing note is the shared `publicNote` blockquote, styled as a card at most 620 px wide with its "Update at 14:05 CET · Service" line first (CSS order), without the quote marks.
+- Each group (`signalGroup`) is an `h2` with its summary on the right (`signalGroupSummary`): "1 of 3 down", "1 of 3 unstable" (pending or flapping), "1 of 3 in maintenance", the worst named and coloured; otherwise "All 3 operational", "Operational" for a single service, or "2 of 3 operational" when one is not monitored.
+- Each service is a card (`signalCard`): the mini lamp (coloured by the card's `data-state`), the name, the state word with its Terminal tag and, where the page shows latency, " · 71 ms" or " · no response" while down (`signalLatency`); the uptime figure with "90-day uptime" on the right; the shared `PublicDayBars` strip at 26 px. A down card's border is tinted with the down colour.
+- Incidents (`signalIncident`) under an "Incidents" `h2`: "Fri 23 Oct, 09:14" on the left; the service with an "Ongoing" badge (filled in the down colour) or "Resolved" (quiet); "Down for 12 min" or "Down for 18 min so far" from the new `PublicIncident.Short` (`shortDuration`); the notes through the shared `publicNotes` partial, which Sentence's incidents now use too.
+- Phones: the lamp is 96 px, the headline wraps centred, the note card fills the column, cards are one column with the figure still on the right, and an incident's date sits above its service.
+- Terminal: the bulb is a square block in `--lamp` without gradients, ring or halo; the cards and the note card have double box rules; the state word is its tag, `[DOWN]` and `[FLAP]` inverse; the badges are outlined.
+
 ### Sentence (B, the default)
 
 For small teams and personal sites: the page reads like a short note. New pages start with it and existing pages move to it. Sketch: `Sentence.dc.html`.

@@ -37,6 +37,9 @@ func TestStateIconsExist(t *testing.T) {
 	for _, s := range []string{StateMaintenance, StateUp} {
 		names = append(names, publicStateIcon(s))
 	}
+	for _, o := range []string{OverallMajor, OverallPartial, OverallDegraded, OverallMaintenance, OverallUp, OverallNone} {
+		names = append(names, overallIcon(o))
+	}
 	for _, n := range names {
 		if _, ok := iconShapes[n]; !ok {
 			t.Errorf("icon %q is not in iconShapes", n)

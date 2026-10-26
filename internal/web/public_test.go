@@ -352,3 +352,41 @@ func TestAccentCSS(t *testing.T) {
 		}
 	}
 }
+
+// A page set to the Signal layout renders signalPage through the handler:
+// the lamp, the cards with the latency where shown, and none of the
+// private details (scenario 17 of docs/20).
+func TestPublicPageSignalLayout(t *testing.T) {
+	e := newAppEnv(t)
+	db := e.addMonitor(t, privateName, "https://"+privateHost+":5432/health")
+	api := e.addMonitor(t, "api-internal", "http://"+privateIP+"/healthz")
+	e.exec(t, `UPDATE monitors SET current_state = 'up'`)
+	e.exec(t, `UPDATE monitors SET current_state = 'down' WHERE id = ?`, db)
+	e.exec(t, `INSERT INTO check_results (monitor_id, checked_at, duration_ms, success) VALUES (?, ?, 87, 1)`, api, store.FormatTime(time.Now()))
+	e.addFailure(t, db, time.Now().Add(-time.Minute), "connect", privateSummary, privateSnippet)
+	e.addIncident(t, "inc1", db, time.Now().Add(-time.Hour), nil, false)
+	e.addPage(t, store.StatusPageInput{Slug: "main", Title: "Acme status", Layout: "signal", Groups: []string{"Web"},
+		Monitors: []store.StatusPageMonitorInput{
+			{MonitorID: api, Group: "Web", DisplayName: "Public API", ShowLatency: true, Sort: 1},
+			{MonitorID: db, Group: "Web", DisplayName: "Database", ShowLatency: true, Sort: 2},
+		}})
+	rec := e.serve(req("GET", "/status/main", nil))
+	if rec.Code != 200 {
+		t.Fatalf("GET /status/main = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`data-layout="signal" data-overall="partial"`, `data-state="down" aria-labelledby="overall"`, `icon-octagon-x`,
+		`<h1 id="overall">Database is down</h1>`, `1 of 2 services operational · Updated`, `<p class="signal-group-summary" data-state="down">1 of 2 down</p>`,
+		`<span class="status-text">Operational</span><span class="status-tag" aria-hidden="true">UP</span> · 87 ms</p>`,
+		`<span class="status-text">Down</span><span class="status-tag" aria-hidden="true">DOWN</span> · no response</p>`,
+		`<span class="signal-badge">Ongoing</span>`, `Down for 1 h so far`, "css/public_signal"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("signal page lacks %s", want)
+		}
+	}
+	for _, secret := range []string{privateName, privateHost, privateIP, privateSummary, privateSnippet, "api-internal"} {
+		if strings.Contains(body, secret) {
+			t.Errorf("signal page shows %q", secret)
+		}
+	}
+}

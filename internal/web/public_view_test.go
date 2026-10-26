@@ -102,11 +102,11 @@ func TestPublicViewFields(t *testing.T) {
 		t.Fatalf("%d incidents", len(v.Incidents))
 	}
 	for i, want := range []templates.PublicIncident{
-		{Service: "Down", Active: true, Date: "Today", Time: "11:42", Long: "18 minutes", Duration: "18m"},
-		{Service: "Old", Date: "Fri 23 Oct", Time: "09:14", Long: "26 minutes", Duration: "26m"},
+		{Service: "Down", Active: true, Date: "Today", Time: "11:42", Long: "18 minutes", Short: "18 min", Duration: "18m"},
+		{Service: "Old", Date: "Fri 23 Oct", Time: "09:14", Long: "26 minutes", Short: "26 min", Duration: "26m"},
 	} {
 		got := v.Incidents[i]
-		if got.Service != want.Service || got.Active != want.Active || got.Date != want.Date || got.Time != want.Time || got.Long != want.Long || got.Duration != want.Duration {
+		if got.Service != want.Service || got.Active != want.Active || got.Date != want.Date || got.Time != want.Time || got.Long != want.Long || got.Short != want.Short || got.Duration != want.Duration {
 			t.Errorf("incident %d = %+v, want %+v", i, got, want)
 		}
 	}

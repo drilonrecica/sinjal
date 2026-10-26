@@ -199,3 +199,10 @@ Sentence layout (SL-04): `web.BenchmarkStatusPage`, load average 3.8–5.3, thre
 - Cached visit: 1.2–1.9 ms; the HTML is 216 KB (213 KB before: each service carries a Terminal tag, each incident a date column).
 - `api.json` 0.28–0.37 ms (10.1 KB) and `feed.xml` 0.39–0.43 ms (14.5 KB), unchanged.
 - CSS, gzip -9: `public.css` 1.9 KB and `public_sentence.css` 2.0 KB, under the 6 KB per layout sheet.
+
+Signal layout (SL-05): `web.BenchmarkStatusPage` (the page in its default layout, Sentence; the view is the same for every layout and Signal adds one string per incident), load average 5.8–6.4, three runs.
+
+- Cold build: 20.4 ms, 4.5 MB, 25,220 allocations. `Short` is computed from the duration the build already has.
+- Cached visit: 1.0–1.2 ms; the HTML is 215 KB.
+- `api.json` 0.29–0.40 ms (10.1 KB) and `feed.xml` 0.39–0.44 ms (14.5 KB), unchanged.
+- CSS, gzip -9: `public_signal.css` 2.7 KB, under the 6 KB per layout sheet. The lamp is CSS only: no image, no script.

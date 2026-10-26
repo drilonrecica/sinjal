@@ -138,6 +138,11 @@ Built (SL-04, Sentence):
 - The view gained `Names`, `Verb`, `DownFor`, `Services` and `Operational`; the M8-17 `Sentence` ("Partial outage: X is down.") is gone, `publicHeadline` builds the two parts. `HeroState` and the `.public-hero` Ambient rules in `public.css` and `components.css` stay for Signal and Heartline.
 - `publicStateTag` gives every public state a Terminal tag; `overallIcon` and the `circle-dashed` icon went with the old hero (Signal's lamp maps its own glyphs, `04_DESIGN_SYSTEM.md`).
 
+Built (SL-05, Signal):
+- `signalPage` is layout A (`12_STATUS_PAGES.md` "Signal", built notes there): `statusLamp` (the hero lamp with `overallIcon`, and `circle-dashed` is back in `icons.go`), `signalGroup` with `signalGroupSummary`, `signalCard` with `signalLatency`, `signalIncident` with `signalBadge`. The hero is `.public-hero`, so the shared Ambient light sits behind it.
+- An incident's notes moved into `publicNotes`, shared by `publicIncident` (Sentence) and `signalIncident`. `PublicIncident.Short` ("12 min") joins `Long` and `Duration`.
+- `css/public_signal.css` (2.7 KB gzip): `--lamp` from `data-overall`, the lamp's gradients and breathing with its reduced-motion rest, the note card, the group heads, the two-column cards (one on phones), the incident rows, the Terminal block and box rules.
+
 ## JavaScript responsibilities
 
 Allowed:

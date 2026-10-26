@@ -49,10 +49,119 @@ templ PublicStatusPage(v PublicPage, theme string) {
 	{{ layout := publicLayout(v.Layout) }}
 	@PublicLayout(publicPage(v.Title, theme, layout), v.AccentCSS, v.NoIndex, true) {
 		switch layout {
+			case LayoutSignal:
+				@signalPage(v)
 			case LayoutSentence:
 				@sentencePage(v)
 		}
 	}
+}
+
+// signalPage is the Signal layout (docs/12 "Signal"): one answer at a
+// glance. data-overall sets --lamp, the colour of the lamp, its ring and
+// its halo (public_signal.css); data-state on the hero colours the
+// Ambient light behind it.
+templ signalPage(v PublicPage) {
+	<div class="public-page" data-layout="signal" data-overall={ v.Overall }>
+		@publicHeader(v)
+		<main>
+			<section class="public-hero signal-hero" data-state={ v.HeroState } aria-labelledby="overall">
+				@statusLamp(v.Overall)
+				<h1 id="overall">{ signalHeadline(v) }</h1>
+				<p class="signal-meta">{ signalMeta(v) }Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time></p>
+				if v.Note != nil {
+					@publicNote(*v.Note)
+				}
+			</section>
+			for _, g := range v.Groups {
+				@signalGroup(g)
+			}
+			if len(v.Groups) > 0 {
+				@publicAxis()
+			}
+			<section class="signal-incidents" aria-labelledby="incidents">
+				<h2 id="incidents">Incidents</h2>
+				if len(v.Incidents) == 0 {
+					<p class="public-quiet">No incidents in the last { pluralDays(v.IncidentDays) }.</p>
+				} else {
+					<ol class="signal-incident-list" role="list">
+						for _, in := range v.Incidents {
+							@signalIncident(in)
+						}
+					</ol>
+				}
+			</section>
+		</main>
+		@publicFooter(v)
+	</div>
+}
+
+// statusLamp is the hero's lamp (docs/04 "Status lamp"): the halo that
+// breathes, the lit bulb and the overall state's glyph inside it. The
+// headline next to it carries the words, so the lamp is decoration to a
+// reader.
+templ statusLamp(overall string) {
+	<div class="signal-lamp" aria-hidden="true">
+		<span class="signal-halo"></span><span class="signal-bulb">@Icon(overallIcon(overall))</span>
+	</div>
+}
+
+// signalGroup is a group's name with its summary in words on the right,
+// then its services as cards in two columns (one on phones).
+templ signalGroup(g PublicGroup) {
+	{{ summary, state := signalGroupSummary(g) }}
+	<section class="signal-group" aria-label={ groupLabel(g) }>
+		<div class="signal-group-head">
+			<h2 class="signal-group-name">{ groupLabel(g) }</h2>
+			<p
+				class="signal-group-summary"
+				if state != "" {
+					data-state={ state }
+				}
+			>{ summary }</p>
+		</div>
+		<ul class="signal-cards" role="list">
+			for _, row := range g.Rows {
+				@signalCard(row)
+			}
+		</ul>
+	</section>
+}
+
+// signalCard is one service: a mini lamp, its name, its state in words
+// (Terminal shows the tag) with the latency where shown, the 90-day uptime
+// figure on the right and the strip under them.
+templ signalCard(row PublicRow) {
+	<li class="signal-card" data-state={ row.State }>
+		<div class="signal-card-head">
+			<div class="signal-card-id">
+				<p class="signal-card-name"><span class="signal-dot"></span>{ row.Name }</p>
+				<p class="signal-card-state"><span class="status-text">{ publicStateLabel(row.State) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(row.State) }</span>{ signalLatency(row) }</p>
+			</div>
+			<p class="signal-card-figure"><span class="signal-card-uptime">{ row.Uptime }</span><small>90-day uptime</small></p>
+		</div>
+		@PublicDayBars(row)
+	</li>
+}
+
+// signalIncident is one listed incident: its day and time, the service
+// with an Ongoing or Resolved badge, how long it was (or has been) down,
+// and its notes.
+templ signalIncident(in PublicIncident) {
+	<li class="signal-incident" data-active?={ in.Active }>
+		<p class="signal-incident-when"><time datetime={ in.StartedAt }>{ in.Date }, { in.Time }</time></p>
+		<div class="signal-incident-body">
+			<p class="signal-incident-head"><span class="signal-incident-service">{ in.Service }</span><span class="signal-badge">{ signalBadge(in.Active) }</span></p>
+			<p class="signal-incident-duration">
+				if in.Active {
+					Down for { in.Short } so far
+				} else {
+					Down for { in.Short }
+				}
+			</p>
+			@publicNotes(in.Notes)
+		</div>
+	</li>
 }
 
 // sentencePage is the Sentence layout (docs/12 "Sentence"): the page reads
@@ -195,11 +304,17 @@ templ publicIncident(in PublicIncident) {
 					{ in.Service } was down for { in.Long }, from <time datetime={ in.StartedAt }>{ in.Time }</time>.
 				}
 			</p>
-			for _, n := range in.Notes {
-				<p class="public-note"><q>{ n.Message }</q>{ " " }<time datetime={ n.At }>{ n.Time }</time></p>
-			}
+			@publicNotes(in.Notes)
 		</div>
 	</li>
+}
+
+// publicNotes are an incident's published notes, each a quote with its
+// time after it; every layout quotes them the same way.
+templ publicNotes(notes []PublicNote) {
+	for _, n := range notes {
+		<p class="public-note"><q>{ n.Message }</q>{ " " }<time datetime={ n.At }>{ n.Time }</time></p>
+	}
 }
 
 // PublicDayBars is a service's 90-day strip in the "Monitoring since"

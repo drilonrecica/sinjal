@@ -1,0 +1,363 @@
+/* Signal, the status page layout for one answer at a glance (docs/12
+ * "Signal", docs/04 "Status lamp"). --lamp is the overall state's colour:
+ * the lamp, its ring and its halo take it. Services are cards in two
+ * columns; the Ambient light of public.css sits behind the hero. */
+
+.public-page[data-layout="signal"] {
+  --public-width: 60rem;
+  --lamp: var(--status-paused);
+}
+[data-layout="signal"][data-overall="up"] { --lamp: var(--status-up); }
+[data-layout="signal"][data-overall="partial"],
+[data-layout="signal"][data-overall="major"] { --lamp: var(--status-down); }
+[data-layout="signal"][data-overall="degraded"] { --lamp: var(--status-flapping); }
+[data-layout="signal"][data-overall="maintenance"] { --lamp: var(--chart-maintenance); }
+
+/* Header: Subscribe as a bordered button. */
+[data-layout="signal"] .public-subscribe {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* The hero, centred: the lamp, the headline, the meta line and, during an
+ * incident, the ongoing note as a card. */
+.signal-hero {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) 0 var(--space-5);
+  text-align: center;
+}
+.signal-hero h1 {
+  font-size: clamp(2rem, 1.5rem + 2vw, 2.875rem);
+  line-height: 1.1;
+  font-weight: 650;
+  letter-spacing: -0.028em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.signal-meta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The lamp: a halo that breathes behind a bulb lit by radial gradients (a
+ * highlight upper left, the state colour, a deeper rim), a soft ring, and
+ * the state's glyph inside. The breathing is the layout's one motion. */
+.signal-lamp {
+  --lamp-size: 8rem;
+  position: relative;
+  width: var(--lamp-size);
+  height: var(--lamp-size);
+  margin-bottom: var(--space-5);
+}
+.signal-halo {
+  position: absolute;
+  inset: -3.5rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--lamp) 32%, transparent), transparent 64%);
+  animation: signal-breathe 4.5s ease-in-out infinite;
+}
+@keyframes signal-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+.signal-bulb {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--on-status);
+  background: radial-gradient(circle at 36% 30%, color-mix(in srgb, var(--lamp) 55%, #fff) 0%, var(--lamp) 52%, color-mix(in srgb, var(--lamp) 72%, #000) 100%);
+  box-shadow: inset 0 -8px 20px rgb(0 0 0 / 0.22), 0 0 0 10px color-mix(in srgb, var(--lamp) 12%, transparent);
+}
+.signal-bulb .icon {
+  width: 40%;
+  height: 40%;
+  stroke-width: 2.5;
+}
+/* Under reduced motion the halo rests at its middle opacity. */
+@media (prefers-reduced-motion: reduce) {
+  .signal-halo {
+    animation: none;
+    opacity: 0.78;
+  }
+}
+
+/* The ongoing note as a card: the "Update at 14:05 · Service" line first,
+ * then the text, left-aligned. */
+.signal-hero .public-hero-note {
+  display: grid;
+  gap: var(--space-1);
+  width: min(38.75rem, 100%);
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.signal-hero .public-hero-note > p:first-child::before,
+.signal-hero .public-hero-note > p:first-child::after {
+  content: none;
+}
+.signal-hero .public-hero-note-meta {
+  order: -1;
+  margin-top: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+/* Groups: the name and, on the right, a summary in words coloured by the
+ * worst state. */
+.signal-group {
+  display: grid;
+  gap: var(--space-3);
+}
+.signal-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.signal-group-name {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.signal-group-summary {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.signal-group-summary[data-state] {
+  font-weight: 600;
+}
+.signal-group-summary[data-state="down"] { color: var(--status-down); }
+.signal-group-summary[data-state="flapping"] { color: var(--status-flapping); }
+.signal-group-summary[data-state="maintenance"] { color: var(--chart-maintenance); }
+
+/* Service cards: a mini lamp, the name, the state and latency; the uptime
+ * figure on the right; the strip under them. A down card's border is
+ * tinted with the down colour. */
+.signal-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+.signal-card {
+  --dot: var(--status-pending);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.signal-card[data-state="up"] { --dot: var(--status-up); }
+.signal-card[data-state="down"] { --dot: var(--status-down); }
+.signal-card[data-state="flapping"] { --dot: var(--status-flapping); }
+.signal-card[data-state="paused"] { --dot: var(--status-paused); }
+.signal-card[data-state="maintenance"] { --dot: var(--chart-maintenance); }
+.signal-card[data-state="down"] {
+  border-color: color-mix(in srgb, var(--status-down) 55%, var(--border));
+}
+.signal-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.signal-card-id {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.signal-card-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.signal-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dot);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--dot) 20%, transparent);
+}
+.signal-card-state {
+  position: relative;
+  padding-left: calc(10px + var(--space-3));
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.signal-card-state .status-text {
+  color: var(--dot);
+  font-weight: 500;
+}
+.signal-card-figure {
+  flex: none;
+  text-align: right;
+}
+.signal-card-uptime {
+  display: block;
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.signal-card-figure small {
+  color: var(--text-subtle);
+  font-size: var(--text-xs);
+}
+.signal-card .day-bars {
+  --day-bars-bg: var(--surface-1);
+  height: 1.625rem;
+}
+[data-layout="signal"] .public-axis {
+  margin-top: calc(-1 * var(--space-3));
+}
+
+/* Incidents: the day and time on the left; the service with its badge,
+ * the duration and the notes on the right. */
+.signal-incidents h2 {
+  margin-bottom: var(--space-2);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.signal-incident-list {
+  margin: 0;
+}
+.signal-incident {
+  display: grid;
+  grid-template-columns: 11.25rem minmax(0, 1fr);
+  gap: var(--space-5);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border);
+}
+.signal-incident-when {
+  padding-top: 0.2em;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.signal-incident-body {
+  display: grid;
+  gap: var(--space-1);
+}
+.signal-incident-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.signal-incident-service {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.signal-badge {
+  padding: 2px var(--space-2);
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.signal-incident[data-active] .signal-badge {
+  color: var(--on-status);
+  background: var(--status-down);
+}
+.signal-incident-duration {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+[data-layout="signal"] .public-note {
+  margin-top: var(--space-1);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+[data-layout="signal"] .public-footer {
+  justify-content: center;
+  padding-top: var(--space-5);
+  text-align: center;
+}
+
+/* Terminal: a square phosphor block without gradients, halo or breathing;
+ * box rules on the cards and the note; tags in place of the coloured
+ * state word, [DOWN] and [FLAP] inverse (components.css). */
+[data-theme="terminal"] .signal-halo {
+  display: none;
+}
+[data-theme="terminal"] .signal-bulb {
+  border-radius: 0;
+  background: var(--lamp);
+  box-shadow: none;
+}
+[data-theme="terminal"] .signal-hero h1 {
+  font-size: clamp(1.5rem, 1.125rem + 1.5vw, 2.25rem);
+  letter-spacing: -0.02em;
+}
+[data-theme="terminal"] .signal-hero .public-hero-note,
+[data-theme="terminal"] .signal-card {
+  border: 3px double var(--border);
+  border-radius: 0;
+}
+[data-theme="terminal"] .signal-card[data-state="down"] {
+  border-color: var(--status-down);
+}
+[data-theme="terminal"] .signal-dot {
+  border-radius: 0;
+  box-shadow: none;
+}
+[data-theme="terminal"] .signal-card-state .status-text {
+  color: var(--text);
+}
+[data-theme="terminal"] .signal-card[data-state="down"] .status-tag,
+[data-theme="terminal"] .signal-card[data-state="flapping"] .status-tag {
+  color: var(--on-status);
+  background: var(--status-down);
+}
+[data-theme="terminal"] .signal-card[data-state="flapping"] .status-tag {
+  background: var(--status-flapping);
+}
+[data-theme="terminal"] .signal-badge {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+}
+[data-theme="terminal"] .signal-incident[data-active] .signal-badge {
+  background: var(--status-down);
+  border-color: var(--status-down);
+}
+
+/* Phones: a smaller lamp, the headline wraps, one column of cards, the
+ * incidents stack. */
+@media (max-width: 40rem) {
+  .signal-hero {
+    padding: var(--space-5) 0 var(--space-4);
+  }
+  .signal-lamp {
+    --lamp-size: 6rem;
+  }
+  .signal-halo {
+    inset: -2.5rem;
+  }
+  .signal-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .signal-incident {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+  .signal-incident-when {
+    padding-top: 0;
+  }
+}
