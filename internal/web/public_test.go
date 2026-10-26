@@ -88,22 +88,22 @@ func TestPublicPageRenders(t *testing.T) {
 		t.Fatalf("GET /status/main = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"Acme status", "Everything we run", `data-theme="daylight"`, "Partial outage", "Web",
-		"We are restoring the database.", "Ongoing", "87 ms", "Powered by", "uptime over 90 days"} {
+	for _, want := range []string{"Acme status", "Everything we run", `data-theme="daylight"`, `data-layout="sentence" data-overall="partial"`, "Web",
+		"We are restoring the database.", "Database has been down since", "Powered by", "2 of 3 services operational"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	// The hero (M8-17): the sentence names the service that is down, with
-	// the Ambient light's state, and the ongoing incident's published note
-	// is read first.
-	for _, want := range []string{`<section class="public-hero public-overall-partial" data-state="down" aria-labelledby="overall">`,
-		"Partial outage: Database is down.", `<div class="public-hero-note">`} {
+	// The hero (docs/12 "Sentence"): the sentence names the service that is
+	// down, says for how long, and the ongoing incident's published note is
+	// read first, as a quote.
+	for _, want := range []string{`<h1 id="overall">Database <span class="sentence-verb">is down.</span></h1>`,
+		`<p class="sentence-sub">For 1 hour so far. Everything else is working.</p>`, `<blockquote class="public-hero-note">`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("hero lacks %q", want)
 		}
 	}
-	if hero := body[strings.Index(body, `class="public-hero `):strings.Index(body, `class="public-group"`)]; !strings.Contains(hero, "We are restoring the database.") || !strings.Contains(hero, "<span>Database</span>") {
+	if hero := body[strings.Index(body, `class="sentence-hero"`):strings.Index(body, `class="public-group"`)]; !strings.Contains(hero, "We are restoring the database.") || !strings.Contains(hero, "· Database</p>") {
 		t.Errorf("the note is not under the sentence:\n%s", hero)
 	}
 	name := func(s string) int { return strings.Index(body, `<span class="public-service-name">`+s+`</span>`) }
@@ -113,8 +113,9 @@ func TestPublicPageRenders(t *testing.T) {
 	if n := strings.Count(body, `<li data-day=`); n != 3*90 {
 		t.Errorf("%d strip days, want 90 per service", n)
 	}
-	if strings.Count(body, " ms") != 1 {
-		t.Error("latency shown for a service without show_latency")
+	// Sentence leaves latency out; it stays in api.json.
+	if strings.Contains(body, " ms") {
+		t.Error("latency shown on the Sentence page")
 	}
 	for _, secret := range []string{privateName, privateHost, privateIP, "connection refused", "s3cret", "corp.internal",
 		"api-internal", "site-internal", db, api, site, "inc1", "timeout", "/monitors/", "/incidents/"} {
@@ -149,7 +150,7 @@ func TestPublicPageOptions(t *testing.T) {
 		Monitors: []store.StatusPageMonitorInput{{MonitorID: m, DisplayName: "Thing"}}})
 	rec := e.serve(req("GET", "/status/plain", nil))
 	body := rec.Body.String()
-	if rec.Code != 200 || !strings.Contains(body, `data-theme="terminal"`) || !strings.Contains(body, "All systems operational") {
+	if rec.Code != 200 || !strings.Contains(body, `data-theme="terminal"`) || !strings.Contains(body, "Everything at Plain is working.") {
 		t.Fatalf("page = %d\n%s", rec.Code, body)
 	}
 	if strings.Contains(body, "Powered by") || strings.Contains(body, "<style") || strings.Contains(body, "<script") {
@@ -180,10 +181,10 @@ func TestPublicIncidentDays(t *testing.T) {
 	e.addIncident(t, "old", m, ended.Add(-time.Hour), &ended, false)
 	e.addPage(t, store.StatusPageInput{Slug: "short", Title: "Short", Monitors: []store.StatusPageMonitorInput{{MonitorID: m, DisplayName: "Thing"}}})
 	e.addPage(t, store.StatusPageInput{Slug: "long", Title: "Long", IncidentDays: 60, Monitors: []store.StatusPageMonitorInput{{MonitorID: m, DisplayName: "Thing"}}})
-	if body := e.serve(req("GET", "/status/short", nil)).Body.String(); strings.Contains(body, "Resolved") {
+	if body := e.serve(req("GET", "/status/short", nil)).Body.String(); strings.Contains(body, "Thing was down") {
 		t.Error("an incident older than incident_days is listed")
 	}
-	if body := e.serve(req("GET", "/status/long", nil)).Body.String(); !strings.Contains(body, "Resolved") || !strings.Contains(body, "down for 1h") {
+	if body := e.serve(req("GET", "/status/long", nil)).Body.String(); !strings.Contains(body, "Thing was down for 1 hour, from <time") {
 		t.Error("an incident within incident_days is missing")
 	}
 }
@@ -274,7 +275,7 @@ func TestPublicMaintenanceState(t *testing.T) {
 	}
 	e.addPage(t, store.StatusPageInput{Slug: "m", Title: "M", Monitors: []store.StatusPageMonitorInput{{MonitorID: m, DisplayName: "Thing"}}})
 	body := e.serve(req("GET", "/status/m", nil)).Body.String()
-	if !strings.Contains(body, "Under maintenance") || !strings.Contains(body, `data-state="maintenance"`) {
+	if !strings.Contains(body, `Thing <span class="sentence-verb">is under maintenance.</span>`) || !strings.Contains(body, `data-state="maintenance"`) {
 		t.Errorf("maintenance not shown:\n%s", body)
 	}
 }

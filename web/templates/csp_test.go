@@ -158,11 +158,11 @@ func TestPagesNeedNoInlineCode(t *testing.T) {
 }
 
 var testPublicPage = PublicPage{Title: "Acme", Description: "d", Logo: "/uploads/x.png", Overall: OverallPartial, OverallText: "Partial outage",
-	Sentence: "Partial outage: API is down.", HeroState: StateDown, Note: &PublicNote{Service: "API", Message: "m", Time: "12:00 UTC", At: "2026-10-06T12:00:00Z"},
+	Names: "API", Verb: "is down", DownFor: "5 minutes", Services: 2, Operational: 0, HeroState: StateDown, Note: &PublicNote{Service: "API", Message: "m", Time: "12:00 UTC", At: "2026-10-06T12:00:00Z"},
 	Uptime: "99.90%", IncidentDays: 30, PoweredBy: true, NoIndex: true, AccentCSS: "html[data-theme]{--accent:#3e67a8;--accent-contrast:#ffffff}",
 	Groups: []PublicGroup{{Name: "Web", Rows: []PublicRow{{Name: "API", State: StateDown, Latency: "80 ms", Uptime: "99.00%",
 		Days: []Day{{Class: DayUp, Label: "a"}, {Class: DayMaintenance, Label: "b"}}, StripText: "s"}}}, {Rows: []PublicRow{{Name: "DB", State: StateMaintenance}}}},
-	Incidents: []PublicIncident{{Service: "API", Active: true, Started: "s", Duration: "5m", Notes: []PublicNote{{Message: "m", Time: "t"}}}, {Service: "DB"}}}
+	Incidents: []PublicIncident{{Service: "API", Active: true, Date: "Today", Time: "12:00", Long: "5 minutes", Duration: "5m", Notes: []PublicNote{{Message: "m", Time: "t"}}}, {Service: "DB"}}}
 
 var testIncidents = IncidentListView{Fragment: "/fragments/incidents", ShowMonitor: true, Limit: 100, More: true,
 	Rows: []IncidentRowView{

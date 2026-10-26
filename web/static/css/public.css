@@ -38,7 +38,10 @@ body.public {
   flex: 1;
   min-width: 0;
 }
-.public-title h1 {
+.public-title-name {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 .public-description {
@@ -86,40 +89,41 @@ body.public {
   display: none;
 }
 
-/* The newest published note of an ongoing incident, read first. */
+/* The newest published note of an ongoing incident, read first: a quote
+ * with a rule on its left, then "Update at 14:05 · Service". */
 .public-hero-note {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  border-left: 3px solid var(--border-strong);
 }
 .public-hero-note p {
   max-width: 70ch;
-  margin: 0;
   overflow-wrap: anywhere;
 }
-.public-hero-note-head {
-  display: flex;
-  gap: var(--space-3);
-  margin-bottom: var(--space-1) !important;
+.public-hero-note > p:first-child {
+  white-space: pre-wrap;
+}
+.public-hero-note > p:first-child::before { content: "\201C"; }
+.public-hero-note > p:first-child::after { content: "\201D"; }
+.public-hero-note-meta {
+  margin-top: var(--space-2);
   color: var(--text-muted);
   font-size: var(--text-sm);
-  font-weight: 600;
 }
 
-/* An incident's published notes. */
+/* An incident's published notes: each a quote with its time after it. */
 .public-note {
   margin-top: var(--space-2);
-  padding-left: var(--space-3);
-  border-left: 2px solid var(--border-strong);
-}
-.public-note time {
   color: var(--text-muted);
-  font-size: var(--text-sm);
+  line-height: 1.6;
 }
-.public-note p {
+.public-note q {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.public-note time {
+  color: var(--text-subtle);
+  font-size: var(--text-sm);
 }
 
 /* "Monitoring since": the days before a service's first day with data

@@ -219,6 +219,16 @@ Shows: the downtime per service in human time. Leaves out: latency (it stays in 
 
 Terminal: everything in mono, the top rule in the state colour (amber when calm), box rules on groups and incidents, state tags in place of the coloured state word ("[DOWN]" as an inverse block).
 
+Built (SL-04, `sentencePage` in `web/templates/public.templ`, `css/public_sentence.css`):
+- The M8-17 markup and styles are gone: the `.public-hero` sentence with its glyph, the service cards with uptime and latency, the incident cards with their Ongoing/Resolved words and the note card.
+- The view carries the headline in two parts, `Names` and `Verb` (`publicHeadline`), `DownFor` (the oldest ongoing incident, only during an outage), `Services` and `Operational` for the meta line, and per incident `Date` ("Today", "Yesterday", "Fri 23 Oct"), `Time` ("09:14") and `Long` ("12 minutes"). `Duration` stays for the feed.
+- `data-overall` on `.public-page` sets `--overall`, the colour of the top rule, the verb and the quote's rule. The page has no Ambient light.
+- The sentence is the page's `h1`; the header's title is a paragraph, so the heading order starts at the status. Groups and "The last N days" are `h2`.
+- The hero note is a `blockquote` with "Update at 14:05 CET · Service" under it; an incident's notes are `<q>` quotes with their time after them. Both come from the shared partials, so every layout quotes notes the same way.
+- Service states carry the word and, for Terminal, a tag (`publicStateTag`: UP, DOWN, PENDING, PAUSED, FLAP, MAINT) through the `status-text`/`status-tag` pattern of `components.css`; the word stays for assistive technology.
+- The meta line reads "Updated 00:57 CET · 5 services · 99.91% over 90 days" when calm, "Updated 14:10 CET · 4 of 5 services operational" otherwise, and "Updated 14:10 CET" alone with nothing monitored. Services counts every service on the page; operational counts those that are up.
+- Subscribe keeps the shared "Subscribe" word; the "Status" word after the title is drawn by CSS.
+
 ### Heartline (C)
 
 For technical audiences who want to see how a service is responding now. Sketch: `Heartline.dc.html`.
@@ -281,7 +291,7 @@ Terminal: square cells with box rules, the legend in mono, state tags in the ser
 - New pages start in `sentence` (`statuspage.DefaultLayout`). Migration `011_status_page_layouts` adds the column with that default, so every existing page moves to Sentence.
 - A page whose layout is unknown or empty renders in Sentence, as an unknown theme renders in Daylight.
 - The admin form chooses it under Appearance, before Theme, as cards with the name and the one-line description above.
-- The M8-17 markup and styles are removed when Sentence replaces them (SL-04). Each layout's styles are in `css/public_<layout>.css`, linked only on its pages; `public.css` keeps the shared chrome.
+- The M8-17 markup and styles were removed when Sentence replaced them (SL-04). Each layout's styles are in `css/public_<layout>.css`, linked only on its pages; `public.css` keeps the shared chrome.
 
 ## Groups
 

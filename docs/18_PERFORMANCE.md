@@ -192,3 +192,10 @@ Status page layouts, shared foundation (SL-03): `web.BenchmarkStatusPage`, load 
 - `api.json` 0.27 ms (10.1 KB) and `feed.xml` 0.39 ms (14.5 KB), unchanged; their bytes do not depend on the layout (`TestPublicMachineFormsIgnoreLayout`).
 - CSS, gzip -9: the shared `public.css` 1.8 KB and `public_sentence.css` 1.0 KB, together 2.8 KB against the old single `public.css` of 1.5 KB (the split repeats a little and adds the "Monitoring since" and footer rules).
 - Inside the 50 ms page budget, cold and cached.
+
+Sentence layout (SL-04): `web.BenchmarkStatusPage`, load average 3.8–5.3, three runs.
+
+- Cold build: 20.2–20.8 ms, 4.5 MB, 25,380 allocations. The headline, the time so far, the counts and the incidents' date, time and words come from what the build already reads.
+- Cached visit: 1.2–1.9 ms; the HTML is 216 KB (213 KB before: each service carries a Terminal tag, each incident a date column).
+- `api.json` 0.28–0.37 ms (10.1 KB) and `feed.xml` 0.39–0.43 ms (14.5 KB), unchanged.
+- CSS, gzip -9: `public.css` 1.9 KB and `public_sentence.css` 2.0 KB, under the 6 KB per layout sheet.

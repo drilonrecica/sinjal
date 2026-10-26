@@ -92,6 +92,24 @@ func TestPublicViewFields(t *testing.T) {
 	if want := "The last interruption was 3 days ago, 26 minutes on Old."; v.LastIssue != want {
 		t.Errorf("LastIssue = %q, want %q", v.LastIssue, want)
 	}
+	// The headline names the service that is down; the time so far is the
+	// oldest ongoing incident's; the counts are every service and those up.
+	if v.Names != "Down" || v.Verb != "is down" || v.DownFor != "18 minutes" || v.Services != 5 || v.Operational != 2 {
+		t.Errorf("headline %q %q, down for %q, %d services, %d operational", v.Names, v.Verb, v.DownFor, v.Services, v.Operational)
+	}
+	// Each incident carries its day, clock time and duration in words.
+	if len(v.Incidents) != 2 {
+		t.Fatalf("%d incidents", len(v.Incidents))
+	}
+	for i, want := range []templates.PublicIncident{
+		{Service: "Down", Active: true, Date: "Today", Time: "11:42", Long: "18 minutes", Duration: "18m"},
+		{Service: "Old", Date: "Fri 23 Oct", Time: "09:14", Long: "26 minutes", Duration: "26m"},
+	} {
+		got := v.Incidents[i]
+		if got.Service != want.Service || got.Active != want.Active || got.Date != want.Date || got.Time != want.Time || got.Long != want.Long || got.Duration != want.Duration {
+			t.Errorf("incident %d = %+v, want %+v", i, got, want)
+		}
+	}
 
 	// The calendar: the worst class over the services, and the listed
 	// incidents (the active one first) on the days they touched.
@@ -118,8 +136,8 @@ func TestPublicViewFields(t *testing.T) {
 	if v, err = h.build(ctx, q, now); err != nil {
 		t.Fatal(err)
 	}
-	if v.LastIssue != "No interruptions in the last 30 days." || v.Layout != statuspage.DefaultLayout {
-		t.Errorf("quiet page: LastIssue %q, layout %q", v.LastIssue, v.Layout)
+	if v.LastIssue != "No interruptions in the last 30 days." || v.Layout != statuspage.DefaultLayout || v.DownFor != "" || v.Names != "" || v.Services != 1 || v.Operational != 1 {
+		t.Errorf("quiet page: LastIssue %q, layout %q, down for %q, names %q, %d services, %d operational", v.LastIssue, v.Layout, v.DownFor, v.Names, v.Services, v.Operational)
 	}
 	for i, d := range v.Calendar {
 		want := templates.DayNoData

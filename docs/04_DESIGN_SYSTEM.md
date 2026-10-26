@@ -140,7 +140,7 @@ Three marks belong to the status page layouts (`12_STATUS_PAGES.md` "Layouts"). 
 
 - **Look:** a round lamp, 128 px in the hero (96 px on phones), lit with radial gradients: a highlight upper left, the state colour, a deeper rim. A soft ring around it, and a halo behind that fades to nothing. The mini lamp of a service card is a 10 px dot with a faint ring.
 - **Colour:** up `--status-up`, down `--status-down`, degraded `--status-flapping`, maintenance `--chart-maintenance`, none `--status-paused`.
-- **Glyph:** the hero lamp holds the state's glyph in white: check (up), x (down), triangle (degraded), wrench (maintenance), dashed circle (none), the shapes of `publicStateIcon` and `overallIcon`. The mini lamp is always next to the state word.
+- **Glyph:** the hero lamp holds the state's glyph in white: check (up), x (down), triangle (degraded), wrench (maintenance), dashed circle (none), the shapes of `publicStateIcon` plus the lamp's own mapping from the overall state (the M8-17 `overallIcon` and its `circle-dashed` icon went with the old hero in SL-04; Signal brings the mapping and the icon back). The mini lamp is always next to the state word.
 - **Motion:** the halo breathes (opacity and a slight scale, 4.5 s, ease-in-out). It is the only looping motion in Signal. Under reduced motion the halo stays still at its middle opacity.
 - **Terminal:** a square phosphor block in the state colour: no gradients, no halo, no breathing. The glyph stays inside.
 

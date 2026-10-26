@@ -1,6 +1,10 @@
 package templates
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 // Public status page views (docs/12_STATUS_PAGES.md). They are separate
 // from the admin views on purpose: everything here may be read by anyone
@@ -36,17 +40,28 @@ type PublicPage struct {
 	Logo        string // URL of the logo, or ""
 	Overall     string // Overall…
 	OverallText string
-	// Sentence is the hero (M8-17): OverallText as a sentence, naming the
-	// services that are down; HeroState (up, down, flapping) colours its
-	// Ambient light.
-	Sentence  string
+	// Names and Verb are the headline (docs/12 "Headline") in two parts,
+	// so a layout can colour the verb: "Checkout and API" and "are down"
+	// (also "is unstable", "is under maintenance"; three names, then "and
+	// n more"). Both are "" when everything is up or nothing is monitored.
+	Names string
+	Verb  string
+	// DownFor is how long the longest ongoing outage has lasted, in words
+	// ("18 minutes"); "" without one, or outside an outage.
+	DownFor string
+	// HeroState (up, down, flapping) colours the Ambient light of the
+	// layouts that show one.
 	HeroState string
 	// Note is the newest published note of an ongoing incident, shown
-	// under the sentence; nil without one.
-	Note      *PublicNote
-	Uptime    string // 90-day adjusted uptime of all services, "—" without data
-	Groups    []PublicGroup
-	Incidents []PublicIncident
+	// in the hero; nil without one.
+	Note   *PublicNote
+	Uptime string // 90-day adjusted uptime of all services, "—" without data
+	// Services counts the page's services and Operational those that are
+	// up, for the meta line ("4 of 5 services operational").
+	Services    int
+	Operational int
+	Groups      []PublicGroup
+	Incidents   []PublicIncident
 	// LastIssue is the newest ended incident in words, "The last
 	// interruption was 3 days ago, 12 minutes on Web.", or "No
 	// interruptions in the last 30 days." without one.
@@ -105,9 +120,11 @@ type PublicRow struct {
 type PublicIncident struct {
 	Service   string
 	Active    bool
-	Started   string
-	StartedAt string
-	Duration  string // "so far" while active
+	Date      string // the day it started: "Today", "Yesterday", "Fri 23 Oct"
+	Time      string // the clock time it started, "09:14"
+	StartedAt string // RFC 3339
+	Long      string // how long it was, or has been, down, in words: "12 minutes"
+	Duration  string // the same in short units, "12m"; for the feed
 	Notes     []PublicNote
 
 	// Not shown in HTML; for api.json and feed.xml.
@@ -167,6 +184,25 @@ func publicStateIcon(state string) string {
 		return "wrench"
 	}
 	return stateIcon(state)
+}
+
+// publicStateTag is Terminal's short tag for a state, shown in place of
+// the word ([UP], [DOWN], [FLAP], [MAINT]; docs/05 "Terminal"). The word
+// stays for assistive technology.
+func publicStateTag(state string) string {
+	switch state {
+	case StateUp:
+		return "UP"
+	case StateDown:
+		return "DOWN"
+	case StatePaused:
+		return "PAUSED"
+	case StateFlapping:
+		return "FLAP"
+	case StateMaintenance:
+		return "MAINT"
+	}
+	return "PENDING"
 }
 
 // publicPage is the page a status page renders in: its own theme, or
@@ -230,23 +266,45 @@ func groupLabel(g PublicGroup) string {
 	return g.Name
 }
 
-func overallIcon(overall string) string {
-	switch overall {
-	case OverallUp:
-		return "check"
-	case OverallMajor, OverallPartial:
-		return "octagon-x"
-	case OverallMaintenance:
-		return "wrench"
-	case OverallDegraded:
-		return "triangle-alert"
-	}
-	return "circle-dashed"
-}
-
+// pluralDays is "day" or "30 days", for "the last …".
 func pluralDays(n int) string {
 	if n == 1 {
 		return "day"
 	}
 	return strconv.Itoa(n) + " days"
+}
+
+// sentenceSub is the line under an outage headline (docs/12 "Sentence"):
+// how long the outage has lasted, and that the rest works, which is left
+// out when every service is down.
+func sentenceSub(v PublicPage) string {
+	var parts []string
+	if v.DownFor != "" {
+		parts = append(parts, "For "+v.DownFor+" so far.")
+	}
+	if v.Overall != OverallMajor {
+		parts = append(parts, "Everything else is working.")
+	}
+	return strings.Join(parts, " ")
+}
+
+// sentenceMeta follows "Updated 00:57 CET" on Sentence's meta line: calm
+// "· 5 services · 99.91% over 90 days", otherwise "· 4 of 5 services
+// operational"; nothing when nothing is monitored.
+func sentenceMeta(v PublicPage) string {
+	switch v.Overall {
+	case OverallNone:
+		return ""
+	case OverallUp:
+		return " · " + pluralServices(v.Services) + " · " + v.Uptime + " over 90 days"
+	}
+	return fmt.Sprintf(" · %d of %s operational", v.Operational, pluralServices(v.Services))
+}
+
+// pluralServices is "1 service" or "5 services".
+func pluralServices(n int) string {
+	if n == 1 {
+		return "1 service"
+	}
+	return strconv.Itoa(n) + " services"
 }

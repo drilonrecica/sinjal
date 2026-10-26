@@ -475,9 +475,6 @@
 [data-theme="terminal"] .chan-list,
 [data-theme="terminal"] .sp-monitor,
 [data-theme="terminal"] .problem-strip,
-[data-theme="terminal"] .public-services,
-[data-theme="terminal"] .public-incident,
-[data-theme="terminal"] .public-hero-note,
 [data-theme="terminal"] .auth-panel,
 [data-theme="terminal"] .form-section {
   border-style: double;

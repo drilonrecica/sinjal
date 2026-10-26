@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -209,20 +210,26 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 		v.Groups = append(v.Groups, templates.PublicGroup{Rows: ungrouped})
 	}
 	v.Uptime = total.Percent()
+	v.Services, v.Operational = len(p.Monitors), states[templates.StateUp]
 	v.Overall, v.OverallText = overall(states, len(p.Monitors))
-	v.Sentence, v.HeroState = publicSentence(v.Overall, v.OverallText, v.Groups), publicHeroState(v.Overall)
+	v.Names, v.Verb = publicHeadline(v.Overall, v.Groups)
+	v.HeroState = publicHeroState(v.Overall)
 
 	incidents, err := store.ListPageIncidents(ctx, h.db.Reader, p.ID, now.AddDate(0, 0, -p.IncidentDays), publicIncidentLimit)
 	if err != nil {
 		return v, err
 	}
+	var oldest time.Time // the start of the longest ongoing incident
 	for _, in := range incidents {
 		end := now
 		if in.EndedAt != nil {
 			end = *in.EndedAt
+		} else if oldest.IsZero() || in.StartedAt.Before(oldest) {
+			oldest = in.StartedAt
 		}
 		pi := templates.PublicIncident{Key: h.opaqueKey(p.ID, "incident", in.ID), Service: in.DisplayName, Active: in.EndedAt == nil,
-			Started: clockText(in.StartedAt, now, h.loc), StartedAt: rfc3339(in.StartedAt), Duration: formatSince(end.Sub(in.StartedAt))}
+			Date: dateText(in.StartedAt, now, h.loc), Time: in.StartedAt.In(h.loc).Format("15:04"), StartedAt: rfc3339(in.StartedAt),
+			Long: longDuration(end.Sub(in.StartedAt)), Duration: formatSince(end.Sub(in.StartedAt))}
 		if in.EndedAt != nil {
 			pi.EndedAt = rfc3339(*in.EndedAt)
 		}
@@ -235,6 +242,9 @@ func (h *Public) build(ctx context.Context, p store.StatusPageDetail, now time.T
 		v.Note = &templates.PublicNote{Service: n.Service, Message: n.Message, Time: clockText(n.At, now, h.loc), At: rfc3339(n.At)}
 	}
 	v.LastIssue = lastIssue(incidents, p.IncidentDays, now, h.loc)
+	if !oldest.IsZero() && (v.Overall == templates.OverallMajor || v.Overall == templates.OverallPartial) {
+		v.DownFor = longDuration(now.Sub(oldest))
+	}
 	v.Calendar = calendarOf(strips, days, incidents, now)
 	return v, nil
 }
@@ -388,14 +398,19 @@ func lastIssue(incidents []store.PageIncident, incidentDays int, now time.Time, 
 	return "No interruptions in the last " + plural(incidentDays, "day") + "."
 }
 
-// daysAgo counts the local calendar days from t to now: "today",
-// "yesterday", "3 days ago".
-func daysAgo(t, now time.Time, loc *time.Location) string {
+// localDays counts the local calendar days from t to now.
+func localDays(t, now time.Time, loc *time.Location) int {
 	date := func(t time.Time) time.Time {
 		y, m, d := t.In(loc).Date()
 		return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 	}
-	switch n := int(date(now).Sub(date(t)).Hours() / 24); n {
+	return int(date(now).Sub(date(t)).Hours() / 24)
+}
+
+// daysAgo is the local calendar days from t to now in words: "today",
+// "yesterday", "3 days ago".
+func daysAgo(t, now time.Time, loc *time.Location) string {
+	switch n := localDays(t, now, loc); n {
 	case 0:
 		return "today"
 	case 1:
@@ -403,6 +418,22 @@ func daysAgo(t, now time.Time, loc *time.Location) string {
 	default:
 		return strconv.Itoa(n) + " days ago"
 	}
+}
+
+// dateText is the day of t for an incident's date column: "Today",
+// "Yesterday", "Fri 23 Oct", or with the year when it is not this year's.
+func dateText(t, now time.Time, loc *time.Location) string {
+	switch localDays(t, now, loc) {
+	case 0:
+		return "Today"
+	case 1:
+		return "Yesterday"
+	}
+	t = t.In(loc)
+	if t.Year() != now.In(loc).Year() {
+		return t.Format("2 Jan 2006")
+	}
+	return t.Format("Mon 2 Jan")
 }
 
 // dayRank orders the day classes from best to worst for the calendar.
@@ -532,37 +563,41 @@ func (c *pageCache) put(id string, updated time.Time, v templates.PublicPage, no
 	c.entries[id] = cachedPage{view: v, updated: updated, expires: now.Add(publicCacheTTL)}
 }
 
-// publicSentence is the page's status sentence (M8-17): the overall state
-// in words and, during an outage, the services that are down by their
-// public names, the first three and a count of the rest.
-func publicSentence(overall, text string, groups []templates.PublicGroup) string {
-	if overall != templates.OverallMajor && overall != templates.OverallPartial {
-		return text + "."
+// publicHeadline is the headline's two parts (docs/12 "Headline"): the
+// services that are down (or, when none is, unstable or under
+// maintenance) by their public names, the first three and a count of the
+// rest, and the verb that fits them. Both are "" when everything is up or
+// nothing is monitored.
+func publicHeadline(overall string, groups []templates.PublicGroup) (names, verb string) {
+	var states []string
+	switch overall {
+	case templates.OverallMajor, templates.OverallPartial:
+		states, verb = []string{templates.StateDown}, "down"
+	case templates.OverallDegraded:
+		states, verb = []string{templates.StatePending, templates.StateFlapping}, "unstable"
+	case templates.OverallMaintenance:
+		states, verb = []string{templates.StateMaintenance}, "under maintenance"
+	default:
+		return "", ""
 	}
-	var down []string
+	var list []string
 	for _, g := range groups {
 		for _, r := range g.Rows {
-			if r.State == templates.StateDown {
-				down = append(down, r.Name)
+			if slices.Contains(states, r.State) {
+				list = append(list, r.Name)
 			}
 		}
 	}
-	if len(down) == 0 {
-		return text + "."
+	if len(list) == 0 {
+		return "", ""
 	}
-	verb := "are down."
-	if len(down) == 1 {
-		verb = "is down."
+	if len(list) == 1 {
+		return list[0], "is " + verb
 	}
-	names := down
-	if len(down) > 3 {
-		names = append(down[:3:3], strconv.Itoa(len(down)-3)+" more")
+	if len(list) > 3 {
+		list = append(list[:3:3], strconv.Itoa(len(list)-3)+" more")
 	}
-	list := names[0]
-	if len(names) > 1 {
-		list = strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
-	}
-	return text + ": " + list + " " + verb
+	return strings.Join(list[:len(list)-1], ", ") + " and " + list[len(list)-1], "are " + verb
 }
 
 // publicHeroState colours the hero's Ambient light (components.css keys

@@ -8,33 +8,36 @@ import (
 	"github.com/drilonrecica/sinjal/web/templates"
 )
 
-// The status sentence (M8-17): the overall state in words, naming the
-// services that are down by their public names.
-func TestPublicSentence(t *testing.T) {
-	rows := func(names ...string) []templates.PublicGroup {
+// The headline (docs/12 "Headline"): the services that are down, unstable
+// or under maintenance by their public names, and the verb apart so a
+// layout can colour it; nothing when everything is up or nothing is
+// monitored.
+func TestPublicHeadline(t *testing.T) {
+	rows := func(state string, names ...string) []templates.PublicGroup {
 		var g templates.PublicGroup
 		for _, n := range names {
-			g.Rows = append(g.Rows, templates.PublicRow{Name: n, State: templates.StateDown})
+			g.Rows = append(g.Rows, templates.PublicRow{Name: n, State: state})
 		}
 		g.Rows = append(g.Rows, templates.PublicRow{Name: "Fine", State: templates.StateUp})
 		return []templates.PublicGroup{g}
 	}
 	for _, tt := range []struct {
-		overall, text string
-		groups        []templates.PublicGroup
-		want          string
+		overall     string
+		groups      []templates.PublicGroup
+		names, verb string
 	}{
-		{templates.OverallUp, "All systems operational", rows(), "All systems operational."},
-		{templates.OverallDegraded, "Degraded performance", rows(), "Degraded performance."},
-		{templates.OverallMaintenance, "Under maintenance", rows(), "Under maintenance."},
-		{templates.OverallNone, "No services are monitored", nil, "No services are monitored."},
-		{templates.OverallPartial, "Partial outage", rows("Database"), "Partial outage: Database is down."},
-		{templates.OverallPartial, "Partial outage", rows("Database", "Web"), "Partial outage: Database and Web are down."},
-		{templates.OverallMajor, "Major outage", rows("A", "B", "C"), "Major outage: A, B and C are down."},
-		{templates.OverallMajor, "Major outage", rows("A", "B", "C", "D", "E"), "Major outage: A, B, C and 2 more are down."},
+		{templates.OverallUp, rows(templates.StateUp), "", ""},
+		{templates.OverallNone, nil, "", ""},
+		{templates.OverallPartial, rows(templates.StateDown, "Database"), "Database", "is down"},
+		{templates.OverallPartial, rows(templates.StateDown, "Database", "Web"), "Database and Web", "are down"},
+		{templates.OverallMajor, rows(templates.StateDown, "A", "B", "C"), "A, B and C", "are down"},
+		{templates.OverallMajor, rows(templates.StateDown, "A", "B", "C", "D", "E"), "A, B, C and 2 more", "are down"},
+		{templates.OverallDegraded, rows(templates.StateFlapping, "Checkout"), "Checkout", "is unstable"},
+		{templates.OverallDegraded, append(rows(templates.StatePending, "New"), rows(templates.StateFlapping, "Checkout")...), "New and Checkout", "are unstable"},
+		{templates.OverallMaintenance, rows(templates.StateMaintenance, "Checkout"), "Checkout", "is under maintenance"},
 	} {
-		if got := publicSentence(tt.overall, tt.text, tt.groups); got != tt.want {
-			t.Errorf("%s %v: %q, want %q", tt.overall, tt.groups, got, tt.want)
+		if names, verb := publicHeadline(tt.overall, tt.groups); names != tt.names || verb != tt.verb {
+			t.Errorf("%s %v: %q %q, want %q %q", tt.overall, tt.groups, names, verb, tt.names, tt.verb)
 		}
 	}
 }

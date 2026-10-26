@@ -55,23 +55,30 @@ templ PublicStatusPage(v PublicPage, theme string) {
 	}
 }
 
-// sentencePage is the Sentence layout (docs/12 "Sentence"). Until SL-04 it
-// is the M8-17 page, made of the shared partials.
+// sentencePage is the Sentence layout (docs/12 "Sentence"): the page reads
+// like a short note. data-overall colours the rule across the top of the
+// page, the headline's verb and the quote's rule (public_sentence.css).
 templ sentencePage(v PublicPage) {
-	<div class="public-page" data-layout="sentence">
+	<div class="public-page" data-layout="sentence" data-overall={ v.Overall }>
 		@publicHeader(v)
 		<main>
-			<section class={ "public-hero", "public-overall-" + v.Overall } data-state={ v.HeroState } aria-labelledby="overall">
-				<h2 id="overall"><span class="public-glyph">@Icon(overallIcon(v.Overall))</span> { v.Sentence }</h2>
-				<p class="public-overall-meta">
-					<span>{ v.Uptime } uptime over 90 days</span>
-					<span>Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time></span>
-				</p>
-				if v.Note != nil {
-					@publicNote(*v.Note)
-				} else if v.Overall == OverallUp {
-					<p class="public-last-issue">{ v.LastIssue }</p>
+			<section class="sentence-hero" aria-labelledby="overall">
+				switch v.Overall {
+					case OverallNone:
+						<h1 id="overall">Nothing is monitored on this page yet.</h1>
+					case OverallUp:
+						<h1 id="overall">Everything at { v.Title } is working.</h1>
+						<p class="sentence-sub">{ v.LastIssue }</p>
+					default:
+						<h1 id="overall">{ v.Names }{ " " }<span class="sentence-verb">{ v.Verb }.</span></h1>
+						if sub := sentenceSub(v); sub != "" {
+							<p class="sentence-sub">{ sub }</p>
+						}
+						if v.Note != nil {
+							@publicNote(*v.Note)
+						}
 				}
+				<p class="sentence-meta">Updated <time datetime={ v.GeneratedAt }>{ v.Generated }</time>{ sentenceMeta(v) }</p>
 			</section>
 			for _, g := range v.Groups {
 				@publicGroup(g)
@@ -80,7 +87,7 @@ templ sentencePage(v PublicPage) {
 				@publicAxis()
 			}
 			<section class="public-incidents" aria-labelledby="incidents">
-				<h2 id="incidents">Incidents</h2>
+				<h2 class="public-group-name" id="incidents">The last { pluralDays(v.IncidentDays) }</h2>
 				if len(v.Incidents) == 0 {
 					<p class="public-quiet">No incidents in the last { pluralDays(v.IncidentDays) }.</p>
 				} else {
@@ -96,11 +103,11 @@ templ sentencePage(v PublicPage) {
 	</div>
 }
 
+// publicGroup is a group's label over its services. Services outside any
+// group are labelled "Services".
 templ publicGroup(g PublicGroup) {
 	<section class="public-group" aria-label={ groupLabel(g) }>
-		if g.Name != "" {
-			<h2 class="public-group-name">{ g.Name }</h2>
-		}
+		<h2 class="public-group-name">{ groupLabel(g) }</h2>
 		<ul class="public-services" role="list">
 			for _, row := range g.Rows {
 				@publicRow(row)
@@ -109,39 +116,39 @@ templ publicGroup(g PublicGroup) {
 	</section>
 }
 
+// publicRow is one service: its name, a dotted leader and its state in
+// words (Terminal shows the tag instead); under it the 90-day strip and
+// its downtime in human time.
 templ publicRow(row PublicRow) {
 	<li class="public-service" data-state={ row.State }>
 		<div class="public-service-head">
 			<span class="public-service-name">{ row.Name }</span>
 			<span class="public-service-state">
 				<span class="public-glyph">@Icon(publicStateIcon(row.State))</span>
-				{ publicStateLabel(row.State) }
+				<span class="status-text">{ publicStateLabel(row.State) }</span><span class="status-tag" aria-hidden="true">{ publicStateTag(row.State) }</span>
 			</span>
 		</div>
-		@PublicDayBars(row)
-		<p class="public-service-meta">
-			<span>{ row.Downtime }</span>
-			<span>
-				{ row.Uptime } uptime
-				if row.Latency != "" {
-					· { row.Latency }
-				}
-			</span>
-		</p>
+		<div class="public-service-strip">
+			@PublicDayBars(row)
+			if row.Downtime != "" {
+				<span class="public-service-downtime">{ row.Downtime }</span>
+			}
+		</div>
 	</li>
 }
 
 // The partials every layout shares (docs/12 "What every layout shares").
 
 // publicHeader is the logo, the title, the description and the Subscribe
-// link to the page's feed.
+// link to the page's feed. The title is not a heading: the page's h1 is
+// its status.
 templ publicHeader(v PublicPage) {
 	<header class="public-header">
 		if v.Logo != "" {
 			<img class="public-logo" src={ v.Logo } alt=""/>
 		}
 		<div class="public-title">
-			<h1>{ v.Title }</h1>
+			<p class="public-title-name">{ v.Title }</p>
 			if v.Description != "" {
 				<p class="public-description">{ v.Description }</p>
 			}
@@ -167,42 +174,31 @@ templ publicFooter(v PublicPage) {
 }
 
 // publicNote is the newest published note of an ongoing incident, shown
-// in the hero with its service and time.
+// in the hero as a quote with its time and service.
 templ publicNote(n PublicNote) {
-	<div class="public-hero-note">
-		<p class="public-hero-note-head">
-			<span>{ n.Service }</span>
-			<time datetime={ n.At }>{ n.Time }</time>
-		</p>
+	<blockquote class="public-hero-note">
 		<p>{ n.Message }</p>
-	</div>
+		<p class="public-hero-note-meta">Update at <time datetime={ n.At }>{ n.Time }</time>{ " · " + n.Service }</p>
+	</blockquote>
 }
 
-// publicIncident is one listed incident with its published notes.
+// publicIncident is one listed incident as a sentence, with its day on
+// the side and its published notes as quotes with their times.
 templ publicIncident(in PublicIncident) {
 	<li class="public-incident" data-active?={ in.Active }>
-		<p class="public-incident-head">
-			<span class="public-incident-service">{ in.Service }</span>
-			if in.Active {
-				<span class="public-incident-state">Ongoing</span>
-			} else {
-				<span class="public-incident-state">Resolved</span>
+		<p class="public-incident-date"><time datetime={ in.StartedAt }>{ in.Date }</time></p>
+		<div class="public-incident-body">
+			<p class="public-incident-text">
+				if in.Active {
+					{ in.Service } has been down since <time datetime={ in.StartedAt }>{ in.Time }</time>.
+				} else {
+					{ in.Service } was down for { in.Long }, from <time datetime={ in.StartedAt }>{ in.Time }</time>.
+				}
+			</p>
+			for _, n := range in.Notes {
+				<p class="public-note"><q>{ n.Message }</q>{ " " }<time datetime={ n.At }>{ n.Time }</time></p>
 			}
-		</p>
-		<p class="public-incident-when">
-			Started <time datetime={ in.StartedAt }>{ in.Started }</time>,
-			if in.Active {
-				down for { in.Duration } so far
-			} else {
-				down for { in.Duration }
-			}
-		</p>
-		for _, n := range in.Notes {
-			<div class="public-note">
-				<time datetime={ n.At }>{ n.Time }</time>
-				<p>{ n.Message }</p>
-			</div>
-		}
+		</div>
 	</li>
 }
 

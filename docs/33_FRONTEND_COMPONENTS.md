@@ -131,7 +131,12 @@ Built (SL-03, the shared foundation):
 - The view fields above are filled in `internal/web/public.go` (`sinceOf`, `downtimeText`, `lastIssue`, `calendarOf`). `FeedURL` is set per request in `render` from the address the page is served at, because the cached view is shared by all of a page's addresses. The page also carries `Zone`, the time zone abbreviation of the footer.
 - `PublicStatusPage` renders `publicLayout(v.Layout)`: the page's layout when it is in `builtLayouts`, Sentence otherwise. The rendered component sets `data-layout` on `.public-page`, and `publicPage` links `css/public.css` plus `css/public_<layout>.css` of that layout. The password and message pages link `public.css` alone. Each layout task adds its layout to `builtLayouts`, its component and its sheet.
 - `PublicDayBars(row)` is `DayBarsSince` (`bars.templ`): the cells before `SinceDay` are `data-day="before"` (a dashed line, no tooltip), and the "Monitoring since" label is drawn over them when they are at least 40 days (`sinceLabelDays`), so it fits at 390 px; with fewer, the dashed line stands alone and the row's `Downtime` and the strip's label name the day. The strip's label ends with "Monitoring since 25 Oct". All 90 cells stay, so the bars keep their place without a `style` attribute.
-- Until SL-04, `sentencePage` is the M8-17 page made of the shared partials, with `LastIssue` in a calm hero and `Downtime` under each strip.
+
+Built (SL-04, Sentence):
+- `sentencePage` is layout B (`12_STATUS_PAGES.md` "Sentence", built notes there). The M8-17 page is gone: no `.public-hero`, no service cards, no incident cards.
+- Shared partials changed with it: `publicHeader` renders the title as `.public-title-name`, a paragraph, so each layout's headline is the page's one `h1`; `publicNote` is a `blockquote` (text, then "Update at 14:05 CET · Service"); `publicIncident` is a sentence ("Scaneks.com was down for 12 minutes, from 09:14." or "… has been down since 13:52.") with its day on the side (`Date`) and its notes as `<q>` quotes with their times. `PublicIncident.Started` went with the old markup.
+- The view gained `Names`, `Verb`, `DownFor`, `Services` and `Operational`; the M8-17 `Sentence` ("Partial outage: X is down.") is gone, `publicHeadline` builds the two parts. `HeroState` and the `.public-hero` Ambient rules in `public.css` and `components.css` stay for Signal and Heartline.
+- `publicStateTag` gives every public state a Terminal tag; `overallIcon` and the `circle-dashed` icon went with the old hero (Signal's lamp maps its own glyphs, `04_DESIGN_SYSTEM.md`).
 
 ## JavaScript responsibilities
 
